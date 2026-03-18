@@ -32,7 +32,8 @@
     "tailwindcss": "^4.1.16",
     "three": "^0.181.1",
     "typescript": "~5.9.3",
-    "vite": "^7.1.7"
+    "vite": "^7.1.7",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

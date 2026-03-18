@@ -81,6 +81,19 @@ export default function Navbar() {
                 Web Training
               </Button>
             </Link>
+
+            <Link to="/usabilidad-web-training">
+              <Button
+                variant={isActive("/usabilidad-web-training") ? "default" : "ghost"}
+                className={
+                  isActive("/usabilidad-web-training")
+                    ? "bg-orange-500 hover:bg-orange-600 text-white"
+                    : "text-gray-300 hover:text-white hover:bg-gray-700"
+                }
+              >
+                Usabilidad Web
+              </Button>
+            </Link>
           </div>
 
           {/* Status Indicator & Admin Button */}
