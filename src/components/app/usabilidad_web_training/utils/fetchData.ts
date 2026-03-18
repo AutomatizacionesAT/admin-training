@@ -88,3 +88,31 @@ export async function fetchControlDeAccesos(): Promise<ParsedRow[]> {
     throw error;
   }
 }
+
+/**
+ * Carga la lista de coordinadores desde la hoja "DATA" (Columna G = índice 6)
+ */
+export async function fetchCoordinadores(): Promise<string[]> {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=DATA`;
+    const response = await fetch(url);
+    const text = await response.text();
+
+    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/);
+    if (!match || !match[1]) return [];
+
+    const data: GvizData = JSON.parse(match[1]);
+    const coordinadores = new Set<string>();
+
+    data.table.rows.forEach((row: GvizRow) => {
+      if (row.c[6]?.v) {
+        coordinadores.add(String(row.c[6].v).trim());
+      }
+    });
+
+    return Array.from(coordinadores).sort();
+  } catch (error) {
+    console.error('Error al cargar coordinadores:', error);
+    return [];
+  }
+}

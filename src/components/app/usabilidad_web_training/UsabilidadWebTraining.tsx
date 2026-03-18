@@ -2,7 +2,11 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Activity, RefreshCw, AlertCircle, BarChart3 } from 'lucide-react';
 
 import type { ParsedRow, CampaignReport, ManualOverrides, DailyBreakdown, GlobalKpis } from './utils/types';
-import { fetchControlDeAccesos } from './utils/fetchData';
+import { fetchControlDeAccesos, fetchCoordinadores } from './utils/fetchData';
+import { getPercentage } from './utils/calculations';
+
+export type SortField = 'campana' | 'porcentaje' | 'coordinador';
+export type SortOrder = 'asc' | 'desc';
 
 import FilterBar from './components/FilterBar';
 import KpiCards from './components/KpiCards';
@@ -20,14 +24,23 @@ export default function UsabilidadWebTraining() {
   const [globalDiasMes, setGlobalDiasMes] = useState(19);
   const [globalDiasSemana, setGlobalDiasSemana] = useState(5);
   const [detailCampaign, setDetailCampaign] = useState<string | null>(null);
+  const [coordinadoresList, setCoordinadoresList] = useState<string[]>([]);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const [sortField, setSortField] = useState<SortField>('porcentaje');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   // ─── Data loading ────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const parsed = await fetchControlDeAccesos();
+      const [parsed, coords] = await Promise.all([
+        fetchControlDeAccesos(),
+        fetchCoordinadores()
+      ]);
       setRawData(parsed);
+      setCoordinadoresList(coords);
 
       if (parsed.length > 0) {
         const dates = parsed.map((r) => r.dateISO).sort();
@@ -64,8 +77,7 @@ export default function UsabilidadWebTraining() {
       }
     });
 
-    return Object.keys(campaignDailyUnique)
-      .sort()
+    const baseReports = Object.keys(campaignDailyUnique)
       .map((cardKey, index) => {
         const overrides = manualOverrides[cardKey] || {};
         return {
@@ -79,7 +91,29 @@ export default function UsabilidadWebTraining() {
             overrides.totalIngresosRegistros ?? campaignDailyUnique[cardKey]?.size ?? 0,
         };
       });
-  }, [rawData, fechaInicio, fechaFin, manualOverrides, globalDiasMes, globalDiasSemana]);
+
+    return baseReports.sort((a, b) => {
+      let valA: string | number;
+      let valB: string | number;
+
+      if (sortField === 'porcentaje') {
+        const semA = a.totalRacs * a.diasHabilesSemana;
+        const semB = b.totalRacs * b.diasHabilesSemana;
+        valA = getPercentage(a.totalIngresosRegistros, semA);
+        valB = getPercentage(b.totalIngresosRegistros, semB);
+      } else if (sortField === 'coordinador') {
+        valA = a.coordinador.toLowerCase() || 'zzzz';
+        valB = b.coordinador.toLowerCase() || 'zzzz';
+      } else {
+        valA = a.campana.toLowerCase();
+        valB = b.campana.toLowerCase();
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [rawData, fechaInicio, fechaFin, manualOverrides, globalDiasMes, globalDiasSemana, sortField, sortOrder]);
 
   // ─── KPIs ────────────────────────────────────────────────────────────────────
   const kpis = useMemo((): GlobalKpis => {
@@ -188,24 +222,31 @@ export default function UsabilidadWebTraining() {
       {/* Dashboard */}
       {rawData.length > 0 && (
         <>
-          {/* Filter bar */}
-          <FilterBar
-            fechaInicio={fechaInicio}
-            fechaFin={fechaFin}
-            globalDiasMes={globalDiasMes}
-            globalDiasSemana={globalDiasSemana}
-            totalRegistros={rawData.length}
-            loading={loading}
-            onFechaInicioChange={setFechaInicio}
-            onFechaFinChange={setFechaFin}
-            onDiasMesChange={setGlobalDiasMes}
-            onDiasSemanaChange={setGlobalDiasSemana}
-            onRefresh={loadData}
-          />
+          {/* KPI Cards */}
+          <KpiCards totalCampanas={reports.length} kpis={kpis} />
 
-          <div className="flex flex-col gap-8">
-            {/* KPI Cards */}
-            <KpiCards totalCampanas={reports.length} kpis={kpis} />
+          <div className="flex flex-col gap-1 mt-4">
+            {/* Filter Bar */}
+            <FilterBar
+              fechaInicio={fechaInicio}
+              fechaFin={fechaFin}
+              globalDiasMes={globalDiasMes}
+              globalDiasSemana={globalDiasSemana}
+              totalRegistros={rawData.length}
+              loading={loading}
+              onFechaInicioChange={setFechaInicio}
+              onFechaFinChange={setFechaFin}
+              onDiasMesChange={setGlobalDiasMes}
+              onDiasSemanaChange={setGlobalDiasSemana}
+              sortField={sortField}
+              sortOrder={sortOrder}
+              onSortFieldChange={setSortField}
+              onSortOrderChange={setSortOrder}
+              onRefresh={loadData}
+              isCollapsed={isCollapsed}
+              onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+            />
+
 
             {/* Campaign Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
@@ -213,6 +254,8 @@ export default function UsabilidadWebTraining() {
                 <CampaignCard
                   key={report.id}
                   report={report}
+                  coordinadoresList={coordinadoresList}
+                  isCollapsed={isCollapsed}
                   onUpdate={handleUpdate}
                   onViewDetail={setDetailCampaign}
                 />

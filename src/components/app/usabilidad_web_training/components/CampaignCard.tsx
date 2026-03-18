@@ -4,11 +4,13 @@ import { getPercentage } from '../utils/calculations';
 
 interface CampaignCardProps {
   report: CampaignReport;
+  coordinadoresList: string[];
+  isCollapsed: boolean;
   onUpdate: (id: string, field: keyof CampaignReport, value: string | number) => void;
   onViewDetail: (campana: string) => void;
 }
 
-export default function CampaignCard({ report, onUpdate, onViewDetail }: CampaignCardProps) {
+export default function CampaignCard({ report, coordinadoresList, isCollapsed, onUpdate, onViewDetail }: CampaignCardProps) {
   const totalIngresosMes = report.totalRacs * report.diasHabilesMes;
   const totalIngresosSemana = report.totalRacs * report.diasHabilesSemana;
   const porcentaje = getPercentage(report.totalIngresosRegistros, totalIngresosSemana);
@@ -18,15 +20,15 @@ export default function CampaignCard({ report, onUpdate, onViewDetail }: Campaig
   const badgeClass = isSuccess
     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
     : isWarning
-    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-    : 'bg-red-50 text-red-700 border-red-200';
+      ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+      : 'bg-red-50 text-red-700 border-red-200';
 
   const barClass = isSuccess ? 'bg-emerald-500' : isWarning ? 'bg-yellow-400' : 'bg-red-400';
   const textClass = isSuccess ? 'text-emerald-600' : isWarning ? 'text-yellow-600' : 'text-red-500';
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col">
-      
+
       {/* Header */}
       <div className="p-3.5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-start">
         <div className="flex-1 pr-4">
@@ -36,6 +38,12 @@ export default function CampaignCard({ report, onUpdate, onViewDetail }: Campaig
               {report.campana}
             </h3>
           </div>
+          {isCollapsed && report.coordinador && (
+            <p className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-1 mt-1 pl-4" title={report.coordinador}>
+              <UserCircle className="w-3 h-3 shrink-0" />
+              {report.coordinador}
+            </p>
+          )}
         </div>
         <div className={`px-3 py-1 rounded-full text-xs font-bold border shrink-0 ${badgeClass}`}>
           {porcentaje}%
@@ -43,18 +51,24 @@ export default function CampaignCard({ report, onUpdate, onViewDetail }: Campaig
       </div>
 
       {/* Body */}
-      <div className="p-3.5 flex-1 flex flex-col gap-3">
+      {!isCollapsed && (
+        <div className="p-3.5 flex-1 flex flex-col gap-3">
 
         {/* Coordinador */}
         <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex items-center gap-2 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
           <UserCircle className="w-4 h-4 text-slate-400 shrink-0" />
-          <input
-            type="text"
-            className="w-full bg-transparent outline-none text-xs font-medium text-slate-700 placeholder:text-slate-400"
-            placeholder="Coordinador"
+          <select
+            className="w-full bg-transparent outline-none text-xs font-medium text-slate-700 placeholder:text-slate-400 cursor-pointer"
             value={report.coordinador}
             onChange={(e) => onUpdate(report.id, 'coordinador', e.target.value)}
-          />
+          >
+            <option value="">Seleccionar Coordinador</option>
+            {coordinadoresList.map((coord) => (
+              <option key={coord} value={coord}>
+                {coord}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Editor Grid: RACS + Registros */}
@@ -107,7 +121,7 @@ export default function CampaignCard({ report, onUpdate, onViewDetail }: Campaig
             <div className="text-right">
               <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Estado</p>
               <span className={`text-sm font-bold ${textClass}`}>
-                {report.totalIngresosRegistros} / {totalIngresosSemana}
+                {totalIngresosSemana} / {report.totalIngresosRegistros}
               </span>
             </div>
           </div>
@@ -128,6 +142,7 @@ export default function CampaignCard({ report, onUpdate, onViewDetail }: Campaig
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }
