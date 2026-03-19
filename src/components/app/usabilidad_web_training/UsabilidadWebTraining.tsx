@@ -1,8 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Activity, RefreshCw, AlertCircle, BarChart3 } from 'lucide-react';
+import { Activity, RefreshCw, AlertCircle, BarChart3, Save, LayoutGrid, Table2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
 
 import type { ParsedRow, CampaignReport, ManualOverrides, DailyBreakdown, GlobalKpis } from './utils/types';
-import { fetchControlDeAccesos, fetchCoordinadores } from './utils/fetchData';
+import { fetchControlDeAccesos, fetchCoordinadores, fetchUserConfig, saveUserConfig } from './utils/fetchData';
 import { getPercentage } from './utils/calculations';
 
 export type SortField = 'campana' | 'porcentaje' | 'coordinador';
@@ -12,8 +14,10 @@ import FilterBar from './components/FilterBar';
 import KpiCards from './components/KpiCards';
 import CampaignCard from './components/CampaignCard';
 import DetailModal from './components/DetailModal';
+import SummaryTable from './components/SummaryTable';
 
 export default function UsabilidadWebTraining() {
+  const { isAdmin } = useAuth();
   const [rawData, setRawData] = useState<ParsedRow[]>([]);
   const [manualOverrides, setManualOverrides] = useState<ManualOverrides>({});
   const [loading, setLoading] = useState(true);
@@ -26,23 +30,65 @@ export default function UsabilidadWebTraining() {
   const [detailCampaign, setDetailCampaign] = useState<string | null>(null);
   const [coordinadoresList, setCoordinadoresList] = useState<string[]>([]);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [sortField, setSortField] = useState<SortField>('porcentaje');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [sortEnabled, setSortEnabled] = useState(false);
+  const [activeView, setActiveView] = useState<'cards' | 'table'>('cards');
 
   // ─── Data loading ────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [parsed, coords] = await Promise.all([
+      const [parsed, coords, config] = await Promise.all([
         fetchControlDeAccesos(),
-        fetchCoordinadores()
+        fetchCoordinadores(),
+        fetchUserConfig()
       ]);
       setRawData(parsed);
       setCoordinadoresList(coords);
 
-      if (parsed.length > 0) {
+      // Aplicar configuración guardada
+      if (Object.keys(config).length > 0) {
+        // Normalizar fecha a yyyy-MM-dd sin importar el formato que venga del Apps Script
+        const toISODate = (s: string): string => {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // ya es yyyy-MM-dd
+          const d = new Date(s);
+          if (!isNaN(d.getTime())) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          }
+          return s;
+        };
+        if (config.fechaInicio) setFechaInicio(toISODate(config.fechaInicio));
+        if (config.fechaFin) setFechaFin(toISODate(config.fechaFin));
+        if (config.globalDiasMes) setGlobalDiasMes(Number(config.globalDiasMes));
+        if (config.globalDiasSemana) setGlobalDiasSemana(Number(config.globalDiasSemana));
+
+        // Reconstruir manualOverrides
+        const newOverrides: ManualOverrides = {};
+        Object.keys(config).forEach(key => {
+          const match = key.match(/^camp_(.*)_(coord|racs)$/);
+          if (match) {
+            const campana = match[1];
+            const type = match[2];
+            if (!newOverrides[campana]) newOverrides[campana] = {};
+            
+            if (type === 'coord') {
+              const savedCoord = String(config[key]).trim();
+              // Buscar coincidencia exacta ignorando mayúsculas/minúsculas en la lista oficial
+              const matchedCoord = coords.find(c => c.toLowerCase() === savedCoord.toLowerCase());
+              newOverrides[campana].coordinador = matchedCoord || savedCoord;
+            }
+            if (type === 'racs') newOverrides[campana].totalRacs = Number(config[key]);
+          }
+        });
+        
+        console.log('🔄 Overrides restaurados desde Google Sheets:', newOverrides);
+        setManualOverrides(newOverrides);
+      } else if (parsed.length > 0) {
+        // Fallback si no hay config
         const dates = parsed.map((r) => r.dateISO).sort();
         setFechaInicio(dates[0]);
         setFechaFin(dates[dates.length - 1]);
@@ -92,6 +138,8 @@ export default function UsabilidadWebTraining() {
         };
       });
 
+    if (!sortEnabled) return baseReports.sort((a, b) => a.campana.localeCompare(b.campana));
+
     return baseReports.sort((a, b) => {
       let valA: string | number;
       let valB: string | number;
@@ -113,7 +161,7 @@ export default function UsabilidadWebTraining() {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [rawData, fechaInicio, fechaFin, manualOverrides, globalDiasMes, globalDiasSemana, sortField, sortOrder]);
+  }, [rawData, fechaInicio, fechaFin, manualOverrides, globalDiasMes, globalDiasSemana, sortField, sortOrder, sortEnabled]);
 
   // ─── KPIs ────────────────────────────────────────────────────────────────────
   const kpis = useMemo((): GlobalKpis => {
@@ -164,6 +212,32 @@ export default function UsabilidadWebTraining() {
     }));
   };
 
+  // ─── Save config handler ──────────────────────────────────────────────────────
+  const handleSaveConfig = async () => {
+    setIsSaving(true);
+    const configData: string[][] = [
+      ['fechaInicio', fechaInicio],
+      ['fechaFin', fechaFin],
+      ['globalDiasMes', String(globalDiasMes)],
+      ['globalDiasSemana', String(globalDiasSemana)]
+    ];
+
+    reports.forEach(r => {
+      configData.push([`camp_${r.campana}_coord`, r.coordinador]);
+      configData.push([`camp_${r.campana}_racs`, String(r.totalRacs)]);
+    });
+
+    const success = await saveUserConfig(configData);
+    if (success) {
+      toast.success('Configuración guardada', {
+        description: 'Los cambios se han guardado exitosamente.',
+      });
+    } else {
+      toast.error('Hubo un error al guardar la configuración');
+    }
+    setIsSaving(false);
+  };
+
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-8 flex flex-col font-sans text-slate-800">
@@ -180,14 +254,27 @@ export default function UsabilidadWebTraining() {
           </p>
         </div>
 
-        <button
-          onClick={loadData}
-          disabled={loading}
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-white font-semibold shadow-[0_0_30px_rgba(37,99,235,0.3)] hover:bg-blue-700 transition-all disabled:opacity-60"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Cargando...' : 'Actualizar datos'}
-        </button>
+        <div className="flex items-center gap-3">
+          {Math.random() > 0 && isAdmin && (
+            <button
+              onClick={handleSaveConfig}
+              disabled={loading || isSaving}
+              className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-5 py-2.5 text-slate-700 font-semibold shadow-sm hover:bg-slate-50 transition-all disabled:opacity-60"
+            >
+              <Save className={`w-4 h-4 ${isSaving ? 'animate-pulse text-blue-500' : 'text-slate-500'}`} />
+              {isSaving ? 'Guardando...' : 'Guardar Config'}
+            </button>
+          )}
+          
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-white font-semibold shadow-[0_0_30px_rgba(37,99,235,0.3)] hover:bg-blue-700 transition-all disabled:opacity-60"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Cargando...' : 'Actualizar datos'}
+          </button>
+        </div>
       </div>
 
       {/* Error */}
@@ -226,41 +313,76 @@ export default function UsabilidadWebTraining() {
           <KpiCards totalCampanas={reports.length} kpis={kpis} />
 
           <div className="flex flex-col gap-1 mt-4">
-            {/* Filter Bar */}
-            <FilterBar
-              fechaInicio={fechaInicio}
-              fechaFin={fechaFin}
-              globalDiasMes={globalDiasMes}
-              globalDiasSemana={globalDiasSemana}
-              totalRegistros={rawData.length}
-              loading={loading}
-              onFechaInicioChange={setFechaInicio}
-              onFechaFinChange={setFechaFin}
-              onDiasMesChange={setGlobalDiasMes}
-              onDiasSemanaChange={setGlobalDiasSemana}
-              sortField={sortField}
-              sortOrder={sortOrder}
-              onSortFieldChange={setSortField}
-              onSortOrderChange={setSortOrder}
-              onRefresh={loadData}
-              isCollapsed={isCollapsed}
-              onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
-            />
-
-
-            {/* Campaign Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-              {reports.map((report) => (
-                <CampaignCard
-                  key={report.id}
-                  report={report}
-                  coordinadoresList={coordinadoresList}
-                  isCollapsed={isCollapsed}
-                  onUpdate={handleUpdate}
-                  onViewDetail={setDetailCampaign}
-                />
-              ))}
+            {/* View Toggle */}
+            <div className="flex items-center gap-2 mb-2">
+              <button
+                onClick={() => setActiveView('cards')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  activeView === 'cards'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Tarjetas
+              </button>
+              <button
+                onClick={() => setActiveView('table')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  activeView === 'table'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Table2 className="w-3.5 h-3.5" />
+                Tabla Resumen
+              </button>
             </div>
+
+            {/* Card View */}
+            {activeView === 'cards' && (
+              <>
+                <FilterBar
+                  fechaInicio={fechaInicio}
+                  fechaFin={fechaFin}
+                  globalDiasMes={globalDiasMes}
+                  globalDiasSemana={globalDiasSemana}
+                  totalRegistros={rawData.length}
+                  loading={loading}
+                  onFechaInicioChange={setFechaInicio}
+                  onFechaFinChange={setFechaFin}
+                  onDiasMesChange={setGlobalDiasMes}
+                  onDiasSemanaChange={setGlobalDiasSemana}
+                  sortField={sortField}
+                  sortOrder={sortOrder}
+                  onSortFieldChange={setSortField}
+                  onSortOrderChange={setSortOrder}
+                  sortEnabled={sortEnabled}
+                  onSortEnabledChange={setSortEnabled}
+                  onRefresh={loadData}
+                  isCollapsed={isCollapsed}
+                  onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                  {reports.map((report) => (
+                    <CampaignCard
+                      key={report.id}
+                      report={report}
+                      coordinadoresList={coordinadoresList}
+                      isCollapsed={isCollapsed}
+                      onUpdate={handleUpdate}
+                      onViewDetail={setDetailCampaign}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Table View */}
+            {activeView === 'table' && (
+              <SummaryTable reports={reports} />
+            )}
           </div>
         </>
       )}

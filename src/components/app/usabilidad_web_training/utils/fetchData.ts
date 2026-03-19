@@ -3,6 +3,7 @@ import { parseDateToISO } from './calculations';
 
 const SHEET_ID = '1iU_X2DpMN2wmPE0-V69NvATwQX7PE_q15IYMcj5EYXY';
 const SHEET_NAME = 'CONTROL_DE_ACCESOS';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwK5JdgsfnNW_hq3r-6Slz4O76B-XQh4m2y6YoCSHOkzKKuRXwu5bWl5E0S9vpjHMD3/exec';
 
 interface GvizCell {
   v: string | number | null;
@@ -114,5 +115,53 @@ export async function fetchCoordinadores(): Promise<string[]> {
   } catch (error) {
     console.error('Error al cargar coordinadores:', error);
     return [];
+  }
+}
+
+/**
+ * Carga la configuración guardada mediante el Apps Script (doGet)
+ */
+export async function fetchUserConfig(): Promise<Record<string, string>> {
+  try {
+    const response = await fetch(`${GAS_URL}?action=getConfig`);
+    const result = await response.json();
+
+    if (result.result === 'success' && result.config) {
+      console.log('⚙️ Configuración cargada desde Apps Script:', result.config);
+      return result.config as Record<string, string>;
+    }
+
+    return {};
+  } catch (error) {
+    console.log('No se pudo cargar la configuración (esto es normal si es la primera vez).', error);
+    return {};
+  }
+}
+
+/**
+ * Guarda la configuración en Google Sheets mediante el Apps Script
+ */
+export async function saveUserConfig(configData: string[][]): Promise<boolean> {
+  try {
+    const payload = {
+      action: 'saveConfig',
+      configData: configData,
+    };
+
+    await fetch(GAS_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    
+    // Al usar no-cors, no podemos leer el response body, asumimos éxito si no lanza catch
+    console.log("✅ Petición de guardado de configuración enviada");
+    return true;
+  } catch (error) {
+    console.error("Error al guardar la configuración:", error);
+    return false;
   }
 }

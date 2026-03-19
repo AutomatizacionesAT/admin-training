@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 export default function Navbar() {
   const location = useLocation();
@@ -14,12 +15,19 @@ export default function Navbar() {
     if (isAdmin) {
       if (confirm("¿Cerrar sesión de administrador?")) {
         logout();
+        toast.info("Has cerrado sesión como administrador");
       }
     } else {
       const password = prompt("Ingrese contraseña de administrador:");
       if (password) {
         if (!login(password)) {
-          alert("Contraseña incorrecta");
+          toast.error("Contraseña incorrecta", {
+            description: "No se pudo iniciar sesión como administrador.",
+          });
+        } else {
+          toast.success("Sesión iniciada", {
+            description: "Has iniciado sesión como administrador.",
+          });
         }
       }
     }

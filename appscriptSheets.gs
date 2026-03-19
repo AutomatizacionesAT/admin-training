@@ -36,16 +36,52 @@ function doPost(e) {
 
     if (action === 'update') {
       return handleUpdate(sheet, payload, debugSheet);
+    } else if (action === 'delete') {
+      return handleDelete(sheet, payload, debugSheet);
+    } else if (action === 'saveConfig') {
+      return handleSaveConfig(doc, payload.configData, debugSheet);
     } else {
       return handleCreate(sheet, payload.data || payload, debugSheet);
     }
-
   } catch (e) {
     logToDebug(debugSheet, "Error General: " + e.toString());
     return createErrorResponse(e.toString());
   } finally {
     lock.releaseLock();
   }
+}
+
+function handleDelete(sheet, payload, debugSheet) {
+  var rowIndex = payload.rowIndex;
+  if (!rowIndex) {
+    return createErrorResponse("Missing rowIndex for delete");
+  }
+
+  logToDebug(debugSheet, "Eliminando fila: " + rowIndex);
+  sheet.deleteRow(rowIndex);
+  
+  return createSuccessResponse({ "deleted": true, "rowIndex": rowIndex, "action": "delete" });
+}
+
+function handleSaveConfig(doc, configData, debugSheet) {
+  var sheetName = "CONTROL_DE_ACCESOS_CONFIG";
+  var sheet = doc.getSheetByName(sheetName);
+  
+  // Si la pestaña no existe, se crea automáticamente
+  if (!sheet) {
+    sheet = doc.insertSheet(sheetName);
+  }
+  
+  // Borrar contenido anterior para evitar que queden campañas viejas
+  sheet.clearContents();
+  
+  // Escribir los nuevos datos desde la celda A1 (Key - Value)
+  if (configData && configData.length > 0) {
+    sheet.getRange(1, 1, configData.length, configData[0].length).setValues(configData);
+    logToDebug(debugSheet, "Configuración actualizada en " + sheetName);
+  }
+  
+  return createSuccessResponse({ "updated": true, "action": "saveConfig" });
 }
 
 function handleCreate(sheet, data, debugSheet) {
@@ -139,8 +175,44 @@ function logToDebug(sheet, message) {
 }
 
 function doGet(e) {
-   return ContentService
-      .createTextOutput(JSON.stringify({ "status": "active" }))
-      .setMimeType(ContentService.MimeType.JSON);
+  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
+
+  if (action === 'getConfig') {
+    return handleGetConfig();
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ "status": "active" }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
+function handleGetConfig() {
+  var doc = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName = "CONTROL_DE_ACCESOS_CONFIG";
+  var sheet = doc.getSheetByName(sheetName);
+
+  if (!sheet || sheet.getLastRow() === 0) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ "result": "success", "config": {} }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var data = sheet.getRange(1, 1, sheet.getLastRow(), 2).getValues();
+  var config = {};
+  
+  for (var i = 0; i < data.length; i++) {
+    var key = data[i][0];
+    var val = data[i][1];
+    if (key !== "" && key !== null && key !== undefined) {
+      // Si el valor es un objeto Date, formatearlo como yyyy-MM-dd
+      if (val instanceof Date) {
+        val = Utilities.formatDate(val, SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), "yyyy-MM-dd");
+      }
+      config[String(key)] = (val !== null && val !== undefined) ? String(val) : "";
+    }
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ "result": "success", "config": config }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
