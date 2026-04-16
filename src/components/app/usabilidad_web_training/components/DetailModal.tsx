@@ -1,14 +1,36 @@
-import { Calendar, X } from 'lucide-react';
+import { Calendar, X, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import type { DailyBreakdown } from '../utils/types';
 
 interface DetailModalProps {
   campana: string;
   breakdown: DailyBreakdown[];
   onClose: () => void;
+  originalCampana?: string;
+  originalModulo?: string;
 }
 
-export default function DetailModal({ campana, breakdown, onClose }: DetailModalProps) {
+export default function DetailModal({ campana, breakdown, onClose, originalCampana, originalModulo }: DetailModalProps) {
   const totalUnicos = breakdown.reduce((sum, d) => sum + d.count, 0);
+
+  const exportToExcel = () => {
+    const data: any[] = [];
+    breakdown.forEach(day => {
+      day.usuarios.forEach(user => {
+        data.push({
+          Fecha: day.date,
+          Usuario: user,
+          Campaña: originalCampana || campana,
+          Segmento: originalModulo || ''
+        });
+      });
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Detalle");
+    XLSX.writeFile(wb, `Detalle_${campana.replace(/ /g, '_')}.xlsx`);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -22,12 +44,22 @@ export default function DetailModal({ campana, breakdown, onClose }: DetailModal
               {breakdown.length} día(s) &middot; {totalUnicos} registros únicos
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-slate-200 transition-colors"
-          >
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportToExcel}
+              title="Descargar Excel"
+              className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Excel</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-slate-200 transition-colors"
+            >
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
         </div>
 
         {/* Body */}

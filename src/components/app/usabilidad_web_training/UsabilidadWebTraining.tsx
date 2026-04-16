@@ -178,8 +178,8 @@ export default function UsabilidadWebTraining() {
   }, [reports]);
 
   // ─── Daily breakdown for detail modal ────────────────────────────────────────
-  const dailyBreakdown = useMemo((): DailyBreakdown[] => {
-    if (!detailCampaign) return [];
+  const dailyDetail = useMemo(() => {
+    if (!detailCampaign) return { breakdown: [], originalCampana: '', originalModulo: '' };
 
     const filtered = rawData.filter((row) => {
       if (fechaInicio && row.dateISO < fechaInicio) return false;
@@ -193,13 +193,19 @@ export default function UsabilidadWebTraining() {
       if (row.usuario) byDate[row.dateISO].add(row.usuario);
     });
 
-    return Object.keys(byDate)
+    const breakdown = Object.keys(byDate)
       .sort()
       .map((date) => ({
         date,
         usuarios: Array.from(byDate[date]).sort(),
         count: byDate[date].size,
       }));
+
+    return {
+      breakdown,
+      originalCampana: filtered.length > 0 ? filtered[0].campana : '',
+      originalModulo: filtered.length > 0 ? filtered[0].modulo : ''
+    };
   }, [detailCampaign, rawData, fechaInicio, fechaFin]);
 
   // ─── Field update handler ─────────────────────────────────────────────────────
@@ -391,7 +397,9 @@ export default function UsabilidadWebTraining() {
       {detailCampaign && (
         <DetailModal
           campana={detailCampaign}
-          breakdown={dailyBreakdown}
+          breakdown={dailyDetail.breakdown}
+          originalCampana={dailyDetail.originalCampana}
+          originalModulo={dailyDetail.originalModulo}
           onClose={() => setDetailCampaign(null)}
         />
       )}
