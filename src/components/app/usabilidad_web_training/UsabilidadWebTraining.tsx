@@ -3,7 +3,7 @@ import { Activity, RefreshCw, AlertCircle, BarChart3, Save, LayoutGrid, Table2 }
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 
-import type { ParsedRow, CampaignReport, ManualOverrides, DailyBreakdown, GlobalKpis } from './utils/types';
+import type { ParsedRow, CampaignReport, ManualOverrides, GlobalKpis } from './utils/types';
 import { fetchControlDeAccesos, fetchCoordinadores, fetchUserConfig, saveUserConfig } from './utils/fetchData';
 import { getPercentage } from './utils/calculations';
 
