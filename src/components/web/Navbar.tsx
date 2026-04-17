@@ -102,6 +102,19 @@ export default function Navbar() {
                 Usabilidad Web
               </Button>
             </Link>
+
+            <Link to="/informe-biometrico">
+              <Button
+                variant={isActive("/informe-biometrico") ? "default" : "ghost"}
+                className={
+                  isActive("/informe-biometrico")
+                    ? "bg-orange-500 hover:bg-orange-600 text-white"
+                    : "text-gray-300 hover:text-white hover:bg-gray-700"
+                }
+              >
+                Biométrico
+              </Button>
+            </Link>
           </div>
 
           {/* Status Indicator & Admin Button */}
