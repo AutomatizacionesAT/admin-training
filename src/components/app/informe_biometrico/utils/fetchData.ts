@@ -20,8 +20,8 @@ interface GvizData {
 }
 
 // Convert "9:07:21" or decimal to decimal hours
-function parseHoursToDecimal(val: string | number | null): { timeStr: string; decimal: number } {
-  if (val === null || val === '') return { timeStr: '0:00:00', decimal: 0 };
+function parseHoursToDecimal(val: string | number | null | undefined): { timeStr: string; decimal: number } {
+  if (val === null || val === undefined || val === '') return { timeStr: '0:00:00', decimal: 0 };
   
   // If it's a number, it could be decimal from Google Sheets (fraction of day)
   if (typeof val === 'number') {
