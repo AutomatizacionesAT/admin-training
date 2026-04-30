@@ -23,7 +23,7 @@ import {
 } from "date-fns";
 import { es } from "date-fns/locale";
 
-type Tab = "calendar" | "campaigns";
+type Tab = "calendar" | "report";
 
 export default function Simulator() {
   const [data, setData] = useState<TrainingRecord[]>([]);
@@ -36,6 +36,7 @@ export default function Simulator() {
   const [activeTab, setActiveTab] = useState<Tab>("calendar");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
+  const [selectedCoordinador, setSelectedCoordinador] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
@@ -165,71 +166,65 @@ export default function Simulator() {
 
   const activeCampaigns = getActiveCampaignsInMonth();
 
-  // Funciones para la pestaña de consulta de campañas
-  interface CampaignInfo {
-    nombre: string;
-    totalProcesos: number;
-    procesosCompletados: number;
-    procesosEnCurso: number;
-    procesosPendientes: number;
-    desarrolladores: Set<string>;
-    coordinadores: Set<string>;
-    aplicativos: Set<string>;
-    procesos: TrainingRecord[];
-  }
-
-  const getCampaignsData = (): CampaignInfo[] => {
-    const campaignsMap = new Map<string, CampaignInfo>();
-
+  // Funciones para la pestaña de Reporte Gerencial
+  const getReportData = () => {
+    // 1. Calcular Coordinadores basados en TODA la data (para no perder la lista al filtrar)
+    const coordinadoresMap = new Map<string, number>();
     data.forEach((record) => {
-      if (!record.campana) return;
+      const coord = record.coordinador || "Sin Asignar";
+      coordinadoresMap.set(coord, (coordinadoresMap.get(coord) || 0) + 1);
+    });
+    const coordinadores = Array.from(coordinadoresMap.entries())
+      .map(([nombre, count]) => ({ nombre, count }))
+      .sort((a, b) => b.count - a.count);
 
-      if (!campaignsMap.has(record.campana)) {
-        campaignsMap.set(record.campana, {
-          nombre: record.campana,
-          totalProcesos: 0,
-          procesosCompletados: 0,
-          procesosEnCurso: 0,
-          procesosPendientes: 0,
-          desarrolladores: new Set(),
-          coordinadores: new Set(),
-          aplicativos: new Set(),
-          procesos: [],
-        });
+    // 2. Filtrar data por el coordinador seleccionado (si lo hay)
+    const filteredData = selectedCoordinador 
+      ? data.filter(record => (record.coordinador || "Sin Asignar") === selectedCoordinador)
+      : data;
+
+    const totalSimuladores = filteredData.length;
+
+    // 3. Calcular Direcciones y Estados basados en la data FILTRADA
+    const direccionesMap = new Map<string, number>();
+    let finalizados = 0;
+    let enProceso = 0;
+    let proyectados = 0;
+
+    filteredData.forEach((record) => {
+      // Direcciones
+      const dir = record.direccion || "Sin Asignar";
+      direccionesMap.set(dir, (direccionesMap.get(dir) || 0) + 1);
+
+      // Estados
+      const estado = record.estado?.toUpperCase() || "";
+      if (estado === "FINALIZADA") {
+        finalizados++;
+      } else if (estado === "EN PROCESO") {
+        enProceso++;
+      } else if (estado === "SIN INICIAR") {
+        proyectados++;
       }
-
-      const campaign = campaignsMap.get(record.campana)!;
-      campaign.totalProcesos++;
-      campaign.procesos.push(record);
-
-      const estado = record.estado?.toLowerCase() || "";
-      if (estado.includes("completado") || estado.includes("terminado")) {
-        campaign.procesosCompletados++;
-      } else if (estado.includes("curso") || estado.includes("proceso")) {
-        campaign.procesosEnCurso++;
-      } else if (estado.includes("pendiente")) {
-        campaign.procesosPendientes++;
-      }
-
-      if (record.desarrollador)
-        campaign.desarrolladores.add(record.desarrollador);
-      if (record.coordinador) campaign.coordinadores.add(record.coordinador);
-      if (record.aplicativo) campaign.aplicativos.add(record.aplicativo);
     });
 
-    return Array.from(campaignsMap.values()).sort((a, b) =>
-      a.nombre.localeCompare(b.nombre)
-    );
+    const direcciones = Array.from(direccionesMap.entries())
+      .map(([nombre, count]) => ({
+        nombre,
+        count,
+        porcentaje: totalSimuladores > 0 ? ((count / totalSimuladores) * 100).toFixed(1) : "0.0",
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      totalSimuladores,
+      direcciones,
+      coordinadores,
+      finalizados,
+      enProceso,
+      proyectados,
+    };
   };
-
-  const campaigns = getCampaignsData();
-  const filteredCampaigns = campaigns.filter((campaign) =>
-    campaign.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const selectedCampaignData = selectedCampaign
-    ? campaigns.find((c) => c.nombre === selectedCampaign)
-    : null;
+  const reportData = getReportData();
 
   const formatDate = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -257,33 +252,49 @@ export default function Simulator() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 via-blue-50 to-indigo-50 p-8 flex flex-col">
-      {/* Sistema de pestañas */}
-      <div className="mb-2 bg-white rounded-xl shadow-md border border-gray-100 flex">
-        <h1 className="text-6xl font-bold mb-4 bg-linear-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent mr-10 ml-4">
-          Simulator
-        </h1>
+    <div className="min-h-screen bg-gray-50/30 p-8 flex flex-col font-sans">
+      {/* Encabezado y Sistema de Pestañas */}
+      <div className="mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-linear-to-br from-indigo-500 to-purple-600 rounded-[1.2rem] shadow-lg flex items-center justify-center text-white transform -rotate-6 hover:rotate-0 transition-transform duration-300">
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-4xl font-black text-gray-900 tracking-tight">
+              Simulator
+            </h1>
+            <p className="text-sm text-gray-500 font-medium mt-1">Plataforma de gestión de simuladores</p>
+          </div>
+        </div>
 
-        <nav className="flex space-x-1 p-2 w-full">
+        <nav className="flex bg-white rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80 p-1.5 w-full lg:w-auto relative z-10">
           <button
             onClick={() => setActiveTab("calendar")}
-            className={`${
+            className={`flex items-center justify-center gap-2 flex-1 lg:flex-none lg:w-48 py-3 px-6 rounded-full font-bold text-sm transition-all duration-300 ${
               activeTab === "calendar"
-                ? "bg-linear-to-r from-blue-500 to-indigo-600 text-white shadow-lg"
-                : "text-gray-600 hover:bg-gray-100"
-            } flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-105`}
+                ? "bg-gray-900 text-white shadow-md"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+            }`}
           >
-            📅 Calendario
+            <svg className="w-5 h-5" fill={activeTab === "calendar" ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={activeTab === "calendar" ? 0 : 2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Calendario
           </button>
           <button
-            onClick={() => setActiveTab("campaigns")}
-            className={`${
-              activeTab === "campaigns"
-                ? "bg-linear-to-r from-blue-500 to-indigo-600 text-white shadow-lg"
-                : "text-gray-600 hover:bg-gray-100"
-            } flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-105`}
+            onClick={() => setActiveTab("report")}
+            className={`flex items-center justify-center gap-2 flex-1 lg:flex-none lg:w-48 py-3 px-6 rounded-full font-bold text-sm transition-all duration-300 ${
+              activeTab === "report"
+                ? "bg-gray-900 text-white shadow-md"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+            }`}
           >
-            📊 Consulta de Campañas
+            <svg className="w-5 h-5" fill={activeTab === "report" ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={activeTab === "report" ? 0 : 2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Reporte
           </button>
         </nav>
       </div>
@@ -291,7 +302,7 @@ export default function Simulator() {
       {loading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
             <p className="text-gray-600">Cargando datos...</p>
           </div>
         </div>
@@ -439,263 +450,269 @@ export default function Simulator() {
             </>
           )}
 
-          {/* Pestaña de Consulta de Campañas */}
-          {activeTab === "campaigns" && (
+          {/* Pestaña de Reporte Gerencial */}
+          {activeTab === "report" && (
             <div className="min-h-screen">
-              {/* Buscador */}
-              <div className="mb-6">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="🔍 Buscar campaña..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-6 py-4 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-md transition-all text-lg"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm("")}
-                      className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition-all"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Lista de campañas */}
-                <div className="lg:col-span-1">
-                  <div className="bg-white rounded-xl shadow-xl p-6 border border-gray-100">
-                    <h2 className="text-2xl font-bold mb-4 bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                      Campañas ({filteredCampaigns.length})
-                    </h2>
-                    <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-2 custom-scrollbar">
-                      {filteredCampaigns.map((campaign) => (
-                        <button
-                          key={campaign.nombre}
-                          onClick={() => setSelectedCampaign(campaign.nombre)}
-                          className={`w-full text-left p-4 rounded-xl transition-all transform  ${
-                            selectedCampaign === campaign.nombre
-                              ? "bg-linear-to-r from-blue-500 to-indigo-600 text-white shadow-lg"
-                              : "bg-linear-to-r from-gray-50 to-gray-100 hover:from-blue-50 hover:to-indigo-50 text-gray-800 shadow-md"
-                          }`}
-                        >
-                          <div className="font-bold mb-2 text-base">
-                            {campaign.nombre}
-                          </div>
-                          <div
-                            className={`text-sm flex items-center gap-1 ${
-                              selectedCampaign === campaign.nombre
-                                ? "text-blue-100"
-                                : "text-gray-600"
-                            }`}
-                          >
-                            <span>📁</span>
-                            {campaign.totalProcesos} proceso
-                            {campaign.totalProcesos !== 1 ? "s" : ""}
-                          </div>
-                        </button>
-                      ))}
-                      {filteredCampaigns.length === 0 && (
-                        <div className="text-center py-8 bg-gray-50 rounded-xl">
-                          <p className="text-gray-500">
-                            No se encontraron campañas
-                          </p>
-                        </div>
-                      )}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* TOTAL SIMULADORES */}
+                <div className="col-span-1 lg:col-span-4 relative overflow-hidden bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/60 p-8 flex flex-col justify-between group hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300">
+                  <div className="absolute -right-6 -top-6 w-32 h-32 bg-linear-to-br from-blue-100 to-indigo-100 rounded-full blur-2xl opacity-60 group-hover:scale-110 transition-transform duration-500"></div>
+                  
+                  <div className="relative z-10 flex items-center justify-between w-full mb-6">
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl shadow-inner">
+                      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-gray-400 bg-gray-50 px-3 py-1 rounded-full">Base SM25</span>
+                  </div>
+                  
+                  <div className="relative z-10">
+                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Simuladores</h3>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-7xl font-black text-transparent bg-clip-text bg-linear-to-br from-gray-900 to-gray-600 tracking-tight">
+                        {reportData.totalSimuladores}
+                      </p>
+                      <span className="text-lg font-medium text-gray-400">registros</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Detalles de la campaña seleccionada */}
-                <div className="lg:col-span-2">
-                  {selectedCampaignData ? (
-                    <div className="space-y-6">
-                      {/* Resumen de estadísticas */}
-                      <div className="bg-white rounded-xl shadow-xl p-8 border border-gray-100">
-                        <h2 className="text-3xl font-bold mb-6 bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                          {selectedCampaignData.nombre}
-                        </h2>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          <div className="bg-linear-to-br from-blue-500 to-blue-600 rounded-xl p-6 shadow-lg transform hover:scale-105 transition-all">
-                            <div className="text-4xl font-bold text-white mb-2">
-                              {selectedCampaignData.totalProcesos}
-                            </div>
-                            <div className="text-sm text-blue-100 font-semibold">
-                              Total Procesos
-                            </div>
-                          </div>
-                          <div className="bg-linear-to-br from-green-500 to-green-600 rounded-xl p-6 shadow-lg transform hover:scale-105 transition-all">
-                            <div className="text-4xl font-bold text-white mb-2">
-                              {selectedCampaignData.procesosCompletados}
-                            </div>
-                            <div className="text-sm text-green-100 font-semibold">
-                              Completados
-                            </div>
-                          </div>
-                          <div className="bg-linear-to-br from-yellow-500 to-orange-600 rounded-xl p-6 shadow-lg transform hover:scale-105 transition-all">
-                            <div className="text-4xl font-bold text-white mb-2">
-                              {selectedCampaignData.procesosEnCurso}
-                            </div>
-                            <div className="text-sm text-yellow-100 font-semibold">
-                              En Curso
-                            </div>
-                          </div>
-                          <div className="bg-linear-to-br from-gray-500 to-gray-600 rounded-xl p-6 shadow-lg transform hover:scale-105 transition-all">
-                            <div className="text-4xl font-bold text-white mb-2">
-                              {selectedCampaignData.procesosPendientes}
-                            </div>
-                            <div className="text-sm text-gray-100 font-semibold">
-                              Pendientes
-                            </div>
-                          </div>
+                {/* 4 Direcciones (2x2 grid inside a col-span-5) */}
+                <div className="col-span-1 lg:col-span-5 grid grid-cols-2 gap-5">
+                   {reportData.direcciones.slice(0, 4).map((dir, idx) => {
+                      const colors = [
+                        "from-blue-500 to-cyan-400",
+                        "from-indigo-500 to-purple-400",
+                        "from-emerald-500 to-teal-400",
+                        "from-orange-500 to-amber-400"
+                      ];
+                      const bgColors = [
+                        "bg-blue-50 text-blue-600",
+                        "bg-indigo-50 text-indigo-600",
+                        "bg-emerald-50 text-emerald-600",
+                        "bg-orange-50 text-orange-600"
+                      ];
+                      return (
+                        <div key={dir.nombre} className="bg-white rounded-[1.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/60 p-6 flex flex-col justify-between hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+                           <div className="flex justify-between items-start mb-4">
+                             <div className={`p-2 rounded-xl ${bgColors[idx % 4]}`}>
+                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                               </svg>
+                             </div>
+                             <span className="text-xs font-bold text-gray-500 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
+                               {dir.porcentaje}%
+                             </span>
+                           </div>
+                           
+                           <div>
+                             <h4 className="text-sm font-semibold text-gray-600 mb-1 line-clamp-1" title={dir.nombre}>{dir.nombre}</h4>
+                             <div className="flex items-end justify-between">
+                                <span className="text-3xl font-black text-gray-800 tracking-tight">{dir.count}</span>
+                             </div>
+                             {/* Progress bar */}
+                             <div className="w-full bg-gray-100 rounded-full h-1.5 mt-3 overflow-hidden">
+                                <div className={`h-full rounded-full bg-linear-to-r ${colors[idx % 4]}`} style={{ width: `${dir.porcentaje}%` }}></div>
+                             </div>
+                           </div>
                         </div>
+                      )
+                   })}
+                   {reportData.direcciones.length === 0 && (
+                      <div className="col-span-2 flex items-center justify-center text-gray-400 bg-gray-50/50 rounded-[1.5rem] border border-dashed border-gray-200 p-6">
+                        No hay direcciones disponibles
                       </div>
-
-                      {/* Información adicional */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-linear-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg p-6 transform hover:scale-105 transition-all">
-                          <h3 className="font-semibold text-blue-100 mb-3 text-lg flex items-center gap-2">
-                            <span className="text-2xl">👥</span> Desarrolladores
-                          </h3>
-                          <div className="text-4xl font-bold text-white">
-                            {selectedCampaignData.desarrolladores.size}
-                          </div>
-                        </div>
-                        <div className="bg-linear-to-br from-purple-500 to-pink-600 rounded-xl shadow-lg p-6 transform hover:scale-105 transition-all">
-                          <h3 className="font-semibold text-purple-100 mb-3 text-lg flex items-center gap-2">
-                            <span className="text-2xl">📋</span> Coordinadores
-                          </h3>
-                          <div className="text-4xl font-bold text-white">
-                            {selectedCampaignData.coordinadores.size}
-                          </div>
-                        </div>
-                        <div className="bg-linear-to-br from-green-500 to-teal-600 rounded-xl shadow-lg p-6 transform hover:scale-105 transition-all">
-                          <h3 className="font-semibold text-green-100 mb-3 text-lg flex items-center gap-2">
-                            <span className="text-2xl">💻</span> Aplicativos
-                          </h3>
-                          <div className="text-4xl font-bold text-white">
-                            {selectedCampaignData.aplicativos.size}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Lista detallada de procesos */}
-                      <div className="bg-white rounded-xl shadow-xl p-6 border border-gray-100">
-                        <h3 className="text-2xl font-bold mb-6 bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                          Procesos de la Campaña
-                        </h3>
-                        <div className="overflow-x-auto rounded-lg border border-gray-200">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-linear-to-r from-blue-500 to-indigo-600">
-                              <tr>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                                  Proceso
-                                </th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                                  Estado
-                                </th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                                  Desarrollador
-                                </th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                                  Coordinador
-                                </th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                                  Aplicativo
-                                </th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                                  Fecha Inicio
-                                </th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                                  Fecha Fin
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {selectedCampaignData.procesos.map(
-                                (proceso, idx) => (
-                                  <tr
-                                    key={idx}
-                                    className="hover:bg-blue-50 transition-colors"
-                                  >
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                      {proceso.nombreProceso || "N/A"}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm">
-                                      <span
-                                        className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${
-                                          proceso.estado
-                                            ?.toLowerCase()
-                                            .includes("completado")
-                                            ? "bg-linear-to-r from-green-400 to-green-600 text-white"
-                                            : proceso.estado
-                                                ?.toLowerCase()
-                                                .includes("curso")
-                                            ? "bg-linear-to-r from-yellow-400 to-orange-500 text-white"
-                                            : "bg-linear-to-r from-gray-400 to-gray-600 text-white"
-                                        }`}
-                                      >
-                                        {proceso.estado || "N/A"}
-                                      </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">
-                                      {proceso.desarrollador || "N/A"}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">
-                                      {proceso.coordinador || "N/A"}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">
-                                      {proceso.aplicativo || "N/A"}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">
-                                      {formatDate(proceso.fechaInicio)}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">
-                                      {formatDate(proceso.fechaFin)}
-                                    </td>
-                                  </tr>
-                                )
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-xl shadow-xl p-16 text-center border border-gray-100">
-                      <div className="text-8xl mb-6">📊</div>
-                      <h3 className="text-3xl font-bold mb-4 bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                        Selecciona una campaña
-                      </h3>
-                      <p className="text-gray-600 text-lg">
-                        Haz clic en una campaña de la lista para ver su
-                        información detallada
-                      </p>
-                    </div>
-                  )}
+                   )}
                 </div>
+
+                {/* Coordinadores */}
+                <div className="col-span-1 lg:col-span-3 lg:row-span-2 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/60 p-6 flex flex-col lg:h-[600px]">
+                    <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Coordinadores</h3>
+                        <p className="text-xs text-gray-500 font-medium mt-1">Simuladores por líder</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {selectedCoordinador && (
+                          <button
+                            onClick={() => setSelectedCoordinador(null)}
+                            className="text-xs bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1.5 px-3 rounded-full transition-colors flex items-center gap-1 shadow-sm"
+                            title="Ver global"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Limpiar
+                          </button>
+                        )}
+                        <div className="bg-indigo-50 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-inner">
+                          {reportData.coordinadores.length}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-2">
+                       {reportData.coordinadores.map((coord, idx) => {
+                          const isSelected = selectedCoordinador === coord.nombre;
+                          return (
+                            <button 
+                              key={coord.nombre} 
+                              onClick={() => setSelectedCoordinador(isSelected ? null : coord.nombre)}
+                              className={`w-full group flex items-center p-3 rounded-2xl transition-all duration-200 border text-left ${
+                                isSelected 
+                                  ? 'bg-indigo-50 border-indigo-200 shadow-sm' 
+                                  : 'hover:bg-slate-50 border-transparent hover:border-slate-100 cursor-pointer'
+                              }`}
+                            >
+                               <div className={`relative flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-sm mr-3 transition-colors ${
+                                 isSelected ? 'bg-indigo-600 text-white' : 'bg-linear-to-br from-gray-100 to-gray-200 text-gray-600'
+                               }`}>
+                                  {coord.nombre.charAt(0).toUpperCase()}
+                                  {idx < 3 && (
+                                    <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[8px] ${idx === 0 ? 'bg-yellow-400 text-yellow-900' : idx === 1 ? 'bg-gray-300 text-gray-800' : 'bg-amber-600 text-white'}`}>
+                                      ⭐
+                                    </div>
+                                  )}
+                               </div>
+                               <div className="flex-1 min-w-0">
+                                 <p className={`font-semibold truncate text-sm transition-colors ${
+                                   isSelected ? 'text-indigo-900' : 'text-gray-800 group-hover:text-indigo-600'
+                                 }`} title={coord.nombre}>
+                                   {coord.nombre}
+                                 </p>
+                               </div>
+                               <div className={`ml-2 flex-shrink-0 shadow-sm border px-3 py-1 rounded-xl transition-colors ${
+                                 isSelected 
+                                   ? 'bg-indigo-600 border-indigo-600 text-white' 
+                                   : 'bg-white border-gray-100 group-hover:border-indigo-100 group-hover:bg-indigo-50 text-indigo-600'
+                               }`}>
+                                 <span className="text-sm font-black">{coord.count}</span>
+                               </div>
+                            </button>
+                          );
+                       })}
+                       {reportData.coordinadores.length === 0 && (
+                          <div className="text-center text-sm text-gray-400 mt-8">Sin líderes registrados</div>
+                       )}
+                    </div>
+                </div>
+
+                {/* Estados */}
+                <div className="col-span-1 lg:col-span-9 grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Finalizados */}
+                    <div className="relative overflow-hidden bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-emerald-100/50 p-8 flex items-center justify-between hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+                       <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-emerald-50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                       <div className="relative z-10">
+                         <div className="flex items-center gap-2 mb-2">
+                           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                           <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Finalizados</h4>
+                         </div>
+                         <span className="text-5xl font-black text-gray-800 tracking-tight">{reportData.finalizados}</span>
+                       </div>
+                       <div className="relative z-10 w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 shadow-inner group-hover:rotate-12 transition-transform duration-300">
+                         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                         </svg>
+                       </div>
+                    </div>
+
+                    {/* En proceso */}
+                    <div className="relative overflow-hidden bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-amber-100/50 p-8 flex items-center justify-between hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+                       <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-amber-50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                       <div className="relative z-10">
+                         <div className="flex items-center gap-2 mb-2">
+                           <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                           <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">En proceso</h4>
+                         </div>
+                         <span className="text-5xl font-black text-gray-800 tracking-tight">{reportData.enProceso}</span>
+                       </div>
+                       <div className="relative z-10 w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 shadow-inner group-hover:-rotate-12 transition-transform duration-300">
+                         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                         </svg>
+                       </div>
+                    </div>
+
+                    {/* Proyectados */}
+                    <div className="relative overflow-hidden bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/50 p-8 flex items-center justify-between hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+                       <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-slate-50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                       <div className="relative z-10">
+                         <div className="flex items-center gap-2 mb-2">
+                           <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+                           <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Proyectados</h4>
+                         </div>
+                         <span className="text-5xl font-black text-gray-800 tracking-tight">{reportData.proyectados}</span>
+                       </div>
+                       <div className="relative z-10 w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-500 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                         </svg>
+                       </div>
+                    </div>
+                </div>
+
               </div>
+
+              {/* Detalle del Coordinador Seleccionado */}
+              {selectedCoordinador && (
+                <div className="mt-8 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/60 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <span className="bg-indigo-100 text-indigo-600 p-2 rounded-xl">📋</span>
+                      Detalle de Simuladores
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1 ml-10">Desglose de campañas y direcciones para <b>{selectedCoordinador}</b></p>
+                  </div>
+                  
+                  <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-50/80 text-gray-600 font-semibold border-b border-gray-100">
+                        <tr>
+                          <th className="px-6 py-4 rounded-tl-2xl">Nombre del Proceso</th>
+                          <th className="px-6 py-4">Campaña</th>
+                          <th className="px-6 py-4">Dirección / Industria</th>
+                          <th className="px-6 py-4">Estado</th>
+                          <th className="px-6 py-4 rounded-tr-2xl">Desarrollador</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {data.filter(r => (r.coordinador || "Sin Asignar") === selectedCoordinador).map((sim, i) => (
+                          <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-6 py-4 font-medium text-gray-900">{sim.nombreProceso || "-"}</td>
+                            <td className="px-6 py-4 text-gray-600">{sim.campana || "-"}</td>
+                            <td className="px-6 py-4">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                                {sim.direccion || "-"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                                sim.estado?.toUpperCase() === 'FINALIZADA' ? 'bg-emerald-50 text-emerald-700' :
+                                sim.estado?.toUpperCase() === 'EN PROCESO' ? 'bg-amber-50 text-amber-700' :
+                                'bg-slate-100 text-slate-700'
+                              }`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${
+                                  sim.estado?.toUpperCase() === 'FINALIZADA' ? 'bg-emerald-500' :
+                                  sim.estado?.toUpperCase() === 'EN PROCESO' ? 'bg-amber-500' :
+                                  'bg-slate-400'
+                                }`}></div>
+                                {sim.estado || "SIN INICIAR"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-gray-500 group-hover:text-indigo-600 transition-colors">{sim.desarrollador || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
       )}
-
-      {!loading && !error && data.length === 0 && (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-gray-500">No hay datos disponibles</p>
-        </div>
-      )}
-
-      {/* Botón de ayuda flotante */}
-      <button
-        onClick={() => setShowHelp(true)}
-        className="fixed bottom-8 right-8 bg-linear-to-r from-blue-500 to-indigo-600 text-white rounded-full w-16 h-16 shadow-2xl hover:shadow-3xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center font-bold text-2xl z-50 border-4 border-white"
-        title="Ayuda e Instrucciones"
-      >
-        ?
-      </button>
 
       {/* Modal de ayuda */}
       {showHelp && (
@@ -772,43 +789,22 @@ export default function Simulator() {
                   </ul>
                 </div>
 
-                {/* Pestaña Consulta de Campañas */}
+                {/* Pestaña Reporte Gerencial */}
                 <div className="bg-linear-to-r from-purple-50 to-pink-100 rounded-lg p-5 border-l-4 border-purple-500">
                   <h4 className="text-lg font-bold text-purple-900 mb-3 flex items-center gap-2">
-                    📊 Pestaña: Consulta de Campañas
+                    📊 Pestaña: Reporte Gerencial
                   </h4>
                   <ul className="space-y-2 text-gray-700">
                     <li className="flex items-start gap-2">
                       <span className="text-purple-600 font-bold mt-1">•</span>
                       <div>
-                        <strong>Buscador:</strong> Utiliza el campo de búsqueda
-                        para filtrar campañas por nombre.
+                        <strong>Visión Global:</strong> Un panel interactivo con el estado general de los simuladores.
                       </div>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-purple-600 font-bold mt-1">•</span>
                       <div>
-                        <strong>Lista de campañas:</strong> En la columna
-                        izquierda verás todas las campañas disponibles con el
-                        número de procesos.
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-600 font-bold mt-1">•</span>
-                      <div>
-                        <strong>Detalles de campaña:</strong> Al hacer clic en
-                        una campaña, verás estadísticas completas: procesos
-                        totales, completados, en curso, pendientes,
-                        desarrolladores, coordinadores y aplicativos.
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-600 font-bold mt-1">•</span>
-                      <div>
-                        <strong>Tabla de procesos:</strong> Muestra todos los
-                        procesos de la campaña seleccionada con información
-                        detallada como estado, desarrollador, coordinador,
-                        aplicativo y fechas.
+                        <strong>Direcciones y Coordinadores:</strong> Visualiza la cantidad de simuladores asignados a cada dirección y coordinador, junto con sus porcentajes de participación.
                       </div>
                     </li>
                   </ul>

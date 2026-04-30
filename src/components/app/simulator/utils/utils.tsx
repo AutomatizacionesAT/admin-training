@@ -21,6 +21,7 @@ interface SheetData {
 
 // Tipo para los datos del Excel
 export interface TrainingRecord {
+  direccion: string | null;
   campana: string | null;
   coordinador: string | null;
   aplicativo: string | null;
@@ -72,16 +73,17 @@ export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
         .slice(0)
         .map((row: SheetRow) => {
           return {
-            campana: row.c[0] ? String(row.c[0].v) : null,
-            coordinador: row.c[1] ? String(row.c[1].v) : null,
-            aplicativo: row.c[2] ? String(row.c[2].v) : null,
-            nombreProceso: row.c[3] ? String(row.c[3].v) : null,
-            estado: row.c[4] ? String(row.c[4].v) : null,
-            fechaInicio: row.c[5] ? String(row.c[5].v) : null,
-            fechaFin: row.c[6] ? String(row.c[6].v) : null,
-            fechaReal: row.c[7] ? String(row.c[7].v) : null,
-            desarrollador: row.c[8] ? String(row.c[8].v) : null,
-            notas: row.c[9] ? String(row.c[9].v) : null,
+            direccion: row.c[1] ? String(row.c[1].v) : null,
+            campana: row.c[3] ? String(row.c[3].v) : null,      // antes col A (0), ahora col D (3)
+            coordinador: row.c[4] ? String(row.c[4].v) : null,  // antes col B (1), ahora col E (4)
+            aplicativo: row.c[5] ? String(row.c[5].v) : null,   // antes col C (2), ahora col F (5)
+            nombreProceso: row.c[6] ? String(row.c[6].v) : null, // antes col D (3), ahora col G (6)
+            estado: row.c[7] ? String(row.c[7].v) : null,       // antes col E (4), ahora col H (7)
+            fechaInicio: row.c[8] ? String(row.c[8].v) : null,  // antes col F (5), ahora col I (8)
+            fechaFin: row.c[9] ? String(row.c[9].v) : null,     // antes col G (6), ahora col J (9)
+            fechaReal: row.c[10] ? String(row.c[10].v) : null,  // antes col H (7), ahora col K (10)
+            desarrollador: row.c[11] ? String(row.c[11].v) : null, // antes col I (8), ahora col L (11)
+            notas: row.c[12] ? String(row.c[12].v) : null,      // antes col J (9), ahora col M (12)
           };
         });
 
