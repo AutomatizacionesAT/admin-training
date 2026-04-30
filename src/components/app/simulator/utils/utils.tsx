@@ -48,7 +48,7 @@ export interface NovedadesRecord {
 export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
   try {
     // ID de tu Google Sheet
-    const sheetId = "1iU_X2DpMN2wmPE0-V69NvATwQX7PE_q15IYMcj5EYXY";
+    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
 
     // Usar la API pública de Google Sheets (la hoja debe estar compartida públicamente)
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
@@ -104,7 +104,7 @@ export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
 
 export const fetchSheetFestivosData = async (): Promise<FestivoRecord[]> => {
   try {
-    const sheetId = "1iU_X2DpMN2wmPE0-V69NvATwQX7PE_q15IYMcj5EYXY";
+    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=DATA`;
     const response = await fetch(url);
     const text = await response.text();
@@ -145,7 +145,7 @@ export const fetchSheetFestivosData = async (): Promise<FestivoRecord[]> => {
 
 export const fetchSheetNovedades = async (): Promise<NovedadesRecord[]> => {
   try {
-    const sheetId = "1iU_X2DpMN2wmPE0-V69NvATwQX7PE_q15IYMcj5EYXY";
+    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=Novedades`;
     const response = await fetch(url);
     const text = await response.text();

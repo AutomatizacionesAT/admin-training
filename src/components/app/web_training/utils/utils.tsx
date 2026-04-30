@@ -103,7 +103,7 @@ export const parseDateString = (dateStr: string | null): Date | null => {
 export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
   try {
     // ID de tu Google Sheet
-    const sheetId = "1iU_X2DpMN2wmPE0-V69NvATwQX7PE_q15IYMcj5EYXY";
+    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
 
     // Usar la API pública de Google Sheets (la hoja debe estar compartida públicamente)
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=Base_WT25`;
@@ -175,7 +175,7 @@ export interface MasterData {
 
 export const fetchMasterData = async (): Promise<MasterData> => {
   try {
-    const sheetId = "1iU_X2DpMN2wmPE0-V69NvATwQX7PE_q15IYMcj5EYXY";
+    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=DATA`;
     const response = await fetch(url);
     const text = await response.text();
@@ -240,7 +240,7 @@ export const fetchMasterData = async (): Promise<MasterData> => {
 
 export const fetchSheetNovedades = async (): Promise<NovedadesRecord[]> => {
   try {
-    const sheetId = "1iU_X2DpMN2wmPE0-V69NvATwQX7PE_q15IYMcj5EYXY";
+    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=Novedades`;
     const response = await fetch(url);
     const text = await response.text();
@@ -282,7 +282,7 @@ export const fetchSheetNovedades = async (): Promise<NovedadesRecord[]> => {
 };
 
 // URL del Web App de Google Apps Script
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwK5JdgsfnNW_hq3r-6Slz4O76B-XQh4m2y6YoCSHOkzKKuRXwu5bWl5E0S9vpjHMD3/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyd7lg_CC_6mh6-OFtReyZx19yjhQ48ncymzjen7p3aCaOKEE5O7C0GzObdu1Muy1ZXOg/exec";
 
 export const submitTrainingData = async (data: TrainingRecord[] | any): Promise<boolean> => {
   try {

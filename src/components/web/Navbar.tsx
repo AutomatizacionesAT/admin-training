@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { Search, UserCircle, LogOut, Lock } from "lucide-react";
 
 export default function Navbar() {
   const location = useLocation();
@@ -33,102 +34,89 @@ export default function Navbar() {
     }
   };
 
+  const navLinks = [
+    { name: "Inicio", path: "/" },
+    { name: "Simulador", path: "/simulator" },
+    { name: "Web Training", path: "/web-training" },
+    { name: "Usabilidad Web", path: "/usabilidad-web-training" },
+    { name: "Biométrico", path: "/informe-biometrico" },
+  ];
+
   return (
-    <nav className="bg-linear-to-r from-gray-800 to-gray-900 shadow-lg border-b border-orange-500/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <nav className="bg-white shadow-xs border-b border-gray-200 sticky top-0 z-50">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-[72px]">
           {/* Logo/Brand */}
-          <div className="shrink-0">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+          <div className="shrink-0 flex items-center">
+            <Link to="/" className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#0047BA] rounded-xl flex items-center justify-center shadow-sm shadow-[#0047BA]/20">
                 <span className="text-white font-bold text-xl">A</span>
               </div>
-              <span className="text-white font-bold text-xl hidden sm:block">
-                Admin Training
-              </span>
+              <div className="flex flex-col">
+                <span className="text-[#111c2d] font-bold text-lg hidden sm:block leading-tight">
+                  Atento
+                </span>
+                <span className="text-gray-500 font-medium text-xs hidden sm:block leading-tight">
+                  Admin Training
+                </span>
+              </div>
             </Link>
           </div>
 
           {/* Navigation Links */}
-          <div className="flex items-center gap-2">
-            <Link to="/">
-              <Button
-                variant={isActive("/") ? "default" : "ghost"}
-                className={
-                  isActive("/")
-                    ? "bg-orange-500 hover:bg-orange-600 text-white"
-                    : "text-gray-300 hover:text-white hover:bg-gray-700"
-                }
-              >
-                Inicio
-              </Button>
-            </Link>
-
-            <Link to="/simulator">
-              <Button
-                variant={isActive("/simulator") ? "default" : "ghost"}
-                className={
-                  isActive("/simulator")
-                    ? "bg-orange-500 hover:bg-orange-600 text-white"
-                    : "text-gray-300 hover:text-white hover:bg-gray-700"
-                }
-              >
-                Simulador
-              </Button>
-            </Link>
-
-            <Link to="/web-training">
-              <Button
-                variant={isActive("/web-training") ? "default" : "ghost"}
-                className={
-                  isActive("/web-training")
-                    ? "bg-orange-500 hover:bg-orange-600 text-white"
-                    : "text-gray-300 hover:text-white hover:bg-gray-700"
-                }
-              >
-                Web Training
-              </Button>
-            </Link>
-
-            <Link to="/usabilidad-web-training">
-              <Button
-                variant={isActive("/usabilidad-web-training") ? "default" : "ghost"}
-                className={
-                  isActive("/usabilidad-web-training")
-                    ? "bg-orange-500 hover:bg-orange-600 text-white"
-                    : "text-gray-300 hover:text-white hover:bg-gray-700"
-                }
-              >
-                Usabilidad Web
-              </Button>
-            </Link>
-
-            <Link to="/informe-biometrico">
-              <Button
-                variant={isActive("/informe-biometrico") ? "default" : "ghost"}
-                className={
-                  isActive("/informe-biometrico")
-                    ? "bg-orange-500 hover:bg-orange-600 text-white"
-                    : "text-gray-300 hover:text-white hover:bg-gray-700"
-                }
-              >
-                Biométrico
-              </Button>
-            </Link>
+          <div className="hidden md:flex items-center gap-1">
+            {navLinks.map((link) => (
+              <Link key={link.path} to={link.path}>
+                <Button
+                  variant={isActive(link.path) ? "default" : "ghost"}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    isActive(link.path)
+                      ? "bg-[#0047BA] hover:bg-[#003ea6] text-white shadow-sm shadow-[#0047BA]/20"
+                      : "text-gray-600 hover:text-[#0047BA] hover:bg-[#ecf1ff]"
+                  }`}
+                >
+                  {link.name}
+                </Button>
+              </Link>
+            ))}
           </div>
 
-          {/* Status Indicator & Admin Button */}
-          <div className="flex items-center gap-4">
+          {/* Right Section: Search & Admin */}
+          <div className="flex items-center gap-3">
+            <div className="hidden lg:flex items-center relative">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3" />
+              <input 
+                type="text" 
+                placeholder="Buscar módulos..." 
+                className="pl-9 pr-4 py-2 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#0047BA]/50 focus:border-[#0047BA] transition-all w-64 bg-gray-50"
+              />
+            </div>
+
+            <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
+
             <Button
-              variant="ghost"
-              size="sm"
+              variant={isAdmin ? "outline" : "ghost"}
               onClick={handleAdminClick}
-              className={`text-gray-300 hover:text-white hover:bg-gray-700 transition-colors ${isAdmin ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : ""}`}
-              title={isAdmin ? "Modo Admin Activo (Click para salir)" : "Acceso Admin"}
+              className={`flex items-center gap-2 rounded-full px-4 transition-all ${
+                isAdmin 
+                  ? "border-[#8A2BE2] text-[#8A2BE2] hover:bg-[#8A2BE2]/10" 
+                  : "text-gray-500 hover:text-[#0047BA] hover:bg-gray-100"
+              }`}
+              title={isAdmin ? "Cerrar sesión de administrador" : "Acceso Admin"}
             >
-              {isAdmin ? "🔓 Admin" : "🔒"}
+              {isAdmin ? (
+                <>
+                  <UserCircle className="w-5 h-5" />
+                  <span className="hidden sm:inline font-medium">Admin Mode</span>
+                  <LogOut className="w-4 h-4 ml-1 opacity-70" />
+                </>
+              ) : (
+                <>
+                  <Lock className="w-5 h-5" />
+                  <span className="hidden sm:inline font-medium">Login</span>
+                </>
+              )}
             </Button>
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
           </div>
         </div>
       </div>
