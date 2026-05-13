@@ -29,12 +29,12 @@ export default function UsabilidadWebTraining() {
   const [globalDiasSemana, setGlobalDiasSemana] = useState(5);
   const [detailCampaign, setDetailCampaign] = useState<string | null>(null);
   const [coordinadoresList, setCoordinadoresList] = useState<string[]>([]);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const [sortField, setSortField] = useState<SortField>('porcentaje');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-  const [sortEnabled, setSortEnabled] = useState(false);
+  const [sortEnabled, setSortEnabled] = useState(true);
   const [activeView, setActiveView] = useState<'cards' | 'table'>('cards');
 
   // ─── Data loading ────────────────────────────────────────────────────────────

@@ -69,11 +69,10 @@ export default function Navbar() {
               <Link key={link.path} to={link.path}>
                 <Button
                   variant={isActive(link.path) ? "default" : "ghost"}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                    isActive(link.path)
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${isActive(link.path)
                       ? "bg-[#0047BA] hover:bg-[#003ea6] text-white shadow-sm shadow-[#0047BA]/20"
                       : "text-gray-600 hover:text-[#0047BA] hover:bg-[#ecf1ff]"
-                  }`}
+                    }`}
                 >
                   {link.name}
                 </Button>
@@ -83,25 +82,16 @@ export default function Navbar() {
 
           {/* Right Section: Search & Admin */}
           <div className="flex items-center gap-3">
-            <div className="hidden lg:flex items-center relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3" />
-              <input 
-                type="text" 
-                placeholder="Buscar módulos..." 
-                className="pl-9 pr-4 py-2 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#0047BA]/50 focus:border-[#0047BA] transition-all w-64 bg-gray-50"
-              />
-            </div>
 
             <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
 
             <Button
               variant={isAdmin ? "outline" : "ghost"}
               onClick={handleAdminClick}
-              className={`flex items-center gap-2 rounded-full px-4 transition-all ${
-                isAdmin 
-                  ? "border-[#8A2BE2] text-[#8A2BE2] hover:bg-[#8A2BE2]/10" 
+              className={`flex items-center gap-2 rounded-full px-4 transition-all ${isAdmin
+                  ? "border-[#8A2BE2] text-[#8A2BE2] hover:bg-[#8A2BE2]/10"
                   : "text-gray-500 hover:text-[#0047BA] hover:bg-gray-100"
-              }`}
+                }`}
               title={isAdmin ? "Cerrar sesión de administrador" : "Acceso Admin"}
             >
               {isAdmin ? (
