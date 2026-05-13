@@ -158,7 +158,7 @@ export default function FilterBar({
           disabled={loading}
           className="px-4 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-semibold transition-colors disabled:opacity-50"
         >
-          {loading ? 'Actualizando...' : '↻ Actualizar'}
+          <span>{loading ? 'Actualizando...' : '↻ Actualizar'}</span>
         </button>
 
         <button
@@ -167,7 +167,7 @@ export default function FilterBar({
           title={isCollapsed ? 'Expandir tarjetas' : 'Contraer tarjetas'}
         >
           {isCollapsed ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
-          {isCollapsed ? 'Expandir' : 'Contraer'}
+          <span>{isCollapsed ? 'Expandir' : 'Contraer'}</span>
         </button>
 
         <div className="w-full sm:w-auto text-right">

@@ -12,39 +12,39 @@ export default function Home() {
       </div>
 
       <div className="max-w-[1440px] mx-auto px-6 lg:px-12 flex flex-col justify-center min-h-[calc(100vh-72px)] relative z-10">
-        
+
         {/* Hero Section */}
         <div className="flex flex-col lg:flex-row items-center justify-between gap-16 py-12 lg:py-0">
-          
+
           <div className="flex-1 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0047BA]/10 text-[#0047BA] text-sm font-semibold mb-6">
               <span className="w-2 h-2 rounded-full bg-[#0047BA] animate-pulse"></span>
-              Plataforma Oficial Atento
+              Admin Training
             </div>
-            
+
             <h1 className="text-5xl lg:text-6xl font-extrabold text-[#111c2d] leading-[1.1] tracking-tight mb-6">
-              Entrenamiento <br />
+              Control de datos de <br />
               <span className="text-transparent bg-clip-text bg-linear-to-r from-[#0047BA] to-[#8A2BE2]">
-                Inmersivo y Avanzado
+                Simulator y Web Training
               </span>
             </h1>
-            
+
             <p className="text-lg md:text-xl text-gray-500 mb-10 leading-relaxed max-w-xl">
-              Bienvenido al centro de capacitación. Desarrolla tus habilidades operativas, 
-              experimenta escenarios reales en el simulador y mejora la usabilidad 
+              Bienvenido al centro de capacitación. Desarrolla tus habilidades operativas,
+              experimenta escenarios reales en el simulador y mejora la usabilidad
               con nuestras herramientas interactivas.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
               <Link to="/simulator">
                 <Button className="w-full sm:w-auto h-14 px-8 bg-[#0047BA] hover:bg-[#003ea6] text-white rounded-xl text-lg font-medium shadow-lg shadow-[#0047BA]/20 transition-all hover:-translate-y-0.5">
-                  Iniciar Simulador
+                  Simulator
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
               <Link to="/web-training">
                 <Button variant="outline" className="w-full sm:w-auto h-14 px-8 border-2 border-gray-200 text-[#111c2d] hover:border-[#8A2BE2] hover:text-[#8A2BE2] hover:bg-transparent rounded-xl text-lg font-medium transition-all">
-                  Explorar Módulos
+                  Web Training
                 </Button>
               </Link>
             </div>
@@ -53,14 +53,14 @@ export default function Home() {
           {/* Features / Presentation Cards */}
           <div className="flex-1 w-full max-w-lg lg:max-w-none">
             <div className="grid gap-4">
-              
+
               <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-xl shadow-gray-200/50 flex items-start gap-5 hover:border-[#0047BA]/30 transition-colors">
                 <div className="w-12 h-12 rounded-full bg-[#0047BA]/10 flex items-center justify-center shrink-0">
                   <MonitorPlay className="w-6 h-6 text-[#0047BA]" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-[#111c2d] mb-1">Simulador Práctico</h3>
-                  <p className="text-gray-500 leading-relaxed">Entorno seguro para practicar gestiones complejas sin afectar sistemas reales.</p>
+                  <h3 className="text-xl font-bold text-[#111c2d] mb-1">Control de accesos</h3>
+                  <p className="text-gray-500 leading-relaxed">Realiza el seguimiento de la usabilidad de las web</p>
                 </div>
               </div>
 
@@ -69,8 +69,8 @@ export default function Home() {
                   <BookOpen className="w-6 h-6 text-[#8A2BE2]" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-[#111c2d] mb-1">Web Training</h3>
-                  <p className="text-gray-500 leading-relaxed">Biblioteca completa de teoría, procesos y guías de actuación actualizadas.</p>
+                  <h3 className="text-xl font-bold text-[#111c2d] mb-1">Proyecciones</h3>
+                  <p className="text-gray-500 leading-relaxed">Valida en que estado se encuentra tu solicitud de desarrollo.</p>
                 </div>
               </div>
 
@@ -80,7 +80,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-[#111c2d] mb-1">Análisis Biométrico</h3>
-                  <p className="text-gray-500 leading-relaxed">Estudios de usabilidad y seguimiento ocular para optimizar las interfaces.</p>
+                  <p className="text-gray-500 leading-relaxed">Estudio de usabilidad y seguimiento de acceso biometrico de coordinadores</p>
                 </div>
               </div>
 

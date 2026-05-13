@@ -22,6 +22,7 @@ interface SheetData {
 // Tipo para los datos del Excel
 export interface TrainingRecord {
   direccion: string | null;
+  industria: string | null;
   campana: string | null;
   coordinador: string | null;
   aplicativo: string | null;
@@ -73,7 +74,8 @@ export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
         .slice(0)
         .map((row: SheetRow) => {
           return {
-            direccion: row.c[1] ? String(row.c[1].v) : null,
+            direccion: row.c[2] ? String(row.c[2].v) : null, // ahora col C (2), antes col B (1)
+            industria: row.c[1] ? String(row.c[1].v) : null, // ahora col B (1), antes no se leía o estaba en col C
             campana: row.c[3] ? String(row.c[3].v) : null,      // antes col A (0), ahora col D (3)
             coordinador: row.c[4] ? String(row.c[4].v) : null,  // antes col B (1), ahora col E (4)
             aplicativo: row.c[5] ? String(row.c[5].v) : null,   // antes col C (2), ahora col F (5)
