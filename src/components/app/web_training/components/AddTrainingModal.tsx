@@ -223,6 +223,9 @@ export default function AddTrainingModal({
                     // Asegurar campos nulos si están vacíos
                     campana: headerData.campana || null,
                     coordinador: headerData.coordinador || null,
+                    // Campos de dirección e industria (no se editan desde el modal)
+                    direccion: initialData.direccion ?? null,
+                    industria: initialData.industria ?? null,
                     // ... mapear resto si es necesario, pero spread ...headerData y row fields cubren la mayoría
                 };
 
@@ -243,6 +246,9 @@ export default function AddTrainingModal({
                     fechaFin: row.fechaFin,
                     estado: row.estado,
                     observaciones: row.observaciones,
+                    // Campos de dirección e industria (no se capturan desde el modal)
+                    direccion: null,
+                    industria: null,
                 }));
                 await submitTrainingData(payload);
             }

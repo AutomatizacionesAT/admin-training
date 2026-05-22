@@ -37,6 +37,8 @@ export interface TrainingRecord {
   formador: string | null;
   observaciones: string | null;
   campana: string | null;
+  direccion: string | null; // Col Q (índice 16)
+  industria: string | null; // Col R (índice 17)
   rowIndex?: number; // Para edición
 }
 
@@ -144,6 +146,8 @@ export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
             formador: row.c[13] ? String(row.c[13].v) : null,
             observaciones: row.c[14] ? String(row.c[14].v) : null,
             campana: row.c[15] ? String(row.c[15].v) : null,
+            direccion: row.c[16] ? String(row.c[16].v) : null, // Col Q
+            industria: row.c[17] ? String(row.c[17].v) : null, // Col R
           };
         });
 

@@ -294,6 +294,10 @@ export default function Calendar({
       fechaFin: newDevelopment.fechaFin || "",
       estado: newDevelopment.estado || "Pendiente",
       observaciones: newDevelopment.observaciones || "",
+
+      // Campos de Dirección e Industria (no se editan desde el calendario)
+      direccion: null,
+      industria: null,
     };
 
     await onAddRecord(newRecord);

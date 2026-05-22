@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Search, UserCircle, LogOut, Lock } from "lucide-react";
+import { UserCircle, LogOut, Lock } from "lucide-react";
 
 export default function Navbar() {
   const location = useLocation();
@@ -70,8 +70,8 @@ export default function Navbar() {
                 <Button
                   variant={isActive(link.path) ? "default" : "ghost"}
                   className={`px-4 py-2 rounded-lg font-medium transition-all ${isActive(link.path)
-                      ? "bg-[#0047BA] hover:bg-[#003ea6] text-white shadow-sm shadow-[#0047BA]/20"
-                      : "text-gray-600 hover:text-[#0047BA] hover:bg-[#ecf1ff]"
+                    ? "bg-[#0047BA] hover:bg-[#003ea6] text-white shadow-sm shadow-[#0047BA]/20"
+                    : "text-gray-600 hover:text-[#0047BA] hover:bg-[#ecf1ff]"
                     }`}
                 >
                   {link.name}
@@ -89,8 +89,8 @@ export default function Navbar() {
               variant={isAdmin ? "outline" : "ghost"}
               onClick={handleAdminClick}
               className={`flex items-center gap-2 rounded-full px-4 transition-all ${isAdmin
-                  ? "border-[#8A2BE2] text-[#8A2BE2] hover:bg-[#8A2BE2]/10"
-                  : "text-gray-500 hover:text-[#0047BA] hover:bg-gray-100"
+                ? "border-[#8A2BE2] text-[#8A2BE2] hover:bg-[#8A2BE2]/10"
+                : "text-gray-500 hover:text-[#0047BA] hover:bg-gray-100"
                 }`}
               title={isAdmin ? "Cerrar sesión de administrador" : "Acceso Admin"}
             >

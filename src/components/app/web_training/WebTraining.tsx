@@ -12,11 +12,11 @@ import type {
 } from "./utils/utils";
 import { useAuth } from "@/context/AuthContext";
 import CalendarTab from "./components/CalendarTab";
-import CampaignsTab from "./components/CampaignsTab";
-import ReportsTab from "./components/ReportsTab";
 import AddTrainingModal from "./components/AddTrainingModal";
+import { useWTReportData } from "./hooks/useWTReportData";
+import { WTReportTab } from "./components/WTReportTab";
 
-type Tab = "calendar" | "campaigns" | "reports";
+type Tab = "calendar" | "report";
 
 export default function WebTraining() {
   const { isAdmin } = useAuth();
@@ -150,6 +150,21 @@ export default function WebTraining() {
     }
   };
 
+  const {
+    reportData,
+    selectedCoordinador,
+    setSelectedCoordinador,
+    selectedYear,
+    setSelectedYear,
+    selectedMonth,
+    setSelectedMonth,
+    selectedDireccion,
+    setSelectedDireccion,
+    availableYears,
+    availableDirecciones,
+    dateFilteredData,
+  } = useWTReportData(data);
+
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 via-blue-50 to-indigo-50 p-8 flex flex-col">
       {/* Sistema de pestañas */}
@@ -165,22 +180,13 @@ export default function WebTraining() {
             📅 Calendario
           </button>
           <button
-            onClick={() => setActiveTab("campaigns")}
-            className={`${activeTab === "campaigns"
+            onClick={() => setActiveTab("report")}
+            className={`${activeTab === "report"
               ? "bg-linear-to-r from-blue-500 to-indigo-600 text-white shadow-lg"
               : "text-gray-600 hover:bg-gray-100"
               } flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-105`}
           >
-            📊 Consulta de Campañas
-          </button>
-          <button
-            onClick={() => setActiveTab("reports")}
-            className={`${activeTab === "reports"
-              ? "bg-linear-to-r from-blue-500 to-indigo-600 text-white shadow-lg"
-              : "text-gray-600 hover:bg-gray-100"
-              } flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-105`}
-          >
-            📈 Reportes
+            📊 Reporte
           </button>
         </nav>
       </div>
@@ -217,11 +223,23 @@ export default function WebTraining() {
             />
           )}
 
-          {/* Pestaña de Consulta de Campañas */}
-          {activeTab === "campaigns" && <CampaignsTab data={data} />}
-
-          {/* Pestaña de Reportes */}
-          {activeTab === "reports" && <ReportsTab data={data} />}
+          {/* Pestaña de Reporte */}
+          {activeTab === "report" && (
+            <WTReportTab
+              reportData={reportData}
+              selectedCoordinador={selectedCoordinador}
+              onSelectCoordinador={setSelectedCoordinador}
+              data={dateFilteredData}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+              selectedMonth={selectedMonth}
+              setSelectedMonth={setSelectedMonth}
+              selectedDireccion={selectedDireccion}
+              setSelectedDireccion={setSelectedDireccion}
+              availableYears={availableYears}
+              availableDirecciones={availableDirecciones}
+            />
+          )}
         </>
       )}
 
