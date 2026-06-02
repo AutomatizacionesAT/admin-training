@@ -180,7 +180,8 @@ export interface MasterData {
 export const fetchMasterData = async (): Promise<MasterData> => {
   try {
     const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=DATA`;
+    const masterSheetName = encodeURIComponent("DATA (4)");
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${masterSheetName}`;
     const response = await fetch(url);
     const text = await response.text();
     const jsonString = text.match(
@@ -337,4 +338,3 @@ export const submitTrainingData = async (data: TrainingRecord[] | any): Promise<
     throw error;
   }
 };
-
