@@ -277,7 +277,7 @@ export default function InformeBiometrico() {
     <div className="min-h-screen bg-slate-100 p-6 md:p-8 flex flex-col font-sans text-slate-800">
 
       {/* Header con gradiente premium */}
-      <div className="bg-gradient-to-r from-blue-800 via-indigo-700 to-indigo-900 -mx-6 md:-mx-8 -mt-6 md:-mt-8 mb-6 p-6 pb-12 md:p-8 md:pb-16 shadow-inner relative overflow-hidden">
+      <div className="bg-linear-to-r from-blue-800 via-indigo-700 to-indigo-900 -mx-6 md:-mx-8 -mt-6 md:-mt-8 mb-6 p-6 pb-12 md:p-8 md:pb-16 shadow-inner relative overflow-hidden">
         {/* Glow de fondo */}
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-500 rounded-full mix-blend-screen filter blur-3xl opacity-30"></div>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -359,7 +359,7 @@ export default function InformeBiometrico() {
                 {colaboradoresIngresoTarde.map(c => (
                   <span key={c.nombreOriginal} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white text-slate-500 text-[9px] font-medium border border-slate-200 shadow-sm transition-all hover:bg-slate-100">
                     <span className="truncate max-w-[120px]" title={c.nombreOriginal}>{c.nombreTruncado}</span>
-                    <span className="bg-slate-100 text-slate-400 rounded px-1 py-[1px] text-[8px] font-bold">
+                    <span className="bg-slate-100 text-slate-400 rounded px-1 py-px text-[8px] font-bold">
                       {c.count}
                     </span>
                   </span>

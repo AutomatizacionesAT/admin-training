@@ -52,14 +52,14 @@ export async function fetchControlDeAccesos(): Promise<ParsedRow[]> {
     let dateLogCount = 0; // Log primeras 5 fechas para diagnóstico
 
     rows.forEach((row: GvizRow) => {
-      const rawCamp  = row.c[3]?.v;   // Col D: CAMPAÑA
+      const rawCamp = row.c[3]?.v;   // Col D: CAMPAÑA
       const rawModul = row.c[5]?.v;   // Col F: MODULO
-      const rawUser  = row.c[2]?.v;   // Col C: USUARIO
+      const rawUser = row.c[2]?.v;   // Col C: USUARIO
       const dateCell = row.c[1];      // Col B: FECHA CREACION
 
-      const camp  = rawCamp  ? String(rawCamp).trim()  : '';
+      const camp = rawCamp ? String(rawCamp).trim() : '';
       const modul = rawModul ? String(rawModul).trim() : '';
-      const user  = rawUser  ? String(rawUser).trim()  : '';
+      const user = rawUser ? String(rawUser).trim() : '';
 
       // Excluir registros cuyo MODULO contenga "Movilidad"
       if (modul.toUpperCase().includes('MOVILIDAD')) return;
@@ -156,7 +156,7 @@ export async function saveUserConfig(configData: string[][]): Promise<boolean> {
       },
       body: JSON.stringify(payload),
     });
-    
+
     // Al usar no-cors, no podemos leer el response body, asumimos éxito si no lanza catch
     console.log("✅ Petición de guardado de configuración enviada");
     return true;

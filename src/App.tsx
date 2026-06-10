@@ -5,6 +5,7 @@ import Navbar from "@/components/web/Navbar";
 import WebTraining from "./components/app/web_training/WebTraining";
 import UsabilidadWebTraining from "./components/app/usabilidad_web_training/UsabilidadWebTraining";
 import InformeBiometrico from "./components/app/informe_biometrico/InformeBiometrico";
+import Salas from "./components/app/Salas/Salas";
 
 import { AuthProvider } from "@/context/AuthContext";
 
@@ -19,6 +20,7 @@ function App() {
           <Route path="/web-training" element={<WebTraining />} />
           <Route path="/usabilidad-web-training" element={<UsabilidadWebTraining />} />
           <Route path="/informe-biometrico" element={<InformeBiometrico />} />
+          <Route path="/salas" element={<Salas />} />
         </Routes>
       </div>
     </AuthProvider>
