@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, MonitorPlay, BookOpen, Fingerprint } from "lucide-react";
+import { ArrowRight, MonitorPlay, BookOpen, Fingerprint, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
@@ -47,6 +47,11 @@ export default function Home() {
                   Web Training
                 </Button>
               </Link>
+              <Link to="/agile-training">
+                <Button variant="outline" className="w-full sm:w-auto h-14 px-8 border-2 border-gray-200 text-[#111c2d] hover:border-[#0047BA] hover:text-[#0047BA] hover:bg-transparent rounded-xl text-lg font-medium transition-all">
+                  Agile Training
+                </Button>
+              </Link>
             </div>
           </div>
 
@@ -71,6 +76,16 @@ export default function Home() {
                 <div>
                   <h3 className="text-xl font-bold text-[#111c2d] mb-1">Proyecciones</h3>
                   <p className="text-gray-500 leading-relaxed">Valida en que estado se encuentra tu solicitud de desarrollo.</p>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-xl shadow-gray-200/50 flex items-start gap-5 hover:border-[#0047BA]/30 transition-colors ml-0 lg:ml-12">
+                <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+                  <Rocket className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-[#111c2d] mb-1">Agile Training</h3>
+                  <p className="text-gray-500 leading-relaxed">Sigue el avance de lanzamiento, piloto, meta y cumplimiento por campaña.</p>
                 </div>
               </div>
 
