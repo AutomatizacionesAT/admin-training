@@ -337,10 +337,10 @@ function FilterSelect({ label, options, selected, onToggle, onClear }: FilterSel
 
 function DetailSection({ items }: DetailSectionProps) {
   return (
-    <div className="border-t border-slate-100 p-4">
+    <div className="border-t border-slate-300 p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         {items.map((item) => (
-          <div key={item.label} className="rounded-xl bg-slate-50 p-3">
+          <div key={item.label} className="rounded-xl border border-slate-300 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{item.label}</p>
             <p className="mt-1 text-sm font-medium text-slate-800">{formatPossiblePercent(item.value)}</p>
           </div>
@@ -910,12 +910,12 @@ export default function AgileTraining() {
                   </div>
                 </section>
 
-                <aside className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <aside className="rounded-2xl border border-slate-200 bg-slate-100 p-4">
                   {selectedRow ? (
                     <>
                       <section className="">
 
-                        <div className="flex items-start justify-between gap-4 border-b border-slate-300 px-6 py-5">
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-300 bg-white px-6 py-5">
                           <div>
                             <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Detalle de campaña</p>
                             <h2 className="mt-2 text-2xl font-bold text-slate-900">{selectedRow.campana}</h2>
@@ -929,12 +929,12 @@ export default function AgileTraining() {
 
                         <div className="max-h-[450px] overflow-y-auto space-y-5">
 
-                          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
                             <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Cumplimiento</p>
                             <p className={`mt-2 text-4xl font-black ${getCumplimientoTextClass(selectedRow.cumplimientoPct)}`}>{formatPercent(selectedRow.cumplimientoPct)}</p>
                           </div>
 
-                          <div className="mt-5 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                          <div className="mt-5 grid gap-3 rounded-2xl border border-slate-200 bg-white  p-4 text-sm text-slate-600">
                             <div className="flex items-center gap-2"><CalendarRange className="h-4 w-4" />Inicio: {formatDisplayDate(selectedRow.fechaInicio, selectedRow.fechaInicioISO)}</div>
                             <div className="flex items-center gap-2"><CalendarRange className="h-4 w-4" />Fin: {formatDisplayDate(selectedRow.fechaFin, selectedRow.fechaFinISO)}</div>
                             <div className="flex items-center gap-2"><Gauge className="h-4 w-4" />Duración: {selectedRow.duracionDias + " dias" || selectedRow.duracion + " dias" || "Pendiente"} </div>
@@ -967,7 +967,7 @@ export default function AgileTraining() {
                                   <button
                                     type="button"
                                     onClick={() => setOpenSections((current) => ({ ...current, [key]: !current[key] }))}
-                                    className="flex w-full items-center justify-between gap-4 p-4 text-left"
+                                    className="flex w-full items-center justify-between gap-4 p-4 text-left hover:cursor-pointer"
                                   >
                                     <h3 className="text-lg font-bold text-slate-900">{section.title}</h3>
                                     <div className="flex items-center gap-3">
@@ -989,7 +989,7 @@ export default function AgileTraining() {
                               <button
                                 type="button"
                                 onClick={() => setOpenSections((current) => ({ ...current, piloto: !current.piloto }))}
-                                className="flex w-full items-center justify-between gap-4 p-4 text-left"
+                                className="flex w-full items-center justify-between gap-4 p-4 text-left hover:cursor-pointer"
                               >
                                 <h3 className="text-lg font-bold text-slate-900">Piloto</h3>
                                 <div className="flex items-center gap-3">
