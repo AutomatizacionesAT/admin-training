@@ -13,7 +13,8 @@ export default function Salas() {
   // ─── Data ─────────────────────────────────────────────────────────────────
   const [salas, setSalas] = useState<SalaRecord[]>([]);
   const [asignaciones, setAsignaciones] = useState<AsignacionRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);      // solo carga inicial
+  const [refreshing, setRefreshing] = useState(false); // refresh silencioso
   const [error, setError] = useState<string | null>(null);
 
   // ─── Roles ─────────────────────────────────────────────────────────────────
@@ -22,9 +23,10 @@ export default function Salas() {
   const isCoordinador = user?.rol === 'COORDINADOR';
 
   // ─── Load data ─────────────────────────────────────────────────────────────
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (silent) setRefreshing(true);
+      else setLoading(true);
       setError(null);
       const [cat, asig] = await Promise.all([
         fetchSalasCatalogo(),
@@ -36,8 +38,12 @@ export default function Salas() {
       setError('No se pudieron cargar los datos de Salas. Verifica que las hojas existen y son públicas.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
+
+  // onRefresh silencioso: no desmonta las vistas
+  const onRefresh = useCallback(() => loadData(true), [loadData]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -67,11 +73,11 @@ export default function Salas() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={loadData}
-              disabled={loading}
+              onClick={() => loadData(false)}
+              disabled={loading || refreshing}
               className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${(loading || refreshing) ? 'animate-spin' : ''}`} />
               Actualizar
             </button>
           </div>
@@ -95,6 +101,14 @@ export default function Salas() {
           </div>
         )}
 
+        {/* Indicador de refresh silencioso — no desmonta las vistas */}
+        {refreshing && (
+          <div className="flex items-center gap-2 mb-4 text-indigo-400 text-sm">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            <span>Actualizando datos...</span>
+          </div>
+        )}
+
         {!loading && !error && (
           <>
             {isSuperAdmin && (
@@ -102,13 +116,15 @@ export default function Salas() {
                 user={user!}
                 salas={salas}
                 asignaciones={asignaciones}
-                onRefresh={loadData}
+                onRefresh={onRefresh}
               />
             )}
             {isCoordinador && (
               <CoordinadorView
                 user={user!}
+                salas={salas}
                 asignaciones={asignaciones}
+                onRefresh={onRefresh}
               />
             )}
             {!user && (

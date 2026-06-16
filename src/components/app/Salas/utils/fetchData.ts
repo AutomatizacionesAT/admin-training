@@ -1,7 +1,7 @@
-import type { SalaRecord, AsignacionRecord, SalasAdminRecord, SalasRole } from './types';
+import type { SalaRecord, AsignacionRecord, SalasAdminRecord, SalasRole, TicketRecord } from './types';
 
 const SHEET_ID = '1OtFWpA1NnkErvYmgwjqkic48b9UvGshEKAbBvcl-RuA';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbySKDZybmsTJRudsjNmyBlY6hDQjZT5nGt1_hTnBDSLUKObkVwMzL8XnCQEI5lTx361/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwE52WUXgJ4l95HQweDdb9oNsFzgrj94Z9O4Tf5EUvGkjD_g0r67LZ5QfgWT4bwbYw/exec';
 
 interface GvizCell { v: string | number | null; f?: string; }
 interface GvizRow { c: (GvizCell | null)[]; }
@@ -12,7 +12,9 @@ function cell(row: GvizRow, i: number): string {
 }
 
 async function fetchSheet(sheetName: string): Promise<GvizRow[]> {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  // headers=1 le indica a gviz que la fila 1 son encabezados y NO deben
+  // aparecer como datos — evita el bug donde una hoja vacía devuelve los headers.
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}`;
   const res = await fetch(url);
   const text = await res.text();
   const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/);
@@ -34,6 +36,10 @@ export async function fetchSalasCatalogo(): Promise<SalaRecord[]> {
     const sedeRaw = cell(row, 0);
     const sala = cell(row, 1);
     const horario = cell(row, 5);
+
+    // Descarta filas de cabecera que gviz puede colar como datos
+    if (sedeRaw && sedeRaw.toUpperCase() === 'SEDE') { rowIndex++; return; }
+    if (sala && sala.toUpperCase() === 'SALA') { rowIndex++; return; }
 
     if (sedeRaw) lastSede = sedeRaw;
     const sede = lastSede;
@@ -67,6 +73,9 @@ export async function fetchSalasCatalogo(): Promise<SalaRecord[]> {
 }
 
 // ─── SALAS_ASIGNACIONES ───────────────────────────────────────────────────────
+// Columnas: CAMPAÑA(0) REQ(1) SALA(2) SEDE(3) FORMADOR(4) FECHA INICIAL(5)
+//           FECHA FIN(6) HORARIO(7) CANTIDAD PERSONAS(8)
+//           ESTADO ASIGNACION SALA(9) TICKET(10) ESTADO TICKET(11)
 export async function fetchSalasAsignaciones(): Promise<AsignacionRecord[]> {
   const rows = await fetchSheet('SALAS_ASIGNACIONES');
   const result: AsignacionRecord[] = [];
@@ -75,7 +84,7 @@ export async function fetchSalasAsignaciones(): Promise<AsignacionRecord[]> {
   rows.forEach((row) => {
     if (!row?.c?.length) { rowIndex++; return; }
     const campana = cell(row, 0);
-    if (!campana) { rowIndex++; return; }
+    if (!campana || campana.toUpperCase() === 'CAMPAÑA' || campana.toUpperCase() === 'CAMPANA') { rowIndex++; return; }
     result.push({
       rowIndex,
       campana,
@@ -87,10 +96,46 @@ export async function fetchSalasAsignaciones(): Promise<AsignacionRecord[]> {
       fechaFin: cell(row, 6),
       horario: cell(row, 7),
       dPersonas: cell(row, 8),
+      estadoAsignacion: cell(row, 9) || 'APROBADO',
+      ticket: cell(row, 10),
+      estadoTicket: cell(row, 11),
     });
     rowIndex++;
   });
   console.log(`📋 SALAS_ASIGNACIONES: ${result.length} asignaciones`);
+  return result;
+}
+
+// ─── ASIGNACION_TICKET ────────────────────────────────────────────────────────
+// Columnas: CAMPAÑA(0) POSICION(1) FALLA PUNTUAL(2) PERSONA REPORTA(3)
+//           NUMERO TICKET(4) FECHA REALIZACION(5) PERSONA CREA TICKET(6)
+//           FECHA CIERRE(7) OBSERVACIONES(8) RESPUESTA(9)
+export async function fetchTickets(): Promise<TicketRecord[]> {
+  const rows = await fetchSheet('ASIGNACION_TICKET');
+  const result: TicketRecord[] = [];
+  let rowIndex = 2;
+
+  rows.forEach((row) => {
+    if (!row?.c?.length) { rowIndex++; return; }
+    const campana = cell(row, 0);
+    // Descarta fila vacía o encabezado que gviz devuelve por error en hojas vacías
+    if (!campana || campana.toUpperCase() === 'CAMPAÑA' || campana.toUpperCase() === 'CAMPANA') { rowIndex++; return; }
+    result.push({
+      rowIndex,
+      campana,
+      posicion: cell(row, 1),
+      fallaPuntual: cell(row, 2),
+      personaReporta: cell(row, 3),
+      numeroTicket: cell(row, 4),
+      fechaRealizacion: cell(row, 5),
+      personaCreaTicket: cell(row, 6),
+      fechaCierre: cell(row, 7),
+      observaciones: cell(row, 8),
+      respuesta: cell(row, 9),
+    });
+    rowIndex++;
+  });
+  console.log(`🎫 ASIGNACION_TICKET: ${result.length} tickets`);
   return result;
 }
 
@@ -106,11 +151,10 @@ export async function fetchSalasAdmins(): Promise<SalasAdminRecord[]> {
     const cargo = cell(row, 2);
     if (!documento) return;
 
-
     let rol: SalasRole = 'COORDINADOR';
     if (
-      documento === '52829724' || // Diana Maritza Perderos
-      documento === '1018509964'      // Sebastian Santos Polania
+      documento === '52829724' ||   // Diana Maritza Perderos
+      documento === '1018509964'    // Sebastian Santos Polania
     ) {
       rol = 'SUPER_ADMIN';
     }
@@ -136,7 +180,7 @@ async function gasPost(payload: object): Promise<void> {
   });
 }
 
-// Sala CRUD
+// ─── Sala CRUD ────────────────────────────────────────────────────────────────
 export async function createSala(sala: Omit<SalaRecord, 'rowIndex'>): Promise<void> {
   await gasPost({ action: 'createSala', data: sala });
 }
@@ -147,7 +191,7 @@ export async function deleteSala(rowIndex: number): Promise<void> {
   await gasPost({ action: 'deleteSala', rowIndex });
 }
 
-// Asignación CRUD
+// ─── Asignación CRUD ──────────────────────────────────────────────────────────
 export async function createAsignacion(a: Omit<AsignacionRecord, 'rowIndex'>): Promise<void> {
   await gasPost({ action: 'createAsignacion', data: a });
 }
@@ -156,4 +200,23 @@ export async function updateAsignacion(a: AsignacionRecord): Promise<void> {
 }
 export async function deleteAsignacion(rowIndex: number): Promise<void> {
   await gasPost({ action: 'deleteAsignacion', rowIndex });
+}
+export async function updateEstadoAsignacion(rowIndex: number, estado: string): Promise<void> {
+  await gasPost({ action: 'updateEstadoAsignacion', rowIndex, estado });
+}
+
+// ─── Ticket CRUD ──────────────────────────────────────────────────────────────
+export async function createTicket(t: Omit<TicketRecord, 'rowIndex'>): Promise<void> {
+  await gasPost({ action: 'createTicket', data: t });
+}
+export async function updateTicket(t: TicketRecord): Promise<void> {
+  await gasPost({ action: 'updateTicket', rowIndex: t.rowIndex, data: t });
+}
+/** Solo guarda la respuesta del admin — NO cierra el ticket (no toca fechaCierre) */
+export async function respondTicket(rowIndex: number, respuesta: string): Promise<void> {
+  await gasPost({ action: 'respondTicket', rowIndex, respuesta });
+}
+/** Cierra definitivamente el ticket (lo ejecuta otra área externa) */
+export async function closeTicket(rowIndex: number, respuesta: string): Promise<void> {
+  await gasPost({ action: 'closeTicket', rowIndex, respuesta });
 }

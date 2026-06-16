@@ -18,19 +18,37 @@ export interface AsignacionRecord {
   req: string;
   sala: string;
   sede: string;
-  formador: string;     // cedula o nombre del coordinador
+  formador: string;
   fechaInicial: string;
   fechaFin: string;
   horario: string;
   dPersonas: string;
+  estadoAsignacion: string;  // PENDIENTE | APROBADO | RECHAZADO
+  ticket: string;            // número de ticket si existe
+  estadoTicket: string;      // ABIERTO | CERRADO
 }
 
-// ─── Admin de salas (quien puede loguearse) ───────────────────────────────────
+// ─── Ticket de asignación ─────────────────────────────────────────────────────
+export interface TicketRecord {
+  rowIndex: number;
+  campana: string;
+  posicion: string;          // posición que presenta el error
+  fallaPuntual: string;
+  personaReporta: string;
+  numeroTicket: string;
+  fechaRealizacion: string;
+  personaCreaTicket: string;
+  fechaCierre: string;
+  observaciones: string;
+  respuesta: string;
+}
+
+// ─── Admin de salas ───────────────────────────────────────────────────────────
 export interface SalasAdminRecord {
-  documento: string;    // cédula
+  documento: string;
   nombre: string;
   cargo: string;
-  rol: SalasRole;       // derivado del cargo o campo extra
+  rol: SalasRole;
 }
 
 export type SalasRole = 'SUPER_ADMIN' | 'COORDINADOR' | null;

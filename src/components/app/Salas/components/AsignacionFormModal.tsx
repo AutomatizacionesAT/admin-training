@@ -1,34 +1,129 @@
-import { useState, useEffect } from 'react';
-import { X, Save, Loader2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { X, Save, Loader2, AlertTriangle } from 'lucide-react';
 import type { AsignacionRecord, SalaRecord } from '../utils/types';
+import { SALAS_USERS } from '@/context/AuthContext';
 
 interface Props {
   initial?: AsignacionRecord | null;
   salas: SalaRecord[];
+  /** Lista completa de asignaciones para detectar conflictos */
+  asignaciones?: AsignacionRecord[];
   onSave: (a: Omit<AsignacionRecord, 'rowIndex'>) => Promise<void>;
   onClose: () => void;
+  /** Si true, el botón dice "Enviar solicitud" y muestra info de modo coordinador */
+  modoSolicitud?: boolean;
+  /** Pre-rellena el campo formador con este nombre */
+  coordinadorDefault?: string;
+  /** Estado de guardado externo (para que el padre controle el spinner) */
+  saving?: boolean;
+}
+
+// ── Utilidades de fecha ───────────────────────────────────────────────────────
+
+/** Parsea múltiples formatos: YYYY-MM-DD, DD/MM/YYYY, YYYY/MM/DD, Date(YYYY,M,D) */
+function parseDate(raw: string): Date | null {
+  if (!raw) return null;
+
+  // Google Sheets serialized: Date(2026,5,11)
+  const gs = raw.match(/Date\((\d{4}),(\d+),(\d+)\)/);
+  if (gs) return new Date(+gs[1], +gs[2], +gs[3]);
+
+  // ISO YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw))
+    return new Date(raw + 'T00:00:00');
+
+  // DD/MM/YYYY o D/M/YYYY
+  const dmy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmy) return new Date(+dmy[3], +dmy[2] - 1, +dmy[1]);
+
+  // YYYY/MM/DD
+  const ymd = raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (ymd) return new Date(+ymd[1], +ymd[2] - 1, +ymd[3]);
+
+  const fallback = new Date(raw);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+/** Detecta si dos rangos [s1,e1] y [s2,e2] se superponen */
+function datesOverlap(s1: Date, e1: Date, s2: Date, e2: Date) {
+  return s1 <= e2 && s2 <= e1;
+}
+
+interface Conflicto {
+  campana: string;
+  formador: string;
+  estadoAsignacion: string;
+  fechaInicial: string;
+  fechaFin: string;
+}
+
+/**
+ * Retorna las asignaciones que colisionan con el formulario actual.
+ * Condición: misma sala + mismo horario + fechas superpuestas + estado PENDIENTE o APROBADO.
+ */
+function detectarConflictos(
+  form: Omit<AsignacionRecord, 'rowIndex'>,
+  todas: AsignacionRecord[],
+  editandoRowIndex?: number,
+): Conflicto[] {
+  if (!form.sala || !form.horario || !form.fechaInicial || !form.fechaFin) return [];
+
+  const newStart = parseDate(form.fechaInicial);
+  const newEnd = parseDate(form.fechaFin);
+  if (!newStart || !newEnd) return [];
+
+  return todas.filter(a => {
+    // Excluir el registro que se está editando
+    if (editandoRowIndex !== undefined && a.rowIndex === editandoRowIndex) return false;
+    // Excluir rechazadas
+    if (a.estadoAsignacion === 'RECHAZADO') return false;
+    // Misma sala + mismo horario
+    if (a.sala !== form.sala) return false;
+    if (a.horario !== form.horario) return false;
+    // Rango solapado
+    const existStart = parseDate(a.fechaInicial);
+    const existEnd = parseDate(a.fechaFin);
+    if (!existStart || !existEnd) return false;
+    return datesOverlap(newStart, newEnd, existStart, existEnd);
+  }).map(a => ({
+    campana: a.campana,
+    formador: a.formador,
+    estadoAsignacion: a.estadoAsignacion || 'APROBADO',
+    fechaInicial: a.fechaInicial,
+    fechaFin: a.fechaFin,
+  }));
 }
 
 const EMPTY: Omit<AsignacionRecord, 'rowIndex'> = {
   campana: '', req: '', sala: '', sede: '',
   formador: '', fechaInicial: '', fechaFin: '',
   horario: '', dPersonas: '',
+  estadoAsignacion: 'APROBADO', ticket: '', estadoTicket: '',
 };
+
+const inputCls = 'border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white w-full';
+const labelCls = 'text-xs font-semibold text-slate-600 uppercase tracking-wider';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{label}</label>
+      <label className={labelCls}>{label}</label>
       {children}
     </div>
   );
 }
 
-const inputCls = 'border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white';
-
-export default function AsignacionFormModal({ initial, salas, onSave, onClose }: Props) {
+export default function AsignacionFormModal({ initial, salas = [], asignaciones = [], onSave, onClose, modoSolicitud, coordinadorDefault, saving: savingExternal }: Props) {
   const [form, setForm] = useState<Omit<AsignacionRecord, 'rowIndex'>>(EMPTY);
-  const [saving, setSaving] = useState(false);
+  const [savingInternal, setSavingInternal] = useState(false);
+  const saving = savingExternal ?? savingInternal;
+
+  // Conflictos recalculados en tiempo real
+  const conflictos = useMemo(
+    () => detectarConflictos(form, asignaciones, initial?.rowIndex),
+    [form, asignaciones, initial?.rowIndex],
+  );
+  const hayConflicto = conflictos.length > 0;
 
   useEffect(() => {
     if (initial) {
@@ -36,38 +131,77 @@ export default function AsignacionFormModal({ initial, salas, onSave, onClose }:
       const { rowIndex: _r, ...rest } = initial;
       setForm(rest);
     } else {
-      setForm(EMPTY);
+      setForm({ ...EMPTY, formador: coordinadorDefault ?? '' });
     }
-  }, [initial]);
+  }, [initial, coordinadorDefault]);
 
   const set = (key: keyof typeof EMPTY, val: string) =>
     setForm(prev => ({ ...prev, [key]: val }));
 
-  // Auto-fill sede when selecting sala
+  // ── Sedes únicas (excluye cabeceras que gviz puede colar como datos) ────────
+  const HEADER_WORDS = new Set(['SEDE', 'SALA', 'TIPO', 'HORARIO', 'CAPACIDAD', 'EQUIPOS']);
+  const sedesUnicas = useMemo(() =>
+    [...new Set(salas.map(s => s.sede))]
+      .filter(s => Boolean(s) && !HEADER_WORDS.has(s.toUpperCase().trim()))
+      .sort(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [salas]
+  );
+
+  // ── Salas filtradas por sede (deduplicadas AM/PM) ──────────────────────────
+  const salasporSede = useMemo(() => {
+    if (!form.sede) return [];
+    const seen = new Set<string>();
+    return salas
+      .filter(s => s.sede === form.sede)
+      .filter(s => { if (seen.has(s.sala)) return false; seen.add(s.sala); return true; });
+  }, [salas, form.sede]);
+
+  // ── Horarios disponibles para la sala seleccionada ─────────────────────────
+  const horariosDisponibles = useMemo(() => {
+    if (!form.sala) return ['06:00 A 14:00', '14:00 A 22:00'];
+    return salas
+      .filter(s => s.sala === form.sala && s.horario)
+      .map(s => s.horario);
+  }, [salas, form.sala]);
+
+  // ── Coordinadores ──────────────────────────────────────────────────────────
+  const coordinadores = SALAS_USERS.filter(u => u.rol === 'COORDINADOR' || u.rol === 'SUPER_ADMIN');
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const handleSedeChange = (sede: string) => {
+    setForm(prev => ({ ...prev, sede, sala: '', horario: '' }));
+  };
+
   const handleSalaChange = (salaName: string) => {
-    set('sala', salaName);
-    const found = salas.find(s => s.sala === salaName);
-    if (found) set('sede', found.sede);
+    const found = salas.find(s => s.sala === salaName && s.sede === form.sede);
+    setForm(prev => ({ ...prev, sala: salaName, horario: found?.horario || '' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    if (!form.campana || !form.sede || !form.sala) return;
+    // Coordinadores no pueden enviar si hay conflicto
+    if (modoSolicitud && hayConflicto) return;
+    setSavingInternal(true);
     try { await onSave(form); }
-    finally { setSaving(false); }
+    finally { setSavingInternal(false); }
   };
-
-  const HORARIOS = ['06:00 A 14:00', '14:00 A 22:00'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="bg-linear-to-r from-emerald-600 to-teal-700 p-5 flex items-center justify-between shrink-0">
-          <h2 className="text-white font-bold text-lg">
-            {initial ? 'Editar Asignación' : 'Nueva Asignación'}
-          </h2>
+        <div className={`p-5 flex items-center justify-between shrink-0 ${modoSolicitud ? 'bg-linear-to-r from-blue-600 to-indigo-700' : 'bg-linear-to-r from-emerald-600 to-teal-700'}`}>
+          <div>
+            <h2 className="text-white font-bold text-lg">
+              {initial ? 'Editar Asignación' : modoSolicitud ? 'Solicitar Sala' : 'Nueva Asignación'}
+            </h2>
+            {modoSolicitud && (
+              <p className="text-blue-200 text-xs mt-0.5">La solicitud quedará pendiente hasta ser aprobada</p>
+            )}
+          </div>
           <button onClick={onClose} className="text-white/70 hover:text-white">
             <X className="w-5 h-5" />
           </button>
@@ -75,6 +209,8 @@ export default function AsignacionFormModal({ initial, salas, onSave, onClose }:
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+
+          {/* Campaña + REQ */}
           <Field label="Campaña">
             <input
               type="text"
@@ -95,36 +231,53 @@ export default function AsignacionFormModal({ initial, salas, onSave, onClose }:
             </Field>
           </div>
 
-          <Field label="Sala">
-            <select value={form.sala} onChange={e => handleSalaChange(e.target.value)} className={inputCls} required>
-              <option value="">Selecciona una sala...</option>
-              {salas.map((s, i) => (
-                <option key={i} value={s.sala}>{s.sede} — {s.sala}</option>
+          {/* 1. Sede primero */}
+          <Field label="Sede">
+            <select value={form.sede} onChange={e => handleSedeChange(e.target.value)} className={inputCls} required>
+              <option value="">Selecciona una sede...</option>
+              {sedesUnicas.map(s => (
+                <option key={s} value={s}>{s}</option>
               ))}
             </select>
           </Field>
 
-          <Field label="Sede (auto)">
-            <input type="text" value={form.sede} readOnly className={`${inputCls} bg-slate-50 text-slate-500`} placeholder="Se completa automáticamente" />
-          </Field>
-
-          <Field label="Formador / Coordinador">
-            <input
-              type="text"
-              value={form.formador}
-              onChange={e => set('formador', e.target.value)}
-              placeholder="Nombre o cédula del coordinador"
+          {/* 2. Sala filtrada por sede */}
+          <Field label="Sala">
+            <select
+              value={form.sala}
+              onChange={e => handleSalaChange(e.target.value)}
               className={inputCls}
-            />
-          </Field>
-
-          <Field label="Horario">
-            <select value={form.horario} onChange={e => set('horario', e.target.value)} className={inputCls}>
-              <option value="">Selecciona...</option>
-              {HORARIOS.map(h => <option key={h}>{h}</option>)}
+              disabled={!form.sede}
+              required
+            >
+              <option value="">{form.sede ? 'Selecciona una sala...' : 'Primero selecciona la sede'}</option>
+              {salasporSede.map((s, i) => (
+                <option key={i} value={s.sala}>{s.sala}</option>
+              ))}
             </select>
           </Field>
 
+          {/* 3. Horario (auto-poblado, pero editable) */}
+          <Field label="Horario">
+            <select value={form.horario} onChange={e => set('horario', e.target.value)} className={inputCls}>
+              <option value="">Selecciona horario...</option>
+              {horariosDisponibles.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+          </Field>
+
+          {/* 4. Coordinador dropdown */}
+          <Field label="Coordinador / Formador">
+            <select value={form.formador} onChange={e => set('formador', e.target.value)} className={inputCls}>
+              <option value="">Selecciona un coordinador...</option>
+              {coordinadores.map(c => (
+                <option key={c.documento} value={c.nombre}>
+                  {c.nombre} — {c.cargo}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          {/* Fechas */}
           <div className="grid grid-cols-2 gap-4">
             <Field label="Fecha Inicial">
               <input type="date" value={form.fechaInicial} onChange={e => set('fechaInicial', e.target.value)} className={inputCls} />
@@ -133,6 +286,41 @@ export default function AsignacionFormModal({ initial, salas, onSave, onClose }:
               <input type="date" value={form.fechaFin} onChange={e => set('fechaFin', e.target.value)} className={inputCls} />
             </Field>
           </div>
+
+          {/* ── Banner de conflictos ────────────────────────────────────────── */}
+          {hayConflicto && (
+            <div className={`rounded-xl border p-4 space-y-2 ${modoSolicitud ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className={`w-4 h-4 shrink-0 ${modoSolicitud ? 'text-red-500' : 'text-amber-500'}`} />
+                <p className={`text-sm font-bold ${modoSolicitud ? 'text-red-700' : 'text-amber-700'}`}>
+                  {modoSolicitud
+                    ? `Sala no disponible — ${conflictos.length} conflicto${conflictos.length > 1 ? 's' : ''} detectado${conflictos.length > 1 ? 's' : ''}`
+                    : `Advertencia — ${conflictos.length} conflicto${conflictos.length > 1 ? 's' : ''} (puedes continuar como admin)`}
+                </p>
+              </div>
+              <ul className="space-y-1.5 pl-6">
+                {conflictos.map((c, i) => (
+                  <li key={i} className={`text-xs ${modoSolicitud ? 'text-red-600' : 'text-amber-700'}`}>
+                    <span className="font-semibold">{c.campana || 'Sin campaña'}</span>
+                    {' '}— {c.formador || 'Sin formador'}
+                    {' '}·{' '}
+                    <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${c.estadoAsignacion === 'PENDIENTE'
+                        ? 'bg-amber-200 text-amber-800'
+                        : 'bg-emerald-200 text-emerald-800'
+                      }`}>
+                      {c.estadoAsignacion}
+                    </span>
+                    {' '}· {c.fechaInicial} → {c.fechaFin}
+                  </li>
+                ))}
+              </ul>
+              {modoSolicitud && (
+                <p className="text-xs text-red-500 pl-6">
+                  Cambia la sala, el horario o las fechas para evitar el conflicto.
+                </p>
+              )}
+            </div>
+          )}
         </form>
 
         {/* Footer */}
@@ -142,10 +330,20 @@ export default function AsignacionFormModal({ initial, salas, onSave, onClose }:
           </button>
           <button
             onClick={handleSubmit as unknown as React.MouseEventHandler}
-            disabled={saving}
-            className="flex-1 bg-linear-to-r from-emerald-600 to-teal-600 text-white rounded-xl py-2.5 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 hover:from-emerald-700 hover:to-teal-700 transition-all"
+            disabled={saving || !form.campana || !form.sede || !form.sala || (modoSolicitud && hayConflicto)}
+            className={`flex-1 rounded-xl py-2.5 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 transition-all text-white ${modoSolicitud && hayConflicto
+                ? 'bg-red-400 cursor-not-allowed'
+                : 'bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
+              }`}
           >
-            {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : <><Save className="w-4 h-4" /> Guardar</>}
+            {saving
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>
+              : modoSolicitud && hayConflicto
+                ? <><AlertTriangle className="w-4 h-4" /> Sala no disponible</>
+                : modoSolicitud
+                  ? 'Enviar solicitud'
+                  : <><Save className="w-4 h-4" /> Guardar</>
+            }
           </button>
         </div>
       </div>

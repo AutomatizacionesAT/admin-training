@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Users, Monitor, Tv2, Clock, MapPin, ClipboardList, Lock, RotateCcw, UserCheck, Sun, Moon } from 'lucide-react';
+import { Building2, Users, Monitor, Tv2, Clock, MapPin, ClipboardList, Lock, RotateCcw, UserCheck, Sun, Moon, ChevronDown, ChevronUp, Expand, Shrink } from 'lucide-react';
 import type { SalaRecord, AsignacionRecord } from '../utils/types';
 
 interface Props {
@@ -80,8 +80,182 @@ function KpiCard({ label, value, icon, color, sub, night }: KpiCardProps) {
   );
 }
 
+// ── Sede accordion section ────────────────────────────────────────────────────
+interface SedeAccordionProps {
+  sede: string;
+  salasSede: SalaRecord[];
+  isNight: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+function SedeAccordion({ sede, salasSede, isNight, isOpen, onToggle }: SedeAccordionProps) {
+  const color = getSedeColor(sede, isNight);
+  const exclusivas = salasSede.filter(s => s.tipo === 'EXCLUSIVA').length;
+  const rotativas = salasSede.filter(s => s.tipo === 'ROTATIVA').length;
+  const capacidad = salasSede.reduce((sum, s) => sum + (parseInt(s.capacidad) || 0), 0);
+  const conTablero = salasSede.filter(s => s.tablero === 'SI').length;
+  const conTv = salasSede.filter(s => s.tv === 'SI').length;
+  const headerBg = isNight ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200';
+  const subColor = 'text-slate-400';
+
+  return (
+    <section className={`rounded-2xl border overflow-hidden shadow-sm transition-all duration-300 ${headerBg}`}>
+      {/* Header clickeable */}
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center gap-4 px-5 py-4 transition-colors duration-200 ${
+          isNight ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50'
+        } ${isOpen ? (isNight ? 'border-b border-slate-700' : 'border-b border-slate-100') : ''}`}
+      >
+        {/* Badge sede */}
+        <div className={`w-10 h-10 ${color.badge} rounded-xl flex items-center justify-center shrink-0 shadow-sm`}>
+          <Building2 className="w-5 h-5 text-white" />
+        </div>
+
+        {/* Nombre + subtítulo */}
+        <div className="text-left min-w-0">
+          <h2 className={`text-base font-extrabold ${color.text} tracking-tight leading-tight`}>{sede}</h2>
+          <p className={`text-xs ${subColor} font-medium`}>
+            {salasSede.length} sala{salasSede.length !== 1 ? 's' : ''} · {capacidad} puestos
+          </p>
+        </div>
+
+        {/* Pills resumen */}
+        <div className="hidden sm:flex flex-wrap items-center gap-2 ml-4">
+          {exclusivas > 0 && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isNight ? 'bg-amber-900/50 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
+              <Lock className="w-2.5 h-2.5" /> {exclusivas} excl.
+            </span>
+          )}
+          {rotativas > 0 && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isNight ? 'bg-sky-900/50 text-sky-300' : 'bg-sky-100 text-sky-700'}`}>
+              <RotateCcw className="w-2.5 h-2.5" /> {rotativas} rot.
+            </span>
+          )}
+          {conTablero > 0 && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${isNight ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
+              <Monitor className="w-2.5 h-2.5" /> {conTablero}
+            </span>
+          )}
+          {conTv > 0 && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${isNight ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
+              <Tv2 className="w-2.5 h-2.5" /> {conTv}
+            </span>
+          )}
+        </div>
+
+        {/* Chips de salas cuando colapsado */}
+        {!isOpen && (
+          <div className="hidden lg:flex flex-wrap gap-1.5 ml-auto mr-3 max-w-xs">
+            {salasSede.slice(0, 4).map((s, i) => (
+              <span
+                key={i}
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg truncate max-w-[100px] ${color.bg} ${color.text} border ${color.border}`}
+                title={s.sala}
+              >
+                {s.sala.length > 16 ? s.sala.slice(0, 15) + '…' : s.sala}
+              </span>
+            ))}
+            {salasSede.length > 4 && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${isNight ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
+                +{salasSede.length - 4} más
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Chevron */}
+        <div className={`ml-auto shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isNight ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
+          {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </div>
+      </button>
+
+      {/* Contenido expandido */}
+      {isOpen && (
+        <div className={`p-5 ${isNight ? 'bg-slate-800/50' : 'bg-slate-50/50'}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {salasSede.map((sala, i) => (
+              <SalaCard key={`${sala.sala}-${i}`} sala={sala} sede={sede} isNight={isNight} />
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ── Tarjeta de sala ───────────────────────────────────────────────────────────
+interface SalaCardProps {
+  sala: SalaRecord;
+  sede: string;
+  isNight: boolean;
+}
+
+function SalaCard({ sala, sede, isNight }: SalaCardProps) {
+  const color = getSedeColor(sede, isNight);
+  const cardBg = isNight ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100';
+
+  return (
+    <div className={`${cardBg} border rounded-2xl p-5 hover:shadow-lg transition-all duration-200 group flex flex-col gap-3`}>
+      {/* Tipo + equipamiento */}
+      <div className="flex items-start justify-between gap-2">
+        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${
+          sala.tipo === 'EXCLUSIVA'
+            ? isNight ? 'bg-amber-900/60 text-amber-300' : 'bg-amber-100 text-amber-700'
+            : isNight ? 'bg-sky-900/60 text-sky-300' : 'bg-sky-100 text-sky-700'
+        }`}>
+          {sala.tipo || '—'}
+        </span>
+        <div className="flex gap-1.5">
+          {sala.tablero === 'SI' && (
+            <span title="Tablero" className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${isNight ? 'bg-slate-700' : 'bg-slate-100'}`}>
+              <Monitor className="w-3.5 h-3.5 text-indigo-400" />
+            </span>
+          )}
+          {sala.tv === 'SI' && (
+            <span title="TV" className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${isNight ? 'bg-slate-700' : 'bg-slate-100'}`}>
+              <Tv2 className="w-3.5 h-3.5 text-teal-400" />
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Nombre de sala */}
+      <h3 className={`font-bold text-sm ${color.text} leading-snug group-hover:underline`}>
+        {sala.sala || '—'}
+      </h3>
+
+      {/* Detalles */}
+      <div className="space-y-1.5 mt-auto">
+        <div className="flex items-center gap-2">
+          <Users className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+          <span className={`text-xs ${color.text}`}>
+            <span className="font-bold">{sala.capacidad}</span> puestos
+            {sala.equipos && sala.equipos !== sala.capacidad && (
+              <span className="opacity-60"> · {sala.equipos} equipos</span>
+            )}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Clock className={`w-3.5 h-3.5 shrink-0 ${isNight ? 'text-indigo-400' : 'text-amber-400'}`} />
+          <span className={`text-xs font-medium ${isNight ? 'text-indigo-300' : 'text-amber-700'}`}>{sala.horario || '—'}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+          <span className={`text-xs ${color.text} opacity-70`}>{sede}</span>
+        </div>
+      </div>
+
+      {/* Barra decorativa de color sede */}
+      <div className={`h-1 w-full rounded-full ${color.bar} opacity-30 group-hover:opacity-70 transition-opacity`} />
+    </div>
+  );
+}
+
 export default function PublicView({ salas, asignaciones }: Props) {
   const [turno, setTurno] = useState<Turno>('AM');
+  const [expandedSedes, setExpandedSedes] = useState<Record<string, boolean>>({});
 
   const isNight = turno === 'PM';
   const isGlobal = turno === 'ALL';
@@ -113,6 +287,16 @@ export default function PublicView({ salas, asignaciones }: Props) {
   const coordinadores = new Set(asigFiltradas.map(a => a.formador).filter(Boolean)).size;
   const sedesActivas = Object.keys(groupedGlobal).filter(s => s !== 'SIN SEDE').length;
   const sedeEntries = [...Object.entries(groupedGlobal)].sort((a, b) => b[1].length - a[1].length);
+  const catalogoSedes = Object.keys(grouped);
+
+  const toggleSede = (sede: string) =>
+    setExpandedSedes(prev => ({ ...prev, [sede]: !prev[sede] }));
+
+  const expandAll = () =>
+    setExpandedSedes(Object.fromEntries(catalogoSedes.map(s => [s, true])));
+
+  const collapseAll = () =>
+    setExpandedSedes(Object.fromEntries(catalogoSedes.map(s => [s, false])));
 
   // ── colores del tema ────────────────────────────────────────────────────────
   const cardBg = isNight ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100';
@@ -295,85 +479,60 @@ export default function PublicView({ salas, asignaciones }: Props) {
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="flex items-center gap-3">
-        <div className={`h-px flex-1 ${divColor}`} />
-        <span className={`text-xs font-bold ${divText} uppercase tracking-widest`}>Catálogo de salas</span>
-        <div className={`h-px flex-1 ${divColor}`} />
-      </div>
-
       {/* ── CATÁLOGO POR SEDE ─────────────────────────────────────────────── */}
-      {(Object.entries(grouped) as [string, SalaRecord[]][]).map(([sede, salasSede]) => {
-        const color = getSedeColor(sede, isNight);
-        return (
-          <section key={sede}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`w-10 h-10 ${color.badge} rounded-xl flex items-center justify-center shadow-sm`}>
-                <Building2 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className={`text-xl font-extrabold ${color.text} tracking-tight`}>{sede}</h2>
-                <p className={`text-xs ${subColor} font-medium`}>{salasSede.length} sala{salasSede.length !== 1 ? 's' : ''} disponible{salasSede.length !== 1 ? 's' : ''}</p>
-              </div>
-              <div className={`ml-auto h-px flex-1 ${color.border} border-t`} />
-            </div>
+      <div>
+        {/* Header del catálogo + botones de control */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`h-px flex-1 ${divColor}`} />
+          <span className={`text-xs font-bold ${divText} uppercase tracking-widest`}>Catálogo de salas</span>
+          <div className={`h-px flex-1 ${divColor}`} />
+        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {salasSede.map((sala, i) => (
-                <div
-                  key={`${sala.sala}-${i}`}
-                  className={`${color.bg} ${color.border} border rounded-2xl p-5 hover:shadow-lg transition-all duration-200 group`}
-                >
-                  <div className="flex items-start justify-between mb-3 gap-2">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${sala.tipo === 'EXCLUSIVA'
-                      ? isNight ? 'bg-amber-900/60 text-amber-300' : 'bg-amber-100 text-amber-700'
-                      : isNight ? 'bg-sky-900/60 text-sky-300' : 'bg-sky-100 text-sky-700'
-                      }`}>
-                      {sala.tipo || '—'}
-                    </span>
-                    <div className="flex gap-1.5">
-                      {sala.tablero === 'SI' && (
-                        <span title="Tablero" className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${isNight ? 'bg-slate-700' : 'bg-white/80'}`}>
-                          <Monitor className="w-3.5 h-3.5 text-slate-500" />
-                        </span>
-                      )}
-                      {sala.tv === 'SI' && (
-                        <span title="TV" className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${isNight ? 'bg-slate-700' : 'bg-white/80'}`}>
-                          <Tv2 className="w-3.5 h-3.5 text-slate-500" />
-                        </span>
-                      )}
-                    </div>
-                  </div>
+        {/* Botones expandir/colapsar todo */}
+        <div className="flex items-center justify-between mb-3">
+          <p className={`text-xs ${divText}`}>
+            {catalogoSedes.length} sede{catalogoSedes.length !== 1 ? 's' : ''} · {salasFiltradas.length} sala{salasFiltradas.length !== 1 ? 's' : ''}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={expandAll}
+              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                isNight
+                  ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Expand className="w-3 h-3" />
+              Expandir todo
+            </button>
+            <button
+              onClick={collapseAll}
+              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                isNight
+                  ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Shrink className="w-3 h-3" />
+              Colapsar todo
+            </button>
+          </div>
+        </div>
 
-                  <h3 className={`font-bold text-sm ${color.text} leading-snug mb-3 group-hover:underline`}>
-                    {sala.sala || '—'}
-                  </h3>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                      <span className={`text-xs ${color.text}`}>
-                        <span className="font-bold">{sala.capacidad}</span> puestos
-                        {sala.equipos && sala.equipos !== sala.capacidad && (
-                          <span className="opacity-60"> · {sala.equipos} equipos</span>
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className={`w-3.5 h-3.5 shrink-0 ${isNight ? 'text-indigo-400' : 'text-amber-400'}`} />
-                      <span className={`text-xs font-medium ${isNight ? 'text-indigo-300' : 'text-amber-700'}`}>{sala.horario || '—'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                      <span className={`text-xs ${color.text} opacity-70`}>{sede}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        );
-      })}
+        {/* Acordeones por sede */}
+        <div className="space-y-3">
+          {(Object.entries(grouped) as [string, SalaRecord[]][]).map(([sede, salasSede]) => (
+            <SedeAccordion
+              key={sede}
+              sede={sede}
+              salasSede={salasSede}
+              isNight={isNight}
+              isOpen={!!expandedSedes[sede]}
+              onToggle={() => toggleSede(sede)}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
