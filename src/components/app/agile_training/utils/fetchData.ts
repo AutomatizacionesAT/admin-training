@@ -43,7 +43,7 @@ function parsePercent(cell: GvizCell | null | undefined): number {
   }
 
   if (typeof cell.v === 'number') {
-    if (cell.v >= 0 && cell.v <= 1) {
+    if (cell.v >= 0 && cell.v <= 10) {
       return Number((cell.v * 100).toFixed(2));
     }
     return Number(cell.v.toFixed(2));

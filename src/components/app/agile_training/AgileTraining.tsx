@@ -36,16 +36,20 @@ type MultiSelectProps = {
 
 type FilterSelectProps = {
   label: string;
-  value: string;
   options: string[];
-  defaultLabel: string;
-  onChange: (value: string) => void;
+  selected: string[];
+  onToggle: (value: string) => void;
   onClear: () => void;
 };
 
+type StatTileProps = {
+  label: string;
+  value: number;
+  icon: typeof BriefcaseBusiness;
+  accentClass: string;
+};
+
 type DetailSectionProps = {
-  title: string;
-  percent: number;
   items: Array<{ label: string; value: string }>;
 };
 
@@ -174,15 +178,15 @@ function formatPossiblePercent(value: string): string {
   return value;
 }
 
-function StatCard({ label, value, icon: Icon }: { label: string; value: number; icon: typeof BriefcaseBusiness }) {
+function StatCard({ label, value, icon: Icon, accentClass }: StatTileProps) {
   return (
-    <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-sm">
+    <div className={`rounded-2xl p-4 ${accentClass}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-100">{label}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em]">{label}</p>
           <p className="mt-2 text-3xl font-black">{value}</p>
         </div>
-        <Icon className="h-5 w-5 text-blue-100" />
+        <Icon className="h-5 w-5" />
       </div>
     </div>
   );
@@ -212,6 +216,7 @@ function MultiSelectFilter({ label, placeholder, options, selected, onToggle, on
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -237,8 +242,14 @@ function MultiSelectFilter({ label, placeholder, options, selected, onToggle, on
   return (
     <div ref={containerRef} className="relative">
       <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      <div className="relative rounded-2xl border border-slate-200 bg-white shadow-sm transition focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
-        <div className="flex min-h-12 flex-wrap items-center gap-2 px-3 py-2 pr-12">
+      <div
+        className="relative rounded-2xl border border-slate-200 bg-white shadow-sm transition focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 hover:cursor-pointer hover:border-blue-400 hover:shadow-md"
+        onClick={() => {
+          setOpen(true);
+          inputRef.current?.focus();
+        }}
+      >
+        <div className="flex min-h-12 flex-wrap items-center gap-2 px-3 py-2">
           {selected.map((value) => (
             <button
               key={value}
@@ -251,6 +262,7 @@ function MultiSelectFilter({ label, placeholder, options, selected, onToggle, on
             </button>
           ))}
           <input
+            ref={inputRef}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -258,7 +270,7 @@ function MultiSelectFilter({ label, placeholder, options, selected, onToggle, on
             }}
             onFocus={() => setOpen(true)}
             placeholder={selected.length === 0 ? placeholder : 'Agregar otro'}
-            className="min-w-[140px] flex-1 border-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+            className="w-full flex-1 border-none bg-transparent pr-6 text-sm text-slate-800 outline-none placeholder:text-slate-400"
             list={undefined}
           />
         </div>
@@ -268,7 +280,7 @@ function MultiSelectFilter({ label, placeholder, options, selected, onToggle, on
             type="button"
             onClick={onClear}
             title="Limpiar filtro"
-            className="absolute right-10 top-2.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
+            className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -305,51 +317,25 @@ function MultiSelectFilter({ label, placeholder, options, selected, onToggle, on
   );
 }
 
-function FilterSelect({ label, value, options, defaultLabel, onChange, onClear }: FilterSelectProps) {
-  const getOptionLabel = (option: string) => {
-    if (option === 'below') return 'Debajo de meta';
-    if (option === 'met') return 'En meta';
-    if (option === 'over') return 'Sobrecumplido';
-    return option;
-  };
-
+function FilterSelect({ label, options, selected, onToggle, onClear }: FilterSelectProps) {
   return (
     <div className="relative">
       <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-3 pr-12 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-      >
-        <option value="">{defaultLabel}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>{getOptionLabel(option)}</option>
-        ))}
-      </select>
-      {value ? (
-        <button
-          type="button"
-          onClick={onClear}
-          title="Limpiar filtro"
-          className="absolute right-3 top-[34px] inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      ) : null}
+      <MultiSelectFilter
+        label=""
+        placeholder={`Selecciona ${label.toLowerCase()}`}
+        options={options}
+        selected={selected}
+        onToggle={onToggle}
+        onClear={onClear}
+      />
     </div>
   );
 }
 
-function DetailSection({ title, percent, items }: DetailSectionProps) {
+function DetailSection({ items }: DetailSectionProps) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Punto de lanzamiento</p>
-          <h3 className="mt-1 text-lg font-bold text-slate-900">{title}</h3>
-        </div>
-        <span className="text-lg font-black text-slate-900">{formatPercent(percent)}</span>
-      </div>
+    <div className="border-t border-slate-100 p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         {items.map((item) => (
           <div key={item.label} className="rounded-xl bg-slate-50 p-3">
@@ -425,15 +411,20 @@ export default function AgileTraining() {
   const [activeTab, setActiveTab] = useState<'resumen' | 'campanas'>('resumen');
   const [selectedCoordinadores, setSelectedCoordinadores] = useState<string[]>([]);
   const [selectedCampanas, setSelectedCampanas] = useState<string[]>([]);
-  const [selectedIndustria, setSelectedIndustria] = useState('');
-  const [selectedEstado, setSelectedEstado] = useState('');
-  const [selectedInsignia, setSelectedInsignia] = useState('');
-  const [selectedPerformance, setSelectedPerformance] = useState('');
+  const [selectedIndustrias, setSelectedIndustrias] = useState<string[]>([]);
+  const [selectedEstados, setSelectedEstados] = useState<string[]>([]);
+  const [selectedInsignias, setSelectedInsignias] = useState<string[]>([]);
   const [sortField, setSortField] = useState<AgileSortField>('cumplimientoPct');
   const [sortOrder, setSortOrder] = useState<AgileSortOrder>('desc');
   const [summaryOrder, setSummaryOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const [estadoModal, setEstadoModal] = useState<ModalState>(null);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    lanzamiento1: false,
+    lanzamiento2: false,
+    lanzamiento3: false,
+    piloto: false,
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -460,7 +451,7 @@ export default function AgileTraining() {
     left.length === right.length && left.every((value, index) => value === right[index])
   );
 
-  const applyRowFilters = useCallback((row: AgileTrainingRow, skip: Array<'coordinadores' | 'campanas' | 'industria' | 'estado' | 'insignia' | 'performance' | 'search'> = []) => {
+  const applyRowFilters = useCallback((row: AgileTrainingRow, skip: Array<'coordinadores' | 'campanas' | 'industria' | 'estado' | 'insignia'> = []) => {
     if (!skip.includes('coordinadores') && selectedCoordinadores.length > 0 && !selectedCoordinadores.includes(row.coordinador)) {
       return false;
     }
@@ -469,26 +460,20 @@ export default function AgileTraining() {
       return false;
     }
 
-    if (!skip.includes('industria') && selectedIndustria && row.industria !== selectedIndustria) {
+    if (!skip.includes('industria') && selectedIndustrias.length > 0 && !selectedIndustrias.includes(row.industria)) {
       return false;
     }
 
-    if (!skip.includes('estado') && selectedEstado && row.estado !== selectedEstado) {
+    if (!skip.includes('estado') && selectedEstados.length > 0 && !selectedEstados.includes(row.estado)) {
       return false;
     }
 
-    if (!skip.includes('insignia') && selectedInsignia && row.insignia !== selectedInsignia) {
+    if (!skip.includes('insignia') && selectedInsignias.length > 0 && !selectedInsignias.includes(row.insignia)) {
       return false;
-    }
-
-    if (!skip.includes('performance')) {
-      if (selectedPerformance === 'below' && row.cumplimientoPct >= 100) return false;
-      if (selectedPerformance === 'met' && (row.cumplimientoPct < 100 || row.cumplimientoPct > 120)) return false;
-      if (selectedPerformance === 'over' && row.cumplimientoPct <= 120) return false;
     }
 
     return true;
-  }, [selectedCampanas, selectedCoordinadores, selectedEstado, selectedIndustria, selectedInsignia, selectedPerformance]);
+  }, [selectedCampanas, selectedCoordinadores, selectedEstados, selectedIndustrias, selectedInsignias]);
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => applyRowFilters(row)).sort((a, b) => compareRows(a, b, sortField, sortOrder));
@@ -529,16 +514,25 @@ export default function AgileTraining() {
   }, [availableCampanas]);
 
   useEffect(() => {
-    if (selectedIndustria && !availableIndustrias.includes(selectedIndustria)) setSelectedIndustria('');
-  }, [availableIndustrias, selectedIndustria]);
+    setSelectedIndustrias((current) => {
+      const next = current.filter((value) => availableIndustrias.includes(value));
+      return sameArray(current, next) ? current : next;
+    });
+  }, [availableIndustrias]);
 
   useEffect(() => {
-    if (selectedEstado && !availableEstados.includes(selectedEstado)) setSelectedEstado('');
-  }, [availableEstados, selectedEstado]);
+    setSelectedEstados((current) => {
+      const next = current.filter((value) => availableEstados.includes(value));
+      return sameArray(current, next) ? current : next;
+    });
+  }, [availableEstados]);
 
   useEffect(() => {
-    if (selectedInsignia && !availableInsignias.includes(selectedInsignia)) setSelectedInsignia('');
-  }, [availableInsignias, selectedInsignia]);
+    setSelectedInsignias((current) => {
+      const next = current.filter((value) => availableInsignias.includes(value));
+      return sameArray(current, next) ? current : next;
+    });
+  }, [availableInsignias]);
 
   useEffect(() => {
     if (filteredRows.length === 0) {
@@ -577,10 +571,9 @@ export default function AgileTraining() {
   const clearAllFilters = () => {
     setSelectedCoordinadores([]);
     setSelectedCampanas([]);
-    setSelectedIndustria('');
-    setSelectedEstado('');
-    setSelectedInsignia('');
-    setSelectedPerformance('');
+    setSelectedIndustrias([]);
+    setSelectedEstados([]);
+    setSelectedInsignias([]);
   };
 
   const selectedLaunchItems = selectedRow
@@ -617,7 +610,7 @@ export default function AgileTraining() {
     : [];
 
   const multipleCampaigns = filteredRows.length > 1;
-  const hasActiveFilters = selectedCoordinadores.length > 0 || selectedCampanas.length > 0 || !!selectedIndustria || !!selectedEstado || !!selectedInsignia || !!selectedPerformance;
+  const hasActiveFilters = selectedCoordinadores.length > 0 || selectedCampanas.length > 0 || selectedIndustrias.length > 0 || selectedEstados.length > 0 || selectedInsignias.length > 0;
 
   const handleSelectCampaignFromModal = useCallback((campana: string) => {
     setSelectedCampaign(campana);
@@ -646,10 +639,10 @@ export default function AgileTraining() {
 
               <div className="rounded-3xl bg-white/6 p-3 ring-1 ring-white/10 lg:w-[420px]">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <StatCard label="Campañas" value={rows.length} icon={BriefcaseBusiness} />
-                  <StatCard label="Finalizadas" value={globalKpis.finalizadas} icon={Target} />
-                  <StatCard label="En progreso" value={globalKpis.enProgreso} icon={Activity} />
-                  <StatCard label="Con novedad" value={globalKpis.novedad} icon={AlertCircle} />
+                  <StatCard label="Campañas" value={rows.length} icon={BriefcaseBusiness} accentClass="bg-blue-500/15 text-blue-50 ring-1 ring-blue-200/20 backdrop-blur-sm" />
+                  <StatCard label="Finalizadas" value={globalKpis.finalizadas} icon={Target} accentClass="bg-emerald-500/15 text-emerald-50 ring-1 ring-emerald-200/20 backdrop-blur-sm" />
+                  <StatCard label="En progreso" value={globalKpis.enProgreso} icon={Activity} accentClass="bg-amber-500/15 text-amber-50 ring-1 ring-amber-200/20 backdrop-blur-sm" />
+                  <StatCard label="Con novedad" value={globalKpis.novedad} icon={AlertCircle} accentClass="bg-violet-500/15 text-violet-50 ring-1 ring-violet-200/20 backdrop-blur-sm" />
                 </div>
               </div>
             </div>
@@ -693,7 +686,7 @@ export default function AgileTraining() {
             </div>
 
             <div className="border-b border-slate-100 px-4 py-4 lg:px-6">
-              <div className="grid gap-4 xl:grid-cols-[1.2fr_1.2fr_repeat(4,minmax(0,0.9fr))]">
+              <div className="grid gap-4 xl:grid-cols-[1.2fr_1.2fr_repeat(3,minmax(0,0.9fr))]">
                 <MultiSelectFilter
                   label="Coordinador"
                   placeholder="Escribe o selecciona"
@@ -712,10 +705,9 @@ export default function AgileTraining() {
                   onClear={() => setSelectedCampanas([])}
                 />
 
-                <FilterSelect label="Industria" value={selectedIndustria} options={availableIndustrias} defaultLabel="Todas las industrias" onChange={setSelectedIndustria} onClear={() => setSelectedIndustria('')} />
-                <FilterSelect label="Insignia" value={selectedInsignia} options={availableInsignias} defaultLabel="Todas las insignias" onChange={setSelectedInsignia} onClear={() => setSelectedInsignia('')} />
-                <FilterSelect label="Estado" value={selectedEstado} options={availableEstados} defaultLabel="Todos los estados" onChange={setSelectedEstado} onClear={() => setSelectedEstado('')} />
-                <FilterSelect label="Cumplimiento" value={selectedPerformance} options={['below', 'met', 'over']} defaultLabel="Todo el cumplimiento" onChange={setSelectedPerformance} onClear={() => setSelectedPerformance('')} />
+                <FilterSelect label="Industria" options={availableIndustrias} selected={selectedIndustrias} onToggle={(value) => setSelectedIndustrias((current) => toggleMultiValue(current, value))} onClear={() => setSelectedIndustrias([])} />
+                <FilterSelect label="Insignia" options={availableInsignias} selected={selectedInsignias} onToggle={(value) => setSelectedInsignias((current) => toggleMultiValue(current, value))} onClear={() => setSelectedInsignias([])} />
+                <FilterSelect label="Estado" options={availableEstados} selected={selectedEstados} onToggle={(value) => setSelectedEstados((current) => toggleMultiValue(current, value))} onClear={() => setSelectedEstados([])} />
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -761,21 +753,21 @@ export default function AgileTraining() {
             ) : activeTab === 'resumen' ? (
               <div className="space-y-6 px-4 py-6 lg:px-6">
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Campañas visibles</p>
-                    <p className="mt-3 text-3xl font-black text-slate-900">{filteredRows.length}</p>
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-blue-900">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-500">Campañas visibles</p>
+                    <p className="mt-3 text-3xl font-black">{filteredRows.length}</p>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Finalizadas</p>
-                    <p className="mt-3 text-3xl font-black text-slate-900">{filteredKpis.finalizadas}</p>
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-500">Finalizadas</p>
+                    <p className="mt-3 text-3xl font-black">{filteredKpis.finalizadas}</p>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">En progreso</p>
-                    <p className="mt-3 text-3xl font-black text-slate-900">{filteredKpis.enProgreso}</p>
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-500">En progreso</p>
+                    <p className="mt-3 text-3xl font-black">{filteredKpis.enProgreso}</p>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Con novedad</p>
-                    <p className="mt-3 text-3xl font-black text-slate-900">{filteredKpis.novedad}</p>
+                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5 text-violet-900">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-500">Con novedad</p>
+                    <p className="mt-3 text-3xl font-black">{filteredKpis.novedad}</p>
                   </div>
                 </div>
 
@@ -959,19 +951,59 @@ export default function AgileTraining() {
                       </section>
 
                       <section className="space-y-4">
-                        {selectedLaunchItems.map((section) => (
-                          <DetailSection key={section.title} title={section.title} percent={section.percent} items={section.items} />
-                        ))}
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Fase</p>
+                          <h3 className="mt-1 text-lg font-bold text-slate-900">Implementaci&oacute;n</h3>
+                        </div>
 
-                        <DetailSection
-                          title="Piloto"
-                          percent={selectedRow.pilotoPct}
-                          items={[
-                            { label: 'PPT Lanzamiento', value: selectedRow.pptLanzamiento },
-                            { label: 'Graduación OJT', value: selectedRow.graduacionOjt },
-                            { label: 'Resultados', value: selectedRow.resultados },
-                          ]}
-                        />
+                        {selectedLaunchItems.map((section, index) => {
+                          const key = `lanzamiento${index + 1}`;
+                          const isOpen = openSections[key];
+                          return (
+                            <div key={section.title} className="rounded-2xl border border-slate-200 bg-white">
+                              <button
+                                type="button"
+                                onClick={() => setOpenSections((current) => ({ ...current, [key]: !current[key] }))}
+                                className="flex w-full items-center justify-between gap-4 p-4 text-left"
+                              >
+                                <h3 className="text-lg font-bold text-slate-900">{section.title}</h3>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-lg font-black text-slate-900">{formatPercent(section.percent)}</span>
+                                  <span className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}><ArrowDownWideNarrow className="h-4 w-4 text-slate-400" /></span>
+                                </div>
+                              </button>
+                              {isOpen ? <DetailSection items={section.items} /> : null}
+                            </div>
+                          );
+                        })}
+
+                        <div className="pt-2">
+                          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Fase</p>
+                          <h3 className="mt-1 text-lg font-bold text-slate-900">Lanzamiento</h3>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white">
+                          <button
+                            type="button"
+                            onClick={() => setOpenSections((current) => ({ ...current, piloto: !current.piloto }))}
+                            className="flex w-full items-center justify-between gap-4 p-4 text-left"
+                          >
+                            <h3 className="text-lg font-bold text-slate-900">Piloto</h3>
+                            <div className="flex items-center gap-3">
+                              <span className="text-lg font-black text-slate-900">{formatPercent(selectedRow.pilotoPct)}</span>
+                              <span className={`transition-transform ${openSections.piloto ? 'rotate-180' : ''}`}><ArrowDownWideNarrow className="h-4 w-4 text-slate-400" /></span>
+                            </div>
+                          </button>
+                          {openSections.piloto ? (
+                            <DetailSection
+                              items={[
+                                { label: 'PPT Lanzamiento', value: selectedRow.pptLanzamiento },
+                                { label: 'Graduación OJT', value: selectedRow.graduacionOjt },
+                                { label: 'Resultados', value: selectedRow.resultados },
+                              ]}
+                            />
+                          ) : null}
+                        </div>
                       </section>
                     </>
                   ) : null}
