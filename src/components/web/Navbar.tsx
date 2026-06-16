@@ -38,6 +38,7 @@ export default function Navbar() {
     { name: "Usabilidad Web", path: "/usabilidad-web-training" },
     { name: "Biométrico", path: "/informe-biometrico" },
     { name: "Salas", path: "/salas" },
+    { name: "Agile Training", path: "/agile-training" },
   ];
 
   return (
