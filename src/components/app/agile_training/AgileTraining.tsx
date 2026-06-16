@@ -61,23 +61,25 @@ function normalizeText(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function getBadgeClasses(tone: 'blue' | 'green' | 'amber' | 'slate' | 'violet' | 'rose') {
+function getBadgeClasses(tone: 'blue' | 'green' | 'amber' | 'slate' | 'violet' | 'rose' | 'brown') {
   const tones = {
     blue: 'bg-blue-50 text-blue-700 ring-blue-200',
     green: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    amber: 'bg-amber-50 text-amber-700 ring-amber-200',
+    amber: 'bg-amber-100 text-amber-700 ring-amber-200',
     slate: 'bg-slate-100 text-slate-700 ring-slate-200',
     violet: 'bg-violet-50 text-violet-700 ring-violet-200',
     rose: 'bg-rose-50 text-rose-700 ring-rose-200',
+    brown: 'bg-stone-200 text-stone-700 ring-stone-300',
   };
 
   return tones[tone];
 }
 
-function getInsigniaTone(insignia: string): 'amber' | 'slate' | 'blue' {
+function getInsigniaTone(insignia: string): 'amber' | 'slate' | 'blue' | 'brown' {
   const normalized = normalizeText(insignia);
   if (normalized.includes('oro')) return 'amber';
   if (normalized.includes('plata')) return 'blue';
+  if (normalized.includes('bronce')) return 'brown';
   return 'slate';
 }
 
@@ -164,7 +166,7 @@ function formatDisplayDate(raw: string, iso: string): string {
     return date.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  if (!raw) return 'Sin fecha';
+  if (!raw) return 'PENDIENTE';
   return raw.replace('T05:00:00.000Z', '');
 }
 
@@ -373,7 +375,7 @@ function EstadoModal({ modal, onClose, onSelectCampaign }: { modal: ModalState; 
             </span>
             <p className="mt-1 text-sm text-slate-500">{modal.rows.length} campañas con este estado según los filtros actuales.</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900">
+          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 hover:cursor-pointer hover:scale-110">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -389,7 +391,7 @@ function EstadoModal({ modal, onClose, onSelectCampaign }: { modal: ModalState; 
                   <button
                     type="button"
                     onClick={() => onSelectCampaign(row.campana)}
-                    className="text-sm font-semibold text-blue-600 transition hover:text-blue-700"
+                    className="text-sm font-semibold text-blue-600 transition hover:text-blue-700 hover:cursor-pointer hover:underline"
                   >
                     Ver m&aacute;s..
                   </button>
@@ -662,7 +664,7 @@ export default function AgileTraining() {
                       key={tab.id}
                       type="button"
                       onClick={() => setActiveTab(tab.id as 'resumen' | 'campanas')}
-                      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      className={`inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-700 hover:cursor-pointer hover:border-slate-300'}`}
                     >
                       <Icon className="h-4 w-4" />
                       {tab.label}
@@ -677,7 +679,7 @@ export default function AgileTraining() {
                   type="button"
                   onClick={loadData}
                   disabled={loading}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 hover:cursor-pointer hover:border-slate-300"
                 >
                   <LoaderCircle className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                   Actualizar
@@ -788,7 +790,7 @@ export default function AgileTraining() {
                         </div>
                         <Activity className="h-5 w-5 text-slate-400" />
                       </div>
-                    <div className="mt-6 space-y-3">
+                    <div className="mt-6 max-h-[520px] space-y-3 overflow-y-auto pr-1">
                       {stateSummary.map(([estado, estadoRows]) => (
                         <button
                           key={estado}
@@ -817,9 +819,8 @@ export default function AgileTraining() {
                       {multipleCampaigns ? (
                         <button
                           type="button"
-                          title="Ordenar cumplimiento"
                           onClick={() => setSummaryOrder((current) => (current === 'asc' ? 'desc' : 'asc'))}
-                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:cursor-pointer hover:border-slate-300"
                         >
                           {summaryOrder === 'desc' ? <ArrowDownWideNarrow className="h-4 w-4" /> : <ArrowUpNarrowWide className="h-4 w-4" />}
                           {summaryOrder === 'desc' ? 'Mayor a menor' : 'Menor a mayor'}
@@ -858,7 +859,7 @@ export default function AgileTraining() {
                       <h2 className="text-xl font-bold text-slate-900">Vista por campaña</h2>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                      <select value={sortField} onChange={(event) => setSortField(event.target.value as AgileSortField)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+                      <select value={sortField} onChange={(event) => setSortField(event.target.value as AgileSortField)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 hover:cursor-pointer hover:border-slate-300">
                         <option value="cumplimientoPct">Cumplimiento</option>
                         <option value="avancePct">Avance</option>
                         <option value="fechaFinISO">Fecha fin</option>
@@ -866,14 +867,14 @@ export default function AgileTraining() {
                         <option value="coordinador">Coordinador</option>
                         <option value="pilotoPct">Piloto</option>
                       </select>
-                      <button type="button" onClick={() => setSortOrder((current) => (current === 'asc' ? 'desc' : 'asc'))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                      <button type="button" onClick={() => setSortOrder((current) => (current === 'asc' ? 'desc' : 'asc'))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:cursor-pointer hover:border-slate-300">
                         {sortOrder === 'desc' ? <ArrowDownWideNarrow className="h-4 w-4" /> : <ArrowUpNarrowWide className="h-4 w-4" />}
                         {sortOrder === 'desc' ? 'Mayor a menor' : 'Menor a mayor'}
                       </button>
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  <div className="max-h-[520px] overflow-auto">
                     <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
                       <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
                         <tr>
@@ -889,7 +890,7 @@ export default function AgileTraining() {
                         {filteredRows.map((row) => {
                           const active = selectedRow?.campana === row.campana;
                           return (
-                            <tr key={row.campana} className={`cursor-pointer transition ${active ? 'bg-blue-50/60' : 'hover:bg-slate-50'}`} onClick={() => setSelectedCampaign(row.campana)}>
+                            <tr key={row.campana} className={`cursor-pointer transition ${active ? 'bg-blue-100' : 'hover:bg-slate-50'}`} onClick={() => setSelectedCampaign(row.campana)}>
                               <td className="px-4 py-4 align-top">
                                 <div>
                                   <p className="font-semibold text-slate-900">{row.campana}</p>
@@ -909,11 +910,12 @@ export default function AgileTraining() {
                   </div>
                 </section>
 
-                <aside className="space-y-5">
+                <aside className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   {selectedRow ? (
                     <>
-                      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="flex items-start justify-between gap-4">
+                      <section className="">
+
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-300 px-6 py-5">
                           <div>
                             <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Detalle de campaña</p>
                             <h2 className="mt-2 text-2xl font-bold text-slate-900">{selectedRow.campana}</h2>
@@ -925,85 +927,91 @@ export default function AgileTraining() {
                           </span>
                         </div>
 
-                        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Cumplimiento</p>
-                          <p className={`mt-2 text-4xl font-black ${getCumplimientoTextClass(selectedRow.cumplimientoPct)}`}>{formatPercent(selectedRow.cumplimientoPct)}</p>
-                        </div>
+                        <div className="max-h-[450px] overflow-y-auto space-y-5">
 
-                        <div className="mt-5 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                          <div className="flex items-center gap-2"><CalendarRange className="h-4 w-4" />Inicio: {formatDisplayDate(selectedRow.fechaInicio, selectedRow.fechaInicioISO)}</div>
-                          <div className="flex items-center gap-2"><CalendarRange className="h-4 w-4" />Fin: {formatDisplayDate(selectedRow.fechaFin, selectedRow.fechaFinISO)}</div>
-                          <div className="flex items-center gap-2"><Gauge className="h-4 w-4" />Duración: {selectedRow.duracionDias || selectedRow.duracion || 0} días</div>
-                        </div>
-
-                        <div className="mt-4">
-                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getBadgeClasses(getEstadoTone(selectedRow.estado))}`}>
-                            {selectedRow.estado || 'Sin estado'}
-                          </span>
-                        </div>
-
-                        {selectedRow.notas ? (
-                          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
-                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Notas</p>
-                            <p className="mt-2 text-sm leading-6 text-slate-700">{selectedRow.notas}</p>
+                          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Cumplimiento</p>
+                            <p className={`mt-2 text-4xl font-black ${getCumplimientoTextClass(selectedRow.cumplimientoPct)}`}>{formatPercent(selectedRow.cumplimientoPct)}</p>
                           </div>
-                        ) : null}
-                      </section>
 
-                      <section className="space-y-4">
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Fase</p>
-                          <h3 className="mt-1 text-lg font-bold text-slate-900">Implementaci&oacute;n</h3>
-                        </div>
+                          <div className="mt-5 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                            <div className="flex items-center gap-2"><CalendarRange className="h-4 w-4" />Inicio: {formatDisplayDate(selectedRow.fechaInicio, selectedRow.fechaInicioISO)}</div>
+                            <div className="flex items-center gap-2"><CalendarRange className="h-4 w-4" />Fin: {formatDisplayDate(selectedRow.fechaFin, selectedRow.fechaFinISO)}</div>
+                            <div className="flex items-center gap-2"><Gauge className="h-4 w-4" />Duración: {selectedRow.duracionDias + " dias" || selectedRow.duracion + " dias" || "Pendiente"} </div>
+                          </div>
 
-                        {selectedLaunchItems.map((section, index) => {
-                          const key = `lanzamiento${index + 1}`;
-                          const isOpen = openSections[key];
-                          return (
-                            <div key={section.title} className="rounded-2xl border border-slate-200 bg-white">
+                          <div className="mt-4">
+                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getBadgeClasses(getEstadoTone(selectedRow.estado))}`}>
+                              {selectedRow.estado || 'Sin estado'}
+                            </span>
+                          </div>
+
+                          {selectedRow.notas ? (
+                            <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+                              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Notas</p>
+                              <p className="mt-2 text-sm leading-6 text-slate-700">{selectedRow.notas}</p>
+                            </div>
+                          ) : null}
+
+                          <section className="space-y-4">
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Fase</p>
+                              <h3 className="mt-1 text-lg font-bold text-slate-900">Implementaci&oacute;n</h3>
+                            </div>
+
+                            {selectedLaunchItems.map((section, index) => {
+                              const key = `lanzamiento${index + 1}`;
+                              const isOpen = openSections[key];
+                              return (
+                                <div key={section.title} className="rounded-2xl border border-slate-200 bg-white">
+                                  <button
+                                    type="button"
+                                    onClick={() => setOpenSections((current) => ({ ...current, [key]: !current[key] }))}
+                                    className="flex w-full items-center justify-between gap-4 p-4 text-left"
+                                  >
+                                    <h3 className="text-lg font-bold text-slate-900">{section.title}</h3>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-lg font-black text-slate-900">{formatPercent(section.percent)}</span>
+                                      <span className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}><ArrowDownWideNarrow className="h-4 w-4 text-slate-400" /></span>
+                                    </div>
+                                  </button>
+                                  {isOpen ? <DetailSection items={section.items} /> : null}
+                                </div>
+                              );
+                            })}
+
+                            <div className="pt-2">
+                              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Fase</p>
+                              <h3 className="mt-1 text-lg font-bold text-slate-900">Lanzamiento</h3>
+                            </div>
+
+                            <div className="rounded-2xl border border-slate-200 bg-white">
                               <button
                                 type="button"
-                                onClick={() => setOpenSections((current) => ({ ...current, [key]: !current[key] }))}
+                                onClick={() => setOpenSections((current) => ({ ...current, piloto: !current.piloto }))}
                                 className="flex w-full items-center justify-between gap-4 p-4 text-left"
                               >
-                                <h3 className="text-lg font-bold text-slate-900">{section.title}</h3>
+                                <h3 className="text-lg font-bold text-slate-900">Piloto</h3>
                                 <div className="flex items-center gap-3">
-                                  <span className="text-lg font-black text-slate-900">{formatPercent(section.percent)}</span>
-                                  <span className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}><ArrowDownWideNarrow className="h-4 w-4 text-slate-400" /></span>
+                                  <span className="text-lg font-black text-slate-900">{formatPercent(selectedRow.pilotoPct)}</span>
+                                  <span className={`transition-transform ${openSections.piloto ? 'rotate-180' : ''}`}><ArrowDownWideNarrow className="h-4 w-4 text-slate-400" /></span>
                                 </div>
                               </button>
-                              {isOpen ? <DetailSection items={section.items} /> : null}
+                              {openSections.piloto ? (
+                                <DetailSection
+                                  items={[
+                                    { label: 'PPT Lanzamiento', value: selectedRow.pptLanzamiento },
+                                    { label: 'Graduación OJT', value: selectedRow.graduacionOjt },
+                                    { label: 'Resultados', value: selectedRow.resultados },
+                                  ]}
+                                />
+                              ) : null}
                             </div>
-                          );
-                        })}
+                          </section>
 
-                        <div className="pt-2">
-                          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Fase</p>
-                          <h3 className="mt-1 text-lg font-bold text-slate-900">Lanzamiento</h3>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-200 bg-white">
-                          <button
-                            type="button"
-                            onClick={() => setOpenSections((current) => ({ ...current, piloto: !current.piloto }))}
-                            className="flex w-full items-center justify-between gap-4 p-4 text-left"
-                          >
-                            <h3 className="text-lg font-bold text-slate-900">Piloto</h3>
-                            <div className="flex items-center gap-3">
-                              <span className="text-lg font-black text-slate-900">{formatPercent(selectedRow.pilotoPct)}</span>
-                              <span className={`transition-transform ${openSections.piloto ? 'rotate-180' : ''}`}><ArrowDownWideNarrow className="h-4 w-4 text-slate-400" /></span>
-                            </div>
-                          </button>
-                          {openSections.piloto ? (
-                            <DetailSection
-                              items={[
-                                { label: 'PPT Lanzamiento', value: selectedRow.pptLanzamiento },
-                                { label: 'Graduación OJT', value: selectedRow.graduacionOjt },
-                                { label: 'Resultados', value: selectedRow.resultados },
-                              ]}
-                            />
-                          ) : null}
-                        </div>
+
                       </section>
                     </>
                   ) : null}
