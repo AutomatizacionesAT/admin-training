@@ -862,7 +862,6 @@ export default function AgileTraining() {
                       <select value={sortField} onChange={(event) => setSortField(event.target.value as AgileSortField)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 hover:cursor-pointer hover:border-slate-300">
                         <option value="cumplimientoPct">Cumplimiento</option>
                         <option value="avancePct">Avance</option>
-                        <option value="fechaFinISO">Fecha fin</option>
                         <option value="campana">Campaña</option>
                         <option value="coordinador">Coordinador</option>
                         <option value="pilotoPct">Piloto</option>
