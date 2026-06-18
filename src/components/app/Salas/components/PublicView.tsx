@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import { Building2, Users, Monitor, Tv2, Clock, MapPin, ClipboardList, Lock, RotateCcw, UserCheck, Sun, Moon, ChevronDown, ChevronUp, Expand, Shrink } from 'lucide-react';
+import { Building2, Users, Monitor, Tv2, MapPin, ClipboardList, Lock, RotateCcw, UserCheck, Sun, Moon, Eye, Search, X } from 'lucide-react';
 import type { SalaRecord, AsignacionRecord } from '../utils/types';
+import { getSalaPhotos } from '../utils/salaMedia';
+import { getSalaTurnos } from '../utils/salaUtils';
+import SalaDetailModal from './SalaDetailModal';
 
 interface Props {
   salas: SalaRecord[];
@@ -22,7 +25,33 @@ const SEDE_COLORS_NIGHT: Record<string, { bg: string; text: string; border: stri
 const DEFAULT_COLOR = { bg: 'bg-slate-50', text: 'text-slate-900', border: 'border-slate-200', badge: 'bg-slate-500', bar: 'bg-slate-400' };
 const DEFAULT_COLOR_NIGHT = { bg: 'bg-slate-800/60', text: 'text-slate-200', border: 'border-slate-700', badge: 'bg-slate-600', bar: 'bg-slate-500' };
 
+/** Colores marca Atento (#005082 azul, #F7941D naranja) — filtros del catálogo */
+function filtroInactive(isNight: boolean) {
+  return isNight
+    ? 'bg-slate-800 text-[#7eb8d4] border border-[#005082]/35 hover:bg-[#005082]/15'
+    : 'bg-white text-[#005082] border border-[#005082]/20 hover:bg-[#005082]/5';
+}
+
+function filtroActiveBlue(isNight: boolean) {
+  return isNight
+    ? 'bg-[#005082] text-white border-transparent shadow-md shadow-[#005082]/35'
+    : 'bg-[#005082] text-white border-transparent shadow-md shadow-[#005082]/20';
+}
+
+function filtroActiveOrange(isNight: boolean) {
+  return isNight
+    ? 'bg-[#F7941D] text-white border-transparent shadow-md shadow-[#F7941D]/35'
+    : 'bg-[#F7941D] text-white border-transparent shadow-md shadow-[#F7941D]/25';
+}
+
+function filtroBadgeInactive(isNight: boolean) {
+  return isNight ? 'bg-[#005082]/25 text-[#9ccde0]' : 'bg-[#005082]/10 text-[#005082]';
+}
+
+const FILTRO_BADGE_ACTIVE = 'bg-white/25 text-white';
+
 type Turno = 'AM' | 'PM' | 'ALL';
+type TipoFilter = 'ALL' | 'EXCLUSIVA' | 'ROTATIVA';
 
 function getSedeColor(sede: string, night = false) {
   const upper = sede.toUpperCase();
@@ -48,6 +77,29 @@ function filterByTurno(salas: SalaRecord[], turno: Turno): SalaRecord[] {
     const h = (s.horario || '').toUpperCase();
     if (turno === 'AM') return !h.startsWith('14') && !h.startsWith('15');
     return h.startsWith('14') || h.startsWith('15');
+  });
+}
+
+function filterByTipo(salas: SalaRecord[], tipo: TipoFilter): SalaRecord[] {
+  if (tipo === 'ALL') return salas;
+  return salas.filter(s => (s.tipo || '').toUpperCase() === tipo);
+}
+
+function normalizeSearch(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function filterBySearch(salas: SalaRecord[], query: string): SalaRecord[] {
+  const q = normalizeSearch(query);
+  if (!q) return salas;
+  return salas.filter(s => {
+    const name = normalizeSearch(s.sala);
+    const sede = normalizeSearch(s.sede);
+    return name.includes(q) || sede.includes(q);
   });
 }
 
@@ -80,107 +132,46 @@ function KpiCard({ label, value, icon, color, sub, night }: KpiCardProps) {
   );
 }
 
-// ── Sede accordion section ────────────────────────────────────────────────────
-interface SedeAccordionProps {
+// ── Grilla de salas por sede ──────────────────────────────────────────────────
+interface SedeSalasGridProps {
   sede: string;
   salasSede: SalaRecord[];
+  allSalas: SalaRecord[];
   isNight: boolean;
-  isOpen: boolean;
-  onToggle: () => void;
+  showHeading: boolean;
+  onSelectSala: (sala: SalaRecord, sede: string) => void;
 }
 
-function SedeAccordion({ sede, salasSede, isNight, isOpen, onToggle }: SedeAccordionProps) {
+function SedeSalasGrid({ sede, salasSede, allSalas, isNight, showHeading, onSelectSala }: SedeSalasGridProps) {
   const color = getSedeColor(sede, isNight);
-  const exclusivas = salasSede.filter(s => s.tipo === 'EXCLUSIVA').length;
-  const rotativas = salasSede.filter(s => s.tipo === 'ROTATIVA').length;
-  const capacidad = salasSede.reduce((sum, s) => sum + (parseInt(s.capacidad) || 0), 0);
-  const conTablero = salasSede.filter(s => s.tablero === 'SI').length;
-  const conTv = salasSede.filter(s => s.tv === 'SI').length;
-  const headerBg = isNight ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200';
+  const salasUnicasSede = salasSede.filter((s, idx, arr) =>
+    arr.findIndex(x => x.sala === s.sala) === idx,
+  );
   const subColor = 'text-slate-400';
 
   return (
-    <section className={`rounded-2xl border overflow-hidden shadow-sm transition-all duration-300 ${headerBg}`}>
-      {/* Header clickeable */}
-      <button
-        onClick={onToggle}
-        className={`w-full flex items-center gap-4 px-5 py-4 transition-colors duration-200 ${
-          isNight ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50'
-        } ${isOpen ? (isNight ? 'border-b border-slate-700' : 'border-b border-slate-100') : ''}`}
-      >
-        {/* Badge sede */}
-        <div className={`w-10 h-10 ${color.badge} rounded-xl flex items-center justify-center shrink-0 shadow-sm`}>
-          <Building2 className="w-5 h-5 text-white" />
-        </div>
-
-        {/* Nombre + subtítulo */}
-        <div className="text-left min-w-0">
-          <h2 className={`text-base font-extrabold ${color.text} tracking-tight leading-tight`}>{sede}</h2>
-          <p className={`text-xs ${subColor} font-medium`}>
-            {salasSede.length} sala{salasSede.length !== 1 ? 's' : ''} · {capacidad} puestos
-          </p>
-        </div>
-
-        {/* Pills resumen */}
-        <div className="hidden sm:flex flex-wrap items-center gap-2 ml-4">
-          {exclusivas > 0 && (
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isNight ? 'bg-amber-900/50 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
-              <Lock className="w-2.5 h-2.5" /> {exclusivas} excl.
-            </span>
-          )}
-          {rotativas > 0 && (
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isNight ? 'bg-sky-900/50 text-sky-300' : 'bg-sky-100 text-sky-700'}`}>
-              <RotateCcw className="w-2.5 h-2.5" /> {rotativas} rot.
-            </span>
-          )}
-          {conTablero > 0 && (
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${isNight ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
-              <Monitor className="w-2.5 h-2.5" /> {conTablero}
-            </span>
-          )}
-          {conTv > 0 && (
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${isNight ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
-              <Tv2 className="w-2.5 h-2.5" /> {conTv}
-            </span>
-          )}
-        </div>
-
-        {/* Chips de salas cuando colapsado */}
-        {!isOpen && (
-          <div className="hidden lg:flex flex-wrap gap-1.5 ml-auto mr-3 max-w-xs">
-            {salasSede.slice(0, 4).map((s, i) => (
-              <span
-                key={i}
-                className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg truncate max-w-[100px] ${color.bg} ${color.text} border ${color.border}`}
-                title={s.sala}
-              >
-                {s.sala.length > 16 ? s.sala.slice(0, 15) + '…' : s.sala}
-              </span>
-            ))}
-            {salasSede.length > 4 && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${isNight ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
-                +{salasSede.length - 4} más
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Chevron */}
-        <div className={`ml-auto shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isNight ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
-          {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </div>
-      </button>
-
-      {/* Contenido expandido */}
-      {isOpen && (
-        <div className={`p-5 ${isNight ? 'bg-slate-800/50' : 'bg-slate-50/50'}`}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {salasSede.map((sala, i) => (
-              <SalaCard key={`${sala.sala}-${i}`} sala={sala} sede={sede} isNight={isNight} />
-            ))}
-          </div>
+    <section>
+      {showHeading && (
+        <div className="flex items-center gap-2 mb-4">
+          <div className={`w-1 h-5 rounded-full ${color.bar}`} />
+          <h2 className={`text-sm font-extrabold ${color.text} tracking-tight`}>{sede}</h2>
+          <span className={`text-xs ${subColor}`}>
+            {salasUnicasSede.length} sala{salasUnicasSede.length !== 1 ? 's' : ''}
+          </span>
         </div>
       )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {salasUnicasSede.map((sala, i) => (
+          <SalaCard
+            key={`${sala.sala}-${i}`}
+            sala={sala}
+            sede={sede}
+            isNight={isNight}
+            allSalas={allSalas}
+            onSelect={() => onSelectSala(sala, sede)}
+          />
+        ))}
+      </div>
     </section>
   );
 }
@@ -190,92 +181,148 @@ interface SalaCardProps {
   sala: SalaRecord;
   sede: string;
   isNight: boolean;
+  allSalas: SalaRecord[];
+  onSelect: () => void;
 }
 
-function SalaCard({ sala, sede, isNight }: SalaCardProps) {
+function SalaCard({ sala, sede, isNight, allSalas, onSelect }: SalaCardProps) {
   const color = getSedeColor(sede, isNight);
   const cardBg = isNight ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100';
+  const fotos = getSalaPhotos(sala.sala);
+  const preview = fotos[0];
+  const turnos = getSalaTurnos(sala.sala, allSalas);
 
   return (
-    <div className={`${cardBg} border rounded-2xl p-5 hover:shadow-lg transition-all duration-200 group flex flex-col gap-3`}>
-      {/* Tipo + equipamiento */}
-      <div className="flex items-start justify-between gap-2">
-        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${
-          sala.tipo === 'EXCLUSIVA'
-            ? isNight ? 'bg-amber-900/60 text-amber-300' : 'bg-amber-100 text-amber-700'
-            : isNight ? 'bg-sky-900/60 text-sky-300' : 'bg-sky-100 text-sky-700'
-        }`}>
-          {sala.tipo || '—'}
-        </span>
-        <div className="flex gap-1.5">
-          {sala.tablero === 'SI' && (
-            <span title="Tablero" className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${isNight ? 'bg-slate-700' : 'bg-slate-100'}`}>
-              <Monitor className="w-3.5 h-3.5 text-indigo-400" />
-            </span>
-          )}
-          {sala.tv === 'SI' && (
-            <span title="TV" className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${isNight ? 'bg-slate-700' : 'bg-slate-100'}`}>
-              <Tv2 className="w-3.5 h-3.5 text-teal-400" />
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Nombre de sala */}
-      <h3 className={`font-bold text-sm ${color.text} leading-snug group-hover:underline`}>
-        {sala.sala || '—'}
-      </h3>
-
-      {/* Detalles */}
-      <div className="space-y-1.5 mt-auto">
-        <div className="flex items-center gap-2">
-          <Users className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-          <span className={`text-xs ${color.text}`}>
-            <span className="font-bold">{sala.capacidad}</span> puestos
-            {sala.equipos && sala.equipos !== sala.capacidad && (
-              <span className="opacity-60"> · {sala.equipos} equipos</span>
-            )}
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`${cardBg} border rounded-2xl overflow-hidden hover:shadow-lg hover:ring-2 hover:ring-indigo-300/60 transition-all duration-200 group flex flex-col text-left w-full`}
+    >
+      {/* Preview foto */}
+      {preview ? (
+        <div className="relative aspect-16/10 overflow-hidden">
+          <img
+            src={preview}
+            alt={sala.sala}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+          <div className="absolute inset-0 bg-linear-to-t from-black/50 via-transparent to-transparent" />
+          <span className="absolute bottom-2 right-2 flex items-center gap-1 text-[10px] font-bold text-white bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
+            <Eye className="w-3 h-3" /> Ver detalle
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <Clock className={`w-3.5 h-3.5 shrink-0 ${isNight ? 'text-indigo-400' : 'text-amber-400'}`} />
-          <span className={`text-xs font-medium ${isNight ? 'text-indigo-300' : 'text-amber-700'}`}>{sala.horario || '—'}</span>
+      ) : (
+        <div className={`aspect-16/10 flex items-center justify-center ${isNight ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+          <Building2 className={`w-8 h-8 ${isNight ? 'text-slate-600' : 'text-slate-300'}`} />
         </div>
-        <div className="flex items-center gap-2">
-          <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-          <span className={`text-xs ${color.text} opacity-70`}>{sede}</span>
-        </div>
-      </div>
+      )}
 
-      {/* Barra decorativa de color sede */}
-      <div className={`h-1 w-full rounded-full ${color.bar} opacity-30 group-hover:opacity-70 transition-opacity`} />
-    </div>
+      <div className="p-5 flex flex-col gap-3 flex-1">
+        {/* Tipo + equipamiento */}
+        <div className="flex items-start justify-between gap-2">
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${sala.tipo === 'EXCLUSIVA'
+            ? isNight ? 'bg-amber-900/60 text-amber-300' : 'bg-amber-100 text-amber-700'
+            : isNight ? 'bg-sky-900/60 text-sky-300' : 'bg-sky-100 text-sky-700'
+            }`}>
+            {sala.tipo || '—'}
+          </span>
+          <div className="flex gap-1.5">
+            {sala.tablero === 'SI' && (
+              <span title="Tablero" className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${isNight ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                <Monitor className="w-3.5 h-3.5 text-indigo-400" />
+              </span>
+            )}
+            {sala.tv === 'SI' && (
+              <span title="TV" className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${isNight ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                <Tv2 className="w-3.5 h-3.5 text-teal-400" />
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Nombre de sala */}
+        <h3 className={`uppercase font-bold text-sm ${color.text} leading-snug group-hover:underline`}>
+          {sala.sala || '—'}
+        </h3>
+
+        {/* Detalles */}
+        <div className="space-y-1.5 mt-auto">
+          <div className="flex items-center gap-2">
+            <Users className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            <span className={`text-xs ${color.text}`}>
+              <span className="font-bold">{sala.capacidad}</span> puestos
+              {sala.equipos && sala.equipos !== sala.capacidad && (
+                <span className="opacity-60"> · {sala.equipos} equipos</span>
+              )}
+            </span>
+          </div>
+          <div className="space-y-1 mt-auto">
+            {turnos.map(({ label, horario }) => {
+              const isManana = label === 'Mañana';
+              return (
+                <div key={label} className="flex items-center gap-2">
+                  {isManana
+                    ? <Sun className={`w-3.5 h-3.5 shrink-0 ${isNight ? 'text-amber-400' : 'text-amber-500'}`} />
+                    : <Moon className={`w-3.5 h-3.5 shrink-0 ${isNight ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                  }
+                  <span className={`text-[11px] font-medium ${isNight ? 'text-slate-300' : 'text-slate-600'}`}>
+                    <span className="font-bold">{label}:</span> {horario}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            <span className={`text-xs ${color.text} opacity-70`}>{sede}</span>
+          </div>
+        </div>
+
+        {/* Barra decorativa de color sede */}
+        <div className={`h-1 w-full rounded-full ${color.bar} opacity-30 group-hover:opacity-70 transition-opacity`} />
+      </div>
+    </button>
   );
 }
 
 export default function PublicView({ salas, asignaciones }: Props) {
   const [turno, setTurno] = useState<Turno>('AM');
-  const [expandedSedes, setExpandedSedes] = useState<Record<string, boolean>>({});
+  const [sedeFilter, setSedeFilter] = useState<string>('ALL');
+  const [tipoFilter, setTipoFilter] = useState<TipoFilter>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSala, setSelectedSala] = useState<{ sala: SalaRecord; sede: string } | null>(null);
 
   const isNight = turno === 'PM';
   const isGlobal = turno === 'ALL';
 
-  // Salas únicas (sin duplicar AM/PM) → para KPIs globales
+  // Salas únicas (sin duplicar AM/PM) → capacidad física por sala
   const salasUnicas = salas.filter((s, idx, arr) =>
     arr.findIndex(x => x.sala === s.sala) === idx
   );
   const groupedGlobal = groupBySede(salasUnicas);
 
-  // Salas filtradas por turno → solo para el catálogo
+  // Salas filtradas por turno → catálogo y KPIs del turno activo
   const salasFiltradas = filterByTurno(salas, turno);
+  const salasTurnoUnicas = salasFiltradas.filter((s, idx, arr) =>
+    arr.findIndex(x => x.sala === s.sala) === idx
+  );
   const grouped = groupBySede(salasFiltradas);
+  const salasCatalogo = filterBySearch(filterByTipo(salasFiltradas, tipoFilter), searchQuery);
+  const groupedCatalogo = groupBySede(salasCatalogo);
 
-  // ── KPIs GLOBALES (dashboard siempre muestra el total real) ────────────────
+  const capacidadPorTurno = salasUnicas.reduce((sum, s) => sum + (parseInt(s.capacidad) || 0), 0);
+  const equiposPorTurno = salasUnicas.reduce((sum, s) => sum + (parseInt(s.equipos) || 0), 0);
+  // 543 puestos por turno; General = AM + PM (misma sala, dos turnos)
+  const capacidadTotal = isGlobal ? capacidadPorTurno * 2 : capacidadPorTurno;
+  const equiposTotal = isGlobal ? equiposPorTurno * 2 : equiposPorTurno;
+
+  // ── KPIs ───────────────────────────────────────────────────────────────────
   const totalSalas = salasUnicas.length;
+  const salasEnTurno = salasTurnoUnicas.length;
   const exclusivas = salasUnicas.filter(s => s.tipo === 'EXCLUSIVA').length;
   const rotativas = salasUnicas.filter(s => s.tipo === 'ROTATIVA').length;
-  const capacidadTotal = salasUnicas.reduce((sum, s) => sum + (parseInt(s.capacidad) || 0), 0);
-  const equiposTotal = salasUnicas.reduce((sum, s) => sum + (parseInt(s.equipos) || 0), 0);
   const conTablero = salasUnicas.filter(s => s.tablero === 'SI').length;
   const conTv = salasUnicas.filter(s => s.tv === 'SI').length;
   const asigFiltradas = turno === 'ALL' ? asignaciones : asignaciones.filter(a => {
@@ -287,16 +334,36 @@ export default function PublicView({ salas, asignaciones }: Props) {
   const coordinadores = new Set(asigFiltradas.map(a => a.formador).filter(Boolean)).size;
   const sedesActivas = Object.keys(groupedGlobal).filter(s => s !== 'SIN SEDE').length;
   const sedeEntries = [...Object.entries(groupedGlobal)].sort((a, b) => b[1].length - a[1].length);
-  const catalogoSedes = Object.keys(grouped);
+  const sedesEnTurno = Object.keys(grouped).filter(s => s !== 'SIN SEDE');
+  const sedesEnTurnoSorted = [...sedesEnTurno].sort(
+    (a, b) => (grouped[b]?.length ?? 0) - (grouped[a]?.length ?? 0),
+  );
+  const catalogoSedes = Object.keys(groupedCatalogo).filter(s => s !== 'SIN SEDE');
+  const catalogoSedesSorted = [...catalogoSedes].sort(
+    (a, b) => (groupedCatalogo[b]?.length ?? 0) - (groupedCatalogo[a]?.length ?? 0),
+  );
 
-  const toggleSede = (sede: string) =>
-    setExpandedSedes(prev => ({ ...prev, [sede]: !prev[sede] }));
+  const countSalasUnicas = (list: SalaRecord[]) =>
+    list.filter((s, idx, arr) => arr.findIndex(x => x.sala === s.sala) === idx).length;
 
-  const expandAll = () =>
-    setExpandedSedes(Object.fromEntries(catalogoSedes.map(s => [s, true])));
+  const salasParaConteoTipo = sedeFilter === 'ALL'
+    ? salasFiltradas
+    : salasFiltradas.filter(s => s.sede === sedeFilter);
+  const countTodasTipo = countSalasUnicas(salasParaConteoTipo);
+  const countExclusivasTipo = countSalasUnicas(salasParaConteoTipo.filter(s => s.tipo === 'EXCLUSIVA'));
+  const countRotativasTipo = countSalasUnicas(salasParaConteoTipo.filter(s => s.tipo === 'ROTATIVA'));
 
-  const collapseAll = () =>
-    setExpandedSedes(Object.fromEntries(catalogoSedes.map(s => [s, false])));
+  const catalogoEntries = (sedeFilter === 'ALL'
+    ? catalogoSedesSorted
+    : catalogoSedesSorted.filter(s => s === sedeFilter)
+  )
+    .filter(s => (groupedCatalogo[s]?.length ?? 0) > 0)
+    .map(sede => [sede, groupedCatalogo[sede]] as [string, SalaRecord[]]);
+
+  const totalCatalogoSalas = catalogoEntries.reduce(
+    (sum, [, list]) => sum + countSalasUnicas(list),
+    0,
+  );
 
   // ── colores del tema ────────────────────────────────────────────────────────
   const cardBg = isNight ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100';
@@ -370,11 +437,11 @@ export default function PublicView({ salas, asignaciones }: Props) {
           <div>
             <p className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-0.5">Vista General</p>
             <p className="text-xl font-extrabold text-white">Todos los turnos</p>
-            <p className="text-xs text-slate-300 mt-0.5">{totalSalas} salas · AM + PM disponibles</p>
+            <p className="text-xs text-slate-300 mt-0.5">{totalSalas} salas · {capacidadPorTurno} puestos × 2 turnos</p>
           </div>
           <div className="ml-auto text-right hidden sm:block">
             <p className="text-4xl font-black text-white">{capacidadTotal}</p>
-            <p className="text-xs text-slate-300 font-semibold">puestos totales</p>
+            <p className="text-xs text-slate-300 font-semibold">puestos (AM + PM)</p>
           </div>
         </div>
       ) : isNight ? (
@@ -385,11 +452,11 @@ export default function PublicView({ salas, asignaciones }: Props) {
           <div>
             <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-0.5">Turno Tarde</p>
             <p className="text-xl font-extrabold text-white">14:00 – 22:00</p>
-            <p className="text-xs text-indigo-300 mt-0.5">{salasFiltradas.length} sala{salasFiltradas.length !== 1 ? 's' : ''} en este turno · {totalSalas} en total</p>
+            <p className="text-xs text-indigo-300 mt-0.5">{salasEnTurno} sala{salasEnTurno !== 1 ? 's' : ''} · {capacidadPorTurno} puestos en este turno</p>
           </div>
           <div className="ml-auto text-right hidden sm:block">
             <p className="text-4xl font-black text-indigo-400">{capacidadTotal}</p>
-            <p className="text-xs text-indigo-500 font-semibold">puestos totales</p>
+            <p className="text-xs text-indigo-500 font-semibold">puestos turno tarde</p>
           </div>
           {/* stars decoration */}
           <div className="absolute right-6 top-3 text-indigo-800 text-xs select-none pointer-events-none">✦ ✦ ✦</div>
@@ -402,11 +469,11 @@ export default function PublicView({ salas, asignaciones }: Props) {
           <div>
             <p className="text-xs font-bold text-amber-800 uppercase tracking-widest mb-0.5">Turno Mañana</p>
             <p className="text-xl font-extrabold text-amber-900">06:00 – 14:00</p>
-            <p className="text-xs text-amber-800 mt-0.5">{salasFiltradas.length} sala{salasFiltradas.length !== 1 ? 's' : ''} en este turno · {totalSalas} en total</p>
+            <p className="text-xs text-amber-800 mt-0.5">{salasEnTurno} sala{salasEnTurno !== 1 ? 's' : ''} · {capacidadPorTurno} puestos en este turno</p>
           </div>
           <div className="ml-auto text-right hidden sm:block">
             <p className="text-4xl font-black text-amber-900">{capacidadTotal}</p>
-            <p className="text-xs text-amber-800 font-semibold">puestos totales</p>
+            <p className="text-xs text-amber-800 font-semibold">puestos turno mañana</p>
           </div>
           <div className="absolute right-6 top-3 text-amber-600/40 text-lg select-none pointer-events-none">☀ ☀ ☀</div>
         </div>
@@ -417,7 +484,7 @@ export default function PublicView({ salas, asignaciones }: Props) {
         <KpiCard night={isNight} label="Total Salas" value={totalSalas} color={isNight ? 'text-indigo-400' : 'text-indigo-600'} icon={<Building2 className={`w-5 h-5 ${isNight ? 'text-indigo-400' : 'text-indigo-500'}`} />} sub={`${sedesActivas} sede${sedesActivas !== 1 ? 's' : ''}`} />
         <KpiCard night={isNight} label="Exclusivas" value={exclusivas} color={isNight ? 'text-amber-400' : 'text-amber-600'} icon={<Lock className={`w-5 h-5 ${isNight ? 'text-amber-400' : 'text-amber-500'}`} />} sub={totalSalas > 0 ? `${Math.round(exclusivas / totalSalas * 100)}% del total` : '—'} />
         <KpiCard night={isNight} label="Rotativas" value={rotativas} color={isNight ? 'text-sky-400' : 'text-sky-600'} icon={<RotateCcw className={`w-5 h-5 ${isNight ? 'text-sky-400' : 'text-sky-500'}`} />} sub={totalSalas > 0 ? `${Math.round(rotativas / totalSalas * 100)}% del total` : '—'} />
-        <KpiCard night={isNight} label="Capacidad Total" value={capacidadTotal} color={isNight ? 'text-violet-400' : 'text-violet-600'} icon={<Users className={`w-5 h-5 ${isNight ? 'text-violet-400' : 'text-violet-500'}`} />} sub={`${equiposTotal} equipos disponibles`} />
+        <KpiCard night={isNight} label={isGlobal ? 'Capacidad Total' : 'Capacidad Turno'} value={capacidadTotal} color={isNight ? 'text-violet-400' : 'text-violet-600'} icon={<Users className={`w-5 h-5 ${isNight ? 'text-violet-400' : 'text-violet-500'}`} />} sub={isGlobal ? `${equiposTotal} equipos · AM + PM` : `${equiposTotal} equipos · ${turno === 'AM' ? 'mañana' : 'tarde'}`} />
         <KpiCard night={isNight} label="Asignaciones" value={totalAsig} color={isNight ? 'text-emerald-400' : 'text-emerald-600'} icon={<ClipboardList className={`w-5 h-5 ${isNight ? 'text-emerald-400' : 'text-emerald-500'}`} />} sub="formaciones activas" />
         <KpiCard night={isNight} label="Coordinadores" value={coordinadores} color={isNight ? 'text-rose-400' : 'text-rose-600'} icon={<UserCheck className={`w-5 h-5 ${isNight ? 'text-rose-400' : 'text-rose-500'}`} />} sub="con sala asignada" />
       </div>
@@ -426,7 +493,7 @@ export default function PublicView({ salas, asignaciones }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         <div className={`${cardBg} border rounded-2xl p-6 shadow-sm`}>
-          <h3 className={`text-sm font-bold ${titleColor} mb-4 flex items-center gap-2`}>
+          <h3 className={`uppercase text-sm font-bold ${titleColor} mb-4 flex items-center gap-2`}>
             <MapPin className="w-4 h-4 text-slate-400" />
             Distribución por sede
           </h3>
@@ -456,7 +523,7 @@ export default function PublicView({ salas, asignaciones }: Props) {
         </div>
 
         <div className={`${cardBg} border rounded-2xl p-6 shadow-sm`}>
-          <h3 className={`text-sm font-bold ${titleColor} mb-4 flex items-center gap-2`}>
+          <h3 className={`text-sm font-bold uppercase ${titleColor} mb-4 flex items-center gap-2`}>
             <Monitor className="w-4 h-4 text-slate-400" />
             Equipamiento disponible
           </h3>
@@ -488,51 +555,182 @@ export default function PublicView({ salas, asignaciones }: Props) {
           <div className={`h-px flex-1 ${divColor}`} />
         </div>
 
-        {/* Botones expandir/colapsar todo */}
-        <div className="flex items-center justify-between mb-3">
-          <p className={`text-xs ${divText}`}>
-            {catalogoSedes.length} sede{catalogoSedes.length !== 1 ? 's' : ''} · {salasFiltradas.length} sala{salasFiltradas.length !== 1 ? 's' : ''}
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={expandAll}
-              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                isNight
-                  ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Expand className="w-3 h-3" />
-              Expandir todo
-            </button>
-            <button
-              onClick={collapseAll}
-              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                isNight
-                  ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Shrink className="w-3 h-3" />
-              Colapsar todo
-            </button>
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4">
+          <div className="flex flex-col gap-3 flex-1 min-w-0">
+            {/* Filtro por sede */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSedeFilter('ALL')}
+                className={`uppercase flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 border ${sedeFilter === 'ALL'
+                  ? filtroActiveOrange(isNight)
+                  : filtroInactive(isNight)
+                  }`}
+              >
+                <Building2 className="w-4 h-4" />
+                Todas
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${sedeFilter === 'ALL'
+                  ? FILTRO_BADGE_ACTIVE
+                  : filtroBadgeInactive(isNight)
+                  }`}>
+                  {sedesEnTurnoSorted.reduce((n, s) => n + countSalasUnicas(grouped[s] ?? []), 0)}
+                </span>
+              </button>
+
+              {sedesEnTurnoSorted.map(sede => {
+                const count = countSalasUnicas(grouped[sede] ?? []);
+                const active = sedeFilter === sede;
+                return (
+                  <button
+                    key={sede}
+                    type="button"
+                    onClick={() => setSedeFilter(sede)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 border ${active
+                      ? filtroActiveBlue(isNight)
+                      : filtroInactive(isNight)
+                      }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${active ? 'bg-white/80' : 'bg-[#005082]/50'}`} />
+                    {sede}
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${active
+                      ? FILTRO_BADGE_ACTIVE
+                      : filtroBadgeInactive(isNight)
+                      }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Subfiltro por tipo */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${divText} mr-0.5`}>Tipo:</span>
+              <button
+                type="button"
+                onClick={() => setTipoFilter('ALL')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${tipoFilter === 'ALL'
+                  ? filtroActiveBlue(isNight)
+                  : filtroInactive(isNight)
+                  }`}
+              >
+                Todas
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${tipoFilter === 'ALL'
+                  ? FILTRO_BADGE_ACTIVE
+                  : filtroBadgeInactive(isNight)
+                  }`}>
+                  {countTodasTipo}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoFilter('EXCLUSIVA')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${tipoFilter === 'EXCLUSIVA'
+                  ? filtroActiveOrange(isNight)
+                  : filtroInactive(isNight)
+                  }`}
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Exclusivas
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${tipoFilter === 'EXCLUSIVA'
+                  ? FILTRO_BADGE_ACTIVE
+                  : filtroBadgeInactive(isNight)
+                  }`}>
+                  {countExclusivasTipo}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoFilter('ROTATIVA')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${tipoFilter === 'ROTATIVA'
+                  ? filtroActiveBlue(isNight)
+                  : filtroInactive(isNight)
+                  }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Rotativas
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${tipoFilter === 'ROTATIVA'
+                  ? FILTRO_BADGE_ACTIVE
+                  : filtroBadgeInactive(isNight)
+                  }`}>
+                  {countRotativasTipo}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Buscador */}
+          <div className="relative w-full lg:w-72 shrink-0 lg:mt-0.5">
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isNight ? 'text-slate-500' : 'text-slate-400'}`} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar sala…"
+              autoComplete="off"
+              className={`w-full pl-9 pr-9 py-2.5 rounded-xl text-sm font-medium border outline-none transition-all ${isNight
+                ? 'bg-slate-800 border-[#005082]/35 text-slate-100 placeholder:text-slate-500 focus:border-[#005082] focus:ring-2 focus:ring-[#005082]/30'
+                : 'bg-white border-[#005082]/20 text-slate-800 placeholder:text-slate-400 focus:border-[#005082] focus:ring-2 focus:ring-[#005082]/15'
+                }`}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Limpiar búsqueda"
+                className={`absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${isNight
+                  ? 'text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                  : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                  }`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Acordeones por sede */}
-        <div className="space-y-3">
-          {(Object.entries(grouped) as [string, SalaRecord[]][]).map(([sede, salasSede]) => (
-            <SedeAccordion
+        <p className={`text-xs ${divText} mb-4`}>
+          {totalCatalogoSalas} sala{totalCatalogoSalas !== 1 ? 's' : ''}
+          {sedeFilter !== 'ALL' ? ` en ${sedeFilter}` : ` · ${catalogoEntries.length} sede${catalogoEntries.length !== 1 ? 's' : ''}`}
+          {tipoFilter === 'EXCLUSIVA' ? ' · exclusivas' : tipoFilter === 'ROTATIVA' ? ' · rotativas' : ''}
+          {searchQuery.trim() ? ` · “${searchQuery.trim()}”` : ''}
+        </p>
+
+        {/* Salas filtradas */}
+        <div className="space-y-8">
+          {catalogoEntries.map(([sede, salasSede]) => (
+            <SedeSalasGrid
               key={sede}
               sede={sede}
               salasSede={salasSede}
+              allSalas={salas}
               isNight={isNight}
-              isOpen={!!expandedSedes[sede]}
-              onToggle={() => toggleSede(sede)}
+              showHeading={sedeFilter === 'ALL'}
+              onSelectSala={(sala, sedeKey) => setSelectedSala({ sala, sede: sedeKey })}
             />
           ))}
+          {catalogoEntries.length === 0 && (
+            <p className={`text-sm text-center py-8 ${divText}`}>
+              {searchQuery.trim()
+                ? `No hay salas que coincidan con “${searchQuery.trim()}”.`
+                : <>No hay salas
+                  {tipoFilter === 'EXCLUSIVA' ? ' exclusivas' : tipoFilter === 'ROTATIVA' ? ' rotativas' : ''}
+                  {sedeFilter !== 'ALL' ? ` en ${sedeFilter}` : ''} para el turno seleccionado.</>}
+            </p>
+          )}
         </div>
       </div>
+
+      {selectedSala && (
+        <SalaDetailModal
+          sala={selectedSala.sala}
+          sede={selectedSala.sede}
+          allSalas={salas}
+          asignaciones={asignaciones}
+          isNight={isNight}
+          onClose={() => setSelectedSala(null)}
+        />
+      )}
     </div>
   );
 }

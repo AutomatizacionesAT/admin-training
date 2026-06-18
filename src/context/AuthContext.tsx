@@ -40,6 +40,7 @@ const ADMIN_GLOBAL_USER: SalasUser = {
     rol: 'SUPER_ADMIN',
 };
 
+
 interface AuthContextType {
     isAdmin: boolean;
     salasUser: SalasUser | null;

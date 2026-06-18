@@ -113,15 +113,15 @@ export async function fetchSalasAsignaciones(): Promise<AsignacionRecord[]> {
 export async function fetchTickets(): Promise<TicketRecord[]> {
   const rows = await fetchSheet('ASIGNACION_TICKET');
   const result: TicketRecord[] = [];
-  let rowIndex = 2;
 
-  rows.forEach((row) => {
-    if (!row?.c?.length) { rowIndex++; return; }
+  rows.forEach((row, i) => {
+    if (!row?.c?.length) return;
     const campana = cell(row, 0);
     // Descarta fila vacía o encabezado que gviz devuelve por error en hojas vacías
-    if (!campana || campana.toUpperCase() === 'CAMPAÑA' || campana.toUpperCase() === 'CAMPANA') { rowIndex++; return; }
+    if (!campana || campana.toUpperCase() === 'CAMPAÑA' || campana.toUpperCase() === 'CAMPANA') return;
+    // Con headers=1, la fila i del gviz corresponde a la fila i+2 del sheet (fila 1 = encabezados)
     result.push({
-      rowIndex,
+      rowIndex: i + 2,
       campana,
       posicion: cell(row, 1),
       fallaPuntual: cell(row, 2),
@@ -133,7 +133,6 @@ export async function fetchTickets(): Promise<TicketRecord[]> {
       observaciones: cell(row, 8),
       respuesta: cell(row, 9),
     });
-    rowIndex++;
   });
   console.log(`🎫 ASIGNACION_TICKET: ${result.length} tickets`);
   return result;
@@ -213,8 +212,21 @@ export async function updateTicket(t: TicketRecord): Promise<void> {
   await gasPost({ action: 'updateTicket', rowIndex: t.rowIndex, data: t });
 }
 /** Solo guarda la respuesta del admin — NO cierra el ticket (no toca fechaCierre) */
-export async function respondTicket(rowIndex: number, respuesta: string): Promise<void> {
-  await gasPost({ action: 'respondTicket', rowIndex, respuesta });
+export async function respondTicket(ticket: TicketRecord, respuesta: string): Promise<void> {
+  const data = {
+    campana: ticket.campana,
+    posicion: ticket.posicion,
+    fallaPuntual: ticket.fallaPuntual,
+    personaReporta: ticket.personaReporta,
+    numeroTicket: ticket.numeroTicket,
+    fechaRealizacion: ticket.fechaRealizacion,
+    personaCreaTicket: ticket.personaCreaTicket,
+    fechaCierre: ticket.fechaCierre,
+    observaciones: ticket.observaciones,
+    respuesta,
+  };
+  // updateTicket ya está desplegado; respondTicket puede no estarlo aún
+  await gasPost({ action: 'updateTicket', rowIndex: ticket.rowIndex, numeroTicket: ticket.numeroTicket, data });
 }
 /** Cierra definitivamente el ticket (lo ejecuta otra área externa) */
 export async function closeTicket(rowIndex: number, respuesta: string): Promise<void> {

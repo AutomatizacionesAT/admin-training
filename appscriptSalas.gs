@@ -222,6 +222,35 @@ function mapTicketToRow(d) {
   ];
 }
 
+/** Busca la fila del ticket por número (col E) — más confiable que rowIndex del frontend */
+function findTicketRowByNumber(sheet, numeroTicket) {
+  if (!sheet || !numeroTicket) return null;
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  var values = sheet.getRange(2, 5, lastRow - 1, 1).getValues(); // col E
+  var target = String(numeroTicket).trim();
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][0]).trim() === target) return i + 2;
+  }
+  return null;
+}
+
+/** Actualiza col L (estado ticket) en SALAS_ASIGNACIONES buscando por número en col K */
+function syncEstadoTicketAsignacion(doc, numeroTicket, estado) {
+  if (!numeroTicket) return;
+  var asigSheet = doc.getSheetByName("SALAS_ASIGNACIONES");
+  if (!asigSheet || asigSheet.getLastRow() < 2) return;
+  var lastRow = asigSheet.getLastRow();
+  var values = asigSheet.getRange(2, 11, lastRow - 1, 1).getValues(); // col K
+  var target = String(numeroTicket).trim();
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][0]).trim() === target) {
+      asigSheet.getRange(i + 2, 12).setValue(estado); // col L
+      return;
+    }
+  }
+}
+
 function generateTicketNumber() {
   var doc   = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = doc.getSheetByName("ASIGNACION_TICKET");
@@ -258,9 +287,21 @@ function handleCreateTicket(doc, data, debugSheet) {
 function handleUpdateTicket(doc, payload, debugSheet) {
   var sheet = doc.getSheetByName("ASIGNACION_TICKET");
   if (!sheet) return createErrorResponse("Sheet ASIGNACION_TICKET not found");
+  var rowIndex = payload.rowIndex;
+  var numeroTicket = (payload.data && payload.data.numeroTicket) || payload.numeroTicket || '';
+  var found = findTicketRowByNumber(sheet, numeroTicket);
+  if (found) rowIndex = found;
+  if (!rowIndex) return createErrorResponse("rowIndex requerido");
   var row = mapTicketToRow(payload.data);
-  sheet.getRange(payload.rowIndex, 1, 1, row.length).setValues([row]);
-  logToDebug(debugSheet, "Ticket actualizado fila: " + payload.rowIndex);
+  sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+
+  // Sincronizar estado en asignación vinculada
+  if (numeroTicket) {
+    var estado = payload.data.fechaCierre ? 'CERRADO' : (payload.data.respuesta ? 'RESPONDIDO' : 'ABIERTO');
+    syncEstadoTicketAsignacion(doc, numeroTicket, estado);
+  }
+
+  logToDebug(debugSheet, "Ticket actualizado fila: " + rowIndex + " ticket: " + numeroTicket);
   return createSuccessResponse({ action: "updateTicket" });
 }
 
@@ -271,9 +312,15 @@ function handleRespondTicket(doc, payload, debugSheet) {
   if (!sheet) return createErrorResponse("Sheet ASIGNACION_TICKET not found");
   var rowIndex  = payload.rowIndex;
   var respuesta = payload.respuesta || '';
+  var found = findTicketRowByNumber(sheet, payload.numeroTicket);
+  if (found) rowIndex = found;
   if (!rowIndex) return createErrorResponse("rowIndex requerido");
 
   sheet.getRange(rowIndex, 10).setValue(respuesta);  // Col J: RESPUESTA
+
+  if (payload.numeroTicket) {
+    syncEstadoTicketAsignacion(doc, payload.numeroTicket, 'RESPONDIDO');
+  }
 
   logToDebug(debugSheet, "Ticket respondido fila: " + rowIndex);
   return createSuccessResponse({ action: "respondTicket" });

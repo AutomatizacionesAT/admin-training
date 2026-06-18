@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Calendar, Clock, Users, MapPin, Info,
-  Plus, Ticket, CheckCircle, XCircle, Clock3, RefreshCw
+  Plus, Ticket, CheckCircle, XCircle, Clock3, RefreshCw, MessageSquare
 } from 'lucide-react';
 import type { AsignacionRecord, SalaRecord, SalasUser, TicketRecord } from '../utils/types';
 import AsignacionFormModal from './AsignacionFormModal';
 import TicketFormModal from './TicketFormModal';
-import { createAsignacion, createTicket } from '../utils/fetchData';
+import { createAsignacion, createTicket, fetchTickets } from '../utils/fetchData';
+import { formatAsignacionRango } from '../utils/asignacionUtils';
 
 interface Props {
   user: SalasUser;
@@ -41,10 +42,28 @@ const ESTADO_CONFIG = {
 
 type EstadoKey = keyof typeof ESTADO_CONFIG;
 
+function resolveTicketEstado(ticket: TicketRecord | undefined, fallback = ''): 'ABIERTO' | 'RESPONDIDO' | 'CERRADO' {
+  if (ticket?.fechaCierre) return 'CERRADO';
+  if (ticket?.respuesta?.trim()) return 'RESPONDIDO';
+  if (fallback === 'CERRADO' || fallback === 'RESPONDIDO') return fallback as 'CERRADO' | 'RESPONDIDO';
+  return 'ABIERTO';
+}
+
+const TICKET_ESTADO_CONFIG = {
+  ABIERTO:     { label: 'Abierto',                    cls: 'bg-orange-100 text-orange-600' },
+  RESPONDIDO:  { label: 'Abierto · Respuesta admin',  cls: 'bg-blue-100 text-blue-700' },
+  CERRADO:     { label: 'Cerrado',                    cls: 'bg-slate-100 text-slate-500' },
+} as const;
+
 export default function CoordinadorView({ user, salas, asignaciones, onRefresh }: Props) {
   const [showSolicitud, setShowSolicitud] = useState(false);
   const [ticketTarget, setTicketTarget] = useState<AsignacionRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [tickets, setTickets] = useState<TicketRecord[]>([]);
+
+  useEffect(() => {
+    fetchTickets().then(setTickets).catch(() => setTickets([]));
+  }, [asignaciones]);
 
   // Asignaciones propias (por nombre o documento)
   const mis = asignaciones.filter(a => {
@@ -95,6 +114,11 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh }
     const estado = (a.estadoAsignacion || 'APROBADO') as EstadoKey;
     const isAprobada = estado === 'APROBADO';
     const tieneTicket = !!a.ticket;
+    const ticketInfo = tieneTicket
+      ? tickets.find(t => t.numeroTicket === a.ticket)
+      : undefined;
+    const ticketEstado = resolveTicketEstado(ticketInfo, a.estadoTicket);
+    const ticketCfg = TICKET_ESTADO_CONFIG[ticketEstado];
 
     return (
       <div className={`bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all p-5 space-y-4 ${estado === 'PENDIENTE' ? 'border-amber-200 bg-amber-50/40' :
@@ -129,7 +153,7 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh }
           </div>
           <div className="flex items-center gap-2 text-slate-600">
             <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="text-xs">{a.fechaInicial || '—'} → {a.fechaFin || '—'}</span>
+            <span className="text-xs">{formatAsignacionRango(a.fechaInicial, a.fechaFin)}</span>
           </div>
           {a.dPersonas && (
             <div className="flex items-center gap-2 text-slate-600">
@@ -141,15 +165,26 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh }
 
         {/* Acción: crear ticket (solo si aprobada) */}
         {isAprobada && (
-          <div className="pt-2 border-t border-slate-100">
+          <div className="pt-2 border-t border-slate-100 space-y-2">
             {tieneTicket ? (
-              <div className="flex items-center gap-2 text-xs text-orange-600 font-semibold">
-                <Ticket className="w-3.5 h-3.5" />
-                Ticket: {a.ticket}
-                <span className={`ml-1 px-1.5 py-px rounded text-[10px] font-bold ${a.estadoTicket === 'CERRADO' ? 'bg-slate-100 text-slate-500' : 'bg-orange-100 text-orange-600'}`}>
-                  {a.estadoTicket || 'ABIERTO'}
-                </span>
-              </div>
+              <>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-orange-600 font-semibold">
+                  <Ticket className="w-3.5 h-3.5 shrink-0" />
+                  <span>Ticket: {a.ticket}</span>
+                  <span className={`px-1.5 py-px rounded text-[10px] font-bold ${ticketCfg.cls}`}>
+                    {ticketCfg.label}
+                  </span>
+                </div>
+                {ticketInfo?.respuesta?.trim() && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 mb-1">
+                      <MessageSquare className="w-3 h-3" />
+                      Respuesta del administrador
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">{ticketInfo.respuesta}</p>
+                  </div>
+                )}
+              </>
             ) : (
               <button
                 onClick={() => setTicketTarget(a)}
