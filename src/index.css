@@ -145,3 +145,38 @@
   scrollbar-width: thin;
   scrollbar-color: #3b82f6 #f3f4f6;
 }
+
+@keyframes home-card-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+.home-feature-card {
+  animation: home-card-float 8s ease-in-out infinite;
+  will-change: transform;
+}
+
+.home-feature-card-delay-1 {
+  animation-delay: 0s;
+}
+
+.home-feature-card-delay-2 {
+  animation-delay: 1.2s;
+}
+
+.home-feature-card-delay-3 {
+  animation-delay: 2.4s;
+}
+
+.home-feature-card-delay-4 {
+  animation-delay: 3.6s;
+}
+
+.home-feature-card-delay-5 {
+  animation-delay: 4.8s;
+}

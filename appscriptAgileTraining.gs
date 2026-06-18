@@ -1,10 +1,33 @@
 // ─── AgileTRaining — Google Apps Script ──────────────────────────────────────────────
+function handleGetAgileData() {
+  var doc = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = doc.getSheetByName("dataagile");
+
+  if (!sheet) {
+    return createErrorResponse("Sheet not found: dataagile");
+  }
+
+  var lastRow = sheet.getLastRow();
+  var lastColumn = sheet.getLastColumn();
+
+  if (lastRow <= 1 || lastColumn === 0) {
+    return createSuccessResponse({ rows: [] });
+  }
+
+  var values = sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues();
+
+  return createSuccessResponse({ rows: values });
+}
 
 function doGet(e) {
   var action = e && e.parameter ? e.parameter.action : "";
 
   if (action === "getConfig") {
     return handleGetConfig();
+  }
+
+  if (action === "getAgileData") {
+    return handleGetAgileData();
   }
 
   return ContentService
@@ -145,11 +168,11 @@ function mapRecordToRow(record) {
     record.desarrolloDigital || "",
     record.herramientasDiferenciales || "",
     record.metodologiasObjetivos || "",
+    record.avance || "",
     record.piloto || "",
     record.pptLanzamiento || "",
     record.graduacionOjt || "",
     record.resultados || "",
-    record.avance || "",
     record.fechaInicio || "",
     record.fechaFin || "",
     record.duracion || "",

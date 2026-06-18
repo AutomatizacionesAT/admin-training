@@ -2,17 +2,17 @@ export interface AgileTrainingRow {
   campana: string;
   coordinador: string;
   industria: string;
-  tercio1: string;
+  especializacionFormadores: string;
   formadorDeFormadores: string;
   ced: string;
   uAtento: string;
-  tercio2: string;
+  redefinicionMallaFormacion: string;
   tipologiasParetoKpi: string;
   encuestaAsesor: string;
   mejoraEncuestaPostTraining: string;
   levantamientosCliente: string;
   migracionMalla: string;
-  tercio3: string;
+  desarrolloDigital: string;
   herramientasDiferenciales: string;
   metodologiasObjetivos: string;
   piloto: string;
@@ -28,9 +28,9 @@ export interface AgileTrainingRow {
   insignia: string;
   estado: string;
   notas: string;
-  tercio1Pct: number;
-  tercio2Pct: number;
-  tercio3Pct: number;
+  especializacionFormadoresPct: number;
+  redefinicionMallaFormacionPct: number;
+  desarrolloDigitalPct: number;
   pilotoPct: number;
   avancePct: number;
   metaPct: number;
@@ -43,6 +43,7 @@ export interface AgileTrainingRow {
 export interface AgileTrainingKpis {
   totalCampanas: number;
   promedioAvance: number;
+  promedioMeta: number;
   promedioPiloto: number;
   promedioCumplimiento: number;
   finalizadas: number;

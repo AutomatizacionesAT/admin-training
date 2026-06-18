@@ -12,13 +12,13 @@ import {
   ListFilter,
   LoaderCircle,
   Maximize2,
-  Rocket,
   Target,
   X,
 } from 'lucide-react';
 
 import { fetchAgileTrainingData } from './utils/fetchData';
 import type { AgileSortField, AgileSortOrder, AgileTrainingKpis, AgileTrainingRow } from './utils/types';
+import agileTrainingBadge from "@/assets/agile-training/agileTraining.png";
 
 type ModalState = {
   estado: string;
@@ -124,6 +124,7 @@ function buildKpis(rows: AgileTrainingRow[]): AgileTrainingKpis {
     return {
       totalCampanas: 0,
       promedioAvance: 0,
+      promedioMeta: 0,
       promedioPiloto: 0,
       promedioCumplimiento: 0,
       finalizadas: 0,
@@ -137,6 +138,7 @@ function buildKpis(rows: AgileTrainingRow[]): AgileTrainingKpis {
     (acc, row) => {
       const estado = normalizeText(row.estado);
       acc.avance += row.avancePct;
+      acc.meta += row.metaPct;
       acc.piloto += row.pilotoPct;
       acc.cumplimiento += row.cumplimientoPct;
       if (estado.includes('final')) acc.finalizadas += 1;
@@ -145,12 +147,13 @@ function buildKpis(rows: AgileTrainingRow[]): AgileTrainingKpis {
       if (estado.includes('paus')) acc.pausado += 1;
       return acc;
     },
-    { avance: 0, piloto: 0, cumplimiento: 0, finalizadas: 0, enProgreso: 0, novedad: 0, pausado: 0 }
+    { avance: 0, meta: 0, piloto: 0, cumplimiento: 0, finalizadas: 0, enProgreso: 0, novedad: 0, pausado: 0 }
   );
 
   return {
     totalCampanas: rows.length,
     promedioAvance: totals.avance / rows.length,
+    promedioMeta: totals.meta / rows.length,
     promedioPiloto: totals.piloto / rows.length,
     promedioCumplimiento: totals.cumplimiento / rows.length,
     finalizadas: totals.finalizadas,
@@ -416,7 +419,7 @@ export default function AgileTraining() {
   const [selectedIndustrias, setSelectedIndustrias] = useState<string[]>([]);
   const [selectedEstados, setSelectedEstados] = useState<string[]>([]);
   const [selectedInsignias, setSelectedInsignias] = useState<string[]>([]);
-  const [sortField, setSortField] = useState<AgileSortField>('cumplimientoPct');
+  const [sortField, setSortField] = useState<AgileSortField>('avancePct');
   const [sortOrder, setSortOrder] = useState<AgileSortOrder>('desc');
   const [summaryOrder, setSummaryOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
@@ -566,7 +569,7 @@ export default function AgileTraining() {
   const summaryRows = useMemo(() => {
     return [...filteredRows].sort((a, b) => {
       const direction = summaryOrder === 'asc' ? 1 : -1;
-      return (a.cumplimientoPct - b.cumplimientoPct) * direction;
+      return (a.avancePct - b.avancePct) * direction;
     });
   }, [filteredRows, summaryOrder]);
 
@@ -582,7 +585,7 @@ export default function AgileTraining() {
     ? [
         {
           title: 'Especialización Formadores',
-          percent: selectedRow.tercio1Pct,
+          percent: selectedRow.especializacionFormadoresPct,
           items: [
             { label: 'Formador de Formadores', value: selectedRow.formadorDeFormadores },
             { label: 'CED (Campus entrenamiento digital)', value: selectedRow.ced },
@@ -591,7 +594,7 @@ export default function AgileTraining() {
         },
         {
           title: 'Redefinición Malla De Formación',
-          percent: selectedRow.tercio2Pct,
+          percent: selectedRow.redefinicionMallaFormacionPct,
           items: [
             { label: 'Tipologías y Pareto KPI', value: selectedRow.tipologiasParetoKpi },
             { label: 'Encuesta Asesor', value: selectedRow.encuestaAsesor },
@@ -602,7 +605,7 @@ export default function AgileTraining() {
         },
         {
           title: 'Desarrollo Digital',
-          percent: selectedRow.tercio3Pct,
+          percent: selectedRow.desarrolloDigitalPct,
           items: [
             { label: 'Herramientas diferenciales', value: selectedRow.herramientasDiferenciales },
             { label: 'Metodologías por objetivos', value: selectedRow.metodologiasObjetivos },
@@ -624,11 +627,16 @@ export default function AgileTraining() {
     <>
       <main className="min-h-[calc(100vh-72px)] bg-slate-50">
         <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
-          <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-linear-to-br from-[#0b1f3a] via-[#10376a] to-[#24479d] px-6 py-8 text-white shadow-[0_24px_80px_-40px_rgba(15,23,42,0.55)] lg:px-8">
+          <section className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-linear-to-br from-[#0b1f3a] via-[#10376a] to-[#24479d] px-6 py-8 text-white shadow-[0_24px_80px_-40px_rgba(15,23,42,0.55)] lg:px-8">
+            <img
+              src={agileTrainingBadge}
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute right-0 top-1/2 z-0 h-[240px] w-auto -translate-y-1/2 opacity-15 sm:h-[300px] lg:right-8 lg:h-[360px]"
+            />
             <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-3xl space-y-4">
+              <div className="relative z-10 max-w-3xl space-y-4">
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-blue-100 ring-1 ring-white/15">
-                  <Rocket className="h-3.5 w-3.5" />
                   Agile Training
                 </span>
                 <div>
@@ -639,7 +647,7 @@ export default function AgileTraining() {
                 </div>
               </div>
 
-              <div className="rounded-3xl bg-white/6 p-3 ring-1 ring-white/10 lg:w-[420px]">
+              <div className="relative z-10 rounded-3xl bg-white/6 p-3 ring-1 ring-white/10 lg:w-[420px]">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <StatCard label="Campañas" value={rows.length} icon={BriefcaseBusiness} accentClass="bg-blue-500/15 text-blue-50 ring-1 ring-blue-200/20 backdrop-blur-sm" />
                   <StatCard label="Finalizadas" value={globalKpis.finalizadas} icon={Target} accentClass="bg-emerald-500/15 text-emerald-50 ring-1 ring-emerald-200/20 backdrop-blur-sm" />
@@ -775,8 +783,8 @@ export default function AgileTraining() {
 
                 {multipleCampaigns ? (
                   <div className="grid gap-4 xl:grid-cols-3">
-                    <ProgressMetric label="Promedio lanzamiento" value={filteredKpis.promedioAvance} tone="blue" />
-                    <ProgressMetric label="Promedio cumplimiento" value={filteredKpis.promedioCumplimiento} tone="green" />
+                    <ProgressMetric label="Promedio avance" value={filteredKpis.promedioAvance} tone="green" />
+                    <ProgressMetric label="Promedio cumplimiento" value={filteredKpis.promedioCumplimiento} tone="blue" />
                     <ProgressMetric label="Promedio piloto" value={filteredKpis.promedioPiloto} tone="violet" />
                   </div>
                 ) : null}
@@ -811,9 +819,9 @@ export default function AgileTraining() {
                   </section>
 
                   <section className="rounded-2xl border border-slate-200 bg-white p-5">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Cumplimiento</p>
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Avance</p>
                         <h2 className="mt-2 text-xl font-bold text-slate-900">Campañas filtradas</h2>
                       </div>
                       {multipleCampaigns ? (
@@ -839,11 +847,18 @@ export default function AgileTraining() {
                           className="flex w-full items-center justify-between gap-4 rounded-2xl border border-slate-200 px-4 py-3 text-left transition hover:border-blue-200 hover:bg-blue-50/40"
                         >
                           <div>
-                            <p className="font-semibold text-slate-900">{row.campana}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-semibold text-slate-900">{row.campana}</p>
+                              {row.insignia ? (
+                                <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${getBadgeClasses(getInsigniaTone(row.insignia))}`}>
+                                  {row.insignia}
+                                </span>
+                              ) : null}
+                            </div>
                             <p className="mt-1 text-sm text-slate-500">{row.coordinador || 'Sin coordinador'}</p>
                           </div>
-                          <span className={`text-xl font-black ${getCumplimientoTextClass(row.cumplimientoPct)}`}>
-                            {formatPercent(row.cumplimientoPct)}
+                          <span className={`text-xl font-black ${getCumplimientoTextClass(row.avancePct)}`}>
+                            {formatPercent(row.avancePct)}
                           </span>
                         </button>
                       ))}
@@ -860,8 +875,8 @@ export default function AgileTraining() {
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
                       <select value={sortField} onChange={(event) => setSortField(event.target.value as AgileSortField)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 hover:cursor-pointer hover:border-slate-300">
-                        <option value="cumplimientoPct">Cumplimiento</option>
                         <option value="avancePct">Avance</option>
+                        <option value="cumplimientoPct">Cumplimiento</option>
                         <option value="campana">Campaña</option>
                         <option value="coordinador">Coordinador</option>
                         <option value="pilotoPct">Piloto</option>
@@ -875,7 +890,7 @@ export default function AgileTraining() {
 
                   <div className="max-h-[520px] overflow-auto">
                     <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
-                      <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-[0_1px_0_0_rgba(226,232,240,1)]">
                         <tr>
                           <th className="px-4 py-3">Campaña</th>
                           <th className="px-4 py-3">Coordinador</th>
@@ -897,9 +912,9 @@ export default function AgileTraining() {
                                 </div>
                               </td>
                               <td className="px-4 py-4 align-top text-slate-700">{row.coordinador || 'Sin coordinador'}</td>
-                              <td className="px-4 py-4 align-top font-semibold text-slate-900">{formatPercent(row.avancePct)}</td>
+                              <td className={`px-4 py-4 align-top text-lg font-black ${getCumplimientoTextClass(row.avancePct)}`}>{formatPercent(row.avancePct)}</td>
                               <td className="px-4 py-4 align-top font-semibold text-slate-700">{formatPercent(row.metaPct)}</td>
-                              <td className={`px-4 py-4 align-top text-lg font-black ${getCumplimientoTextClass(row.cumplimientoPct)}`}>{formatPercent(row.cumplimientoPct)}</td>
+                              <td className="px-4 py-4 align-top font-semibold text-slate-700">{formatPercent(row.cumplimientoPct)}</td>
                               <td className="px-4 py-4 align-top font-semibold text-slate-700">{formatPercent(row.pilotoPct)}</td>
                             </tr>
                           );
@@ -929,14 +944,14 @@ export default function AgileTraining() {
                         <div className="max-h-[450px] overflow-y-auto space-y-5">
 
                           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Cumplimiento</p>
-                            <p className={`mt-2 text-4xl font-black ${getCumplimientoTextClass(selectedRow.cumplimientoPct)}`}>{formatPercent(selectedRow.cumplimientoPct)}</p>
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Avance</p>
+                            <p className={`mt-2 text-4xl font-black ${getCumplimientoTextClass(selectedRow.avancePct)}`}>{formatPercent(selectedRow.avancePct)}</p>
                           </div>
 
                           <div className="mt-5 grid gap-3 rounded-2xl border border-slate-200 bg-white  p-4 text-sm text-slate-600">
                             <div className="flex items-center gap-2"><CalendarRange className="h-4 w-4" />Inicio: {formatDisplayDate(selectedRow.fechaInicio, selectedRow.fechaInicioISO)}</div>
                             <div className="flex items-center gap-2"><CalendarRange className="h-4 w-4" />Fin: {formatDisplayDate(selectedRow.fechaFin, selectedRow.fechaFinISO)}</div>
-                            <div className="flex items-center gap-2"><Gauge className="h-4 w-4" />Duración: {selectedRow.duracionDias + " dias" || selectedRow.duracion + " dias" || "Pendiente"} </div>
+                            <div className="flex items-center gap-2"><Gauge className="h-4 w-4" />Duración: {selectedRow.duracionDias ? `${selectedRow.duracionDias} días` : selectedRow.duracion ? `${selectedRow.duracion} días` : 'Pendiente'}</div>
                           </div>
 
                           <div className="mt-4">

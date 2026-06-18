@@ -37,8 +37,9 @@ export default function Navbar() {
     { name: "Web Training", path: "/web-training" },
     { name: "Usabilidad Web", path: "/usabilidad-web-training" },
     { name: "Biométrico", path: "/informe-biometrico" },
-    { name: "Salas", path: "/salas" },
     { name: "Agile Training", path: "/agile-training" },
+    { name: "Academy", path: "/academy" },
+    { name: "Salas", path: "/salas" },
   ];
 
   return (

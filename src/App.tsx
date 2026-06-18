@@ -7,6 +7,7 @@ import UsabilidadWebTraining from "./components/app/usabilidad_web_training/Usab
 import InformeBiometrico from "./components/app/informe_biometrico/InformeBiometrico";
 import Salas from "./components/app/Salas/Salas";
 import AgileTraining from "./components/app/agile_training/AgileTraining";
+import Academy from "./components/app/academy/Academy";
 
 import { AuthProvider } from "@/context/AuthContext";
 
@@ -23,6 +24,7 @@ function App() {
           <Route path="/informe-biometrico" element={<InformeBiometrico />} />
           <Route path="/salas" element={<Salas />} />
           <Route path="/agile-training" element={<AgileTraining />} />
+          <Route path="/academy" element={<Academy />} />
         </Routes>
       </div>
     </AuthProvider>
