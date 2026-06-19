@@ -101,7 +101,6 @@ function generate() {
   const content = `// AUTO-GENERADO — no editar a mano.
 // Regenerar: npm run salas:media
 // Guía de nombres: public/salas/README.md
-// Generado: ${new Date().toISOString()}
 
 export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
 ${lines.join(',\n')},
@@ -109,7 +108,11 @@ ${lines.join(',\n')},
 `;
 
   fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true });
-  fs.writeFileSync(OUT_FILE, content, 'utf8');
+
+  const current = fs.existsSync(OUT_FILE) ? fs.readFileSync(OUT_FILE, 'utf8') : null;
+  if (current !== content) {
+    fs.writeFileSync(OUT_FILE, content, 'utf8');
+  }
 
   console.log(`✓ salaMedia.manifest.ts — ${sortedKeys.length} salas, ${files.length} imágenes`);
   if (sortedKeys.length === 0) {
