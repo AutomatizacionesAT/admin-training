@@ -1,7 +1,7 @@
 // AUTO-GENERADO — no editar a mano.
 // Regenerar: npm run salas:media
 // Guía de nombres: public/salas/README.md
-// Generado: 2026-06-19T16:07:54.485Z
+// Generado: 2026-06-19T17:58:41.490Z
 
 export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
   "201": {
@@ -112,6 +112,13 @@ export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
       "/salas/elemento/Sala Piso 4 Ala B.jpg",
       "/salas/elemento/Sala Piso 4 Ala B 2.jpg",
       "/salas/elemento/Sala Piso 4 Ala B 3.jpg",
+    ],
+  },
+  "PISO 6 ALA B": {
+    fotos: [
+      "/salas/elemento/Sala Piso 6 Ala B.jpg",
+      "/salas/elemento/Sala Piso 6 Ala B 2.jpg",
+      "/salas/elemento/Sala Piso 6 Ala B 3.jpg",
     ],
   },
   "SIMULATOR": {
