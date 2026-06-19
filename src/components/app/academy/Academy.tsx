@@ -340,13 +340,13 @@ export default function Academy() {
           src={CAFE_GO_IMAGE}
           alt=""
           aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-1/2 z-0 h-[180px] w-auto -translate-y-1/2 opacity-15 sm:h-[240px] lg:left-4 lg:h-[300px]"
+          className="pointer-events-none absolute left-0 top-1/2 z-0 h-[180px] w-auto -translate-y-1/2 opacity-15 sm:h-60 lg:left-4 lg:h-[300px]"
         />
         <img
           src={CAFE_OPERACIONES_IMAGE}
           alt=""
           aria-hidden="true"
-          className="pointer-events-none absolute right-0 top-1/2 z-0 h-[180px] w-auto -translate-y-1/2 opacity-10 sm:h-[240px] lg:right-4 lg:h-[300px]"
+          className="pointer-events-none absolute right-0 top-1/2 z-0 h-[180px] w-auto -translate-y-1/2 opacity-10 sm:h-60 lg:right-4 lg:h-[300px]"
         />
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="relative z-10 max-w-3xl space-y-4">
