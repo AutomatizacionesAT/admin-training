@@ -1,7 +1,7 @@
 // AUTO-GENERADO — no editar a mano.
 // Regenerar: npm run salas:media
 // Guía de nombres: public/salas/README.md
-// Generado: 2026-06-18T19:23:48.862Z
+// Generado: 2026-06-19T14:29:54.831Z
 
 export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
   "201": {
