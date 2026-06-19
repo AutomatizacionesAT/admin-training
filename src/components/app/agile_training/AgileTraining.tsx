@@ -632,7 +632,7 @@ export default function AgileTraining() {
               src={agileTrainingBadge}
               alt=""
               aria-hidden="true"
-              className="pointer-events-none absolute right-0 top-1/2 z-0 h-[240px] w-auto -translate-y-1/2 opacity-15 sm:h-[300px] lg:right-8 lg:h-[360px]"
+              className="pointer-events-none absolute right-0 top-1/2 z-0 h-60 w-auto -translate-y-1/2 opacity-15 sm:h-[300px] lg:right-8 lg:h-[360px]"
             />
             <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
               <div className="relative z-10 max-w-3xl space-y-4">
@@ -782,9 +782,8 @@ export default function AgileTraining() {
                 </div>
 
                 {multipleCampaigns ? (
-                  <div className="grid gap-4 xl:grid-cols-3">
+                  <div className="grid gap-4 xl:grid-cols-2">
                     <ProgressMetric label="Promedio avance" value={filteredKpis.promedioAvance} tone="green" />
-                    <ProgressMetric label="Promedio cumplimiento" value={filteredKpis.promedioCumplimiento} tone="blue" />
                     <ProgressMetric label="Promedio piloto" value={filteredKpis.promedioPiloto} tone="violet" />
                   </div>
                 ) : null}

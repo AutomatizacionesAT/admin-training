@@ -1,10 +1,36 @@
-// ─── AgileTRaining — Google Apps Script ──────────────────────────────────────────────
+// ─── AgileTRaining — academy Google Apps Script ──────────────────────────────────────────────
 function handleGetAgileData() {
   var doc = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = doc.getSheetByName("dataagile");
 
   if (!sheet) {
     return createErrorResponse("Sheet not found: dataagile");
+  }
+
+  var lastRow = sheet.getLastRow();
+  var lastColumn = sheet.getLastColumn();
+
+  if (lastRow <= 1 || lastColumn === 0) {
+    return createSuccessResponse({ rows: [] });
+  }
+
+  var values = sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues();
+
+  return createSuccessResponse({ rows: values });
+}
+
+function handleGetAcademyData(e) {
+  var doc = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName = e && e.parameter ? e.parameter.sheet : "";
+
+  if (sheetName !== "formacionInicial" && sheetName !== "formacionContinua") {
+    return createErrorResponse("Invalid sheet");
+  }
+
+  var sheet = doc.getSheetByName(sheetName);
+
+  if (!sheet) {
+    return createErrorResponse("Sheet not found: " + sheetName);
   }
 
   var lastRow = sheet.getLastRow();
@@ -28,6 +54,10 @@ function doGet(e) {
 
   if (action === "getAgileData") {
     return handleGetAgileData();
+  }
+
+  if (action === "getAcademyData") {
+    return handleGetAcademyData(e);
   }
 
   return ContentService

@@ -38,7 +38,7 @@ export default function Home() {
           </div>
 
           {/* Features / Presentation Cards */}
-          <div className="flex-1 w-full max-w-lg lg:max-w-none">
+          <div className="home-cards-stage flex-1 w-full max-w-lg lg:max-w-none">
             <div className="grid gap-4 md:grid-cols-2">
 
               <div className="home-feature-card home-feature-card-delay-1 bg-white/90 backdrop-blur-sm border border-white/70 rounded-2xl p-6 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.35)] flex items-start gap-5 hover:border-[#0047BA]/30 transition-all duration-300 hover:-translate-y-1">
