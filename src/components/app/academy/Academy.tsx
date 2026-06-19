@@ -16,8 +16,9 @@ import {
 
 import { fetchAcademySheet } from './utils/fetchData';
 import type { AcademyKpis, AcademyRow, AcademySheetKey, AcademySortField, AcademySortOrder, PieSlice } from './utils/types';
-import cafeOperaciones from "@/assets/academy/cafeOperaciones.png";
-import cafeGo from "@/assets/academy/cafeGo.png";
+
+const CAFE_OPERACIONES_IMAGE = `${import.meta.env.BASE_URL}academy/cafeOperaciones.png`;
+const CAFE_GO_IMAGE = `${import.meta.env.BASE_URL}academy/cafeGo.png`;
 
 type AcademyTab = {
   id: AcademySheetKey;
@@ -336,13 +337,13 @@ export default function Academy() {
     <main className="min-h-[calc(100vh-72px)] bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
       <section className="relative mx-auto max-w-[1440px] overflow-hidden rounded-[28px] border border-slate-200 bg-linear-to-br from-[#0b1f3a] via-[#10376a] to-[#24479d] px-6 py-10 text-white shadow-[0_24px_80px_-40px_rgba(15,23,42,0.55)] lg:px-8">
         <img
-          src={cafeGo}
+          src={CAFE_GO_IMAGE}
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute left-0 top-1/2 z-0 h-[180px] w-auto -translate-y-1/2 opacity-15 sm:h-[240px] lg:left-4 lg:h-[300px]"
         />
         <img
-          src={cafeOperaciones}
+          src={CAFE_OPERACIONES_IMAGE}
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute right-0 top-1/2 z-0 h-[180px] w-auto -translate-y-1/2 opacity-10 sm:h-[240px] lg:right-4 lg:h-[300px]"

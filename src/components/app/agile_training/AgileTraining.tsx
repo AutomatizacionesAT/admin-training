@@ -18,7 +18,8 @@ import {
 
 import { fetchAgileTrainingData } from './utils/fetchData';
 import type { AgileSortField, AgileSortOrder, AgileTrainingKpis, AgileTrainingRow } from './utils/types';
-import agileTrainingBadge from "@/assets/agile-training/agileTraining.png";
+
+const AGILE_TRAINING_IMAGE = `${import.meta.env.BASE_URL}agile-training/agileTraining.png`;
 
 type ModalState = {
   estado: string;
@@ -629,7 +630,7 @@ export default function AgileTraining() {
         <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
           <section className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-linear-to-br from-[#0b1f3a] via-[#10376a] to-[#24479d] px-6 py-8 text-white shadow-[0_24px_80px_-40px_rgba(15,23,42,0.55)] lg:px-8">
             <img
-              src={agileTrainingBadge}
+              src={AGILE_TRAINING_IMAGE}
               alt=""
               aria-hidden="true"
               className="pointer-events-none absolute right-0 top-1/2 z-0 h-60 w-auto -translate-y-1/2 opacity-15 sm:h-[300px] lg:right-8 lg:h-[360px]"
