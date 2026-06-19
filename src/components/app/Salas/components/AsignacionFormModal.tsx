@@ -2,6 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { X, Save, Loader2, AlertTriangle } from 'lucide-react';
 import type { AsignacionRecord, SalaRecord } from '../utils/types';
 import { SALAS_USERS } from '@/context/AuthContext';
+import {
+  parseAsignacionDate,
+  toInputDateValue,
+  formatAsignacionRango,
+} from '../utils/asignacionUtils';
 
 interface Props {
   initial?: AsignacionRecord | null;
@@ -18,31 +23,7 @@ interface Props {
   saving?: boolean;
 }
 
-// ── Utilidades de fecha ───────────────────────────────────────────────────────
-
-/** Parsea múltiples formatos: YYYY-MM-DD, DD/MM/YYYY, YYYY/MM/DD, Date(YYYY,M,D) */
-function parseDate(raw: string): Date | null {
-  if (!raw) return null;
-
-  // Google Sheets serialized: Date(2026,5,11)
-  const gs = raw.match(/Date\((\d{4}),(\d+),(\d+)\)/);
-  if (gs) return new Date(+gs[1], +gs[2], +gs[3]);
-
-  // ISO YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw))
-    return new Date(raw + 'T00:00:00');
-
-  // DD/MM/YYYY o D/M/YYYY
-  const dmy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (dmy) return new Date(+dmy[3], +dmy[2] - 1, +dmy[1]);
-
-  // YYYY/MM/DD
-  const ymd = raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
-  if (ymd) return new Date(+ymd[1], +ymd[2] - 1, +ymd[3]);
-
-  const fallback = new Date(raw);
-  return isNaN(fallback.getTime()) ? null : fallback;
-}
+// ── Utilidades de fecha (conflictos) ─────────────────────────────────────────
 
 /** Detecta si dos rangos [s1,e1] y [s2,e2] se superponen */
 function datesOverlap(s1: Date, e1: Date, s2: Date, e2: Date) {
@@ -68,8 +49,8 @@ function detectarConflictos(
 ): Conflicto[] {
   if (!form.sala || !form.horario || !form.fechaInicial || !form.fechaFin) return [];
 
-  const newStart = parseDate(form.fechaInicial);
-  const newEnd = parseDate(form.fechaFin);
+  const newStart = parseAsignacionDate(form.fechaInicial);
+  const newEnd = parseAsignacionDate(form.fechaFin);
   if (!newStart || !newEnd) return [];
 
   return todas.filter(a => {
@@ -81,8 +62,8 @@ function detectarConflictos(
     if (a.sala !== form.sala) return false;
     if (a.horario !== form.horario) return false;
     // Rango solapado
-    const existStart = parseDate(a.fechaInicial);
-    const existEnd = parseDate(a.fechaFin);
+    const existStart = parseAsignacionDate(a.fechaInicial);
+    const existEnd = parseAsignacionDate(a.fechaFin);
     if (!existStart || !existEnd) return false;
     return datesOverlap(newStart, newEnd, existStart, existEnd);
   }).map(a => ({
@@ -116,6 +97,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export default function AsignacionFormModal({ initial, salas = [], asignaciones = [], onSave, onClose, modoSolicitud, coordinadorDefault, saving: savingExternal }: Props) {
   const [form, setForm] = useState<Omit<AsignacionRecord, 'rowIndex'>>(EMPTY);
   const [savingInternal, setSavingInternal] = useState(false);
+  const [dateError, setDateError] = useState('');
   const saving = savingExternal ?? savingInternal;
 
   // Conflictos recalculados en tiempo real
@@ -126,10 +108,15 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
   const hayConflicto = conflictos.length > 0;
 
   useEffect(() => {
+    setDateError('');
     if (initial) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { rowIndex: _r, ...rest } = initial;
-      setForm(rest);
+      setForm({
+        ...rest,
+        fechaInicial: toInputDateValue(rest.fechaInicial),
+        fechaFin: toInputDateValue(rest.fechaFin),
+      });
     } else {
       setForm({ ...EMPTY, formador: coordinadorDefault ?? '' });
     }
@@ -181,10 +168,30 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.campana || !form.sede || !form.sala) return;
-    // Coordinadores no pueden enviar si hay conflicto
+
+    const fechaInicial = toInputDateValue(form.fechaInicial) || form.fechaInicial;
+    const fechaFin = toInputDateValue(form.fechaFin) || form.fechaFin;
+    if (!fechaInicial || !fechaFin) {
+      setDateError('Indica la fecha desde y hasta.');
+      return;
+    }
+    const start = parseAsignacionDate(fechaInicial);
+    const end = parseAsignacionDate(fechaFin);
+    if (!start || !end) {
+      setDateError('Las fechas no son válidas.');
+      return;
+    }
+    if (end < start) {
+      setDateError('La fecha hasta no puede ser anterior a la fecha desde.');
+      return;
+    }
+    setDateError('');
+
     if (modoSolicitud && hayConflicto) return;
+
+    const payload = { ...form, fechaInicial, fechaFin };
     setSavingInternal(true);
-    try { await onSave(form); }
+    try { await onSave(payload); }
     finally { setSavingInternal(false); }
   };
 
@@ -279,13 +286,29 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
 
           {/* Fechas */}
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Fecha Inicial">
-              <input type="date" value={form.fechaInicial} onChange={e => set('fechaInicial', e.target.value)} className={inputCls} />
+            <Field label="Desde">
+              <input
+                type="date"
+                value={form.fechaInicial}
+                onChange={e => { set('fechaInicial', e.target.value); setDateError(''); }}
+                className={inputCls}
+                required
+              />
             </Field>
-            <Field label="Fecha Fin">
-              <input type="date" value={form.fechaFin} onChange={e => set('fechaFin', e.target.value)} className={inputCls} />
+            <Field label="Hasta">
+              <input
+                type="date"
+                value={form.fechaFin}
+                min={form.fechaInicial || undefined}
+                onChange={e => { set('fechaFin', e.target.value); setDateError(''); }}
+                className={inputCls}
+                required
+              />
             </Field>
           </div>
+          {dateError && (
+            <p className="text-xs font-semibold text-red-600">{dateError}</p>
+          )}
 
           {/* ── Banner de conflictos ────────────────────────────────────────── */}
           {hayConflicto && (
@@ -310,7 +333,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
                       }`}>
                       {c.estadoAsignacion}
                     </span>
-                    {' '}· {c.fechaInicial} → {c.fechaFin}
+                    {' '}· {formatAsignacionRango(c.fechaInicial, c.fechaFin)}
                   </li>
                 ))}
               </ul>
@@ -330,7 +353,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
           </button>
           <button
             onClick={handleSubmit as unknown as React.MouseEventHandler}
-            disabled={saving || !form.campana || !form.sede || !form.sala || (modoSolicitud && hayConflicto)}
+            disabled={saving || !form.campana || !form.sede || !form.sala || !form.fechaInicial || !form.fechaFin || (modoSolicitud && hayConflicto)}
             className={`flex-1 rounded-xl py-2.5 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 transition-all text-white ${modoSolicitud && hayConflicto
                 ? 'bg-red-400 cursor-not-allowed'
                 : 'bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'

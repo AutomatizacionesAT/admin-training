@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "salas:media": "node scripts/generate-sala-media.mjs",
+    "dev": "node scripts/generate-sala-media.mjs && vite",
+    "build": "node scripts/generate-sala-media.mjs && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

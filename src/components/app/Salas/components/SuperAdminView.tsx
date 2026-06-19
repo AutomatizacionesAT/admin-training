@@ -8,11 +8,14 @@ import type { SalaRecord, AsignacionRecord, TicketRecord, SalasUser } from '../u
 import SalaFormModal from './SalaFormModal';
 import AsignacionFormModal from './AsignacionFormModal';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import TicketAnalyticsDashboard from './TicketAnalyticsDashboard';
+import CalendarioAsignaciones from './CalendarioAsignaciones';
 import {
   createSala, updateSala, deleteSala,
   createAsignacion, updateAsignacion, deleteAsignacion,
   updateEstadoAsignacion, respondTicket, fetchTickets
 } from '../utils/fetchData';
+import { formatAsignacionRango, parseAsignacionDate } from '../utils/asignacionUtils';
 
 interface Props {
   user: SalasUser;
@@ -23,9 +26,11 @@ interface Props {
 
 type ActiveTab = 'solicitudes' | 'asignaciones' | 'tickets' | 'catalogo';
 
+const MONTH_NAMES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
 const ESTADO_COLORS: Record<string, string> = {
   PENDIENTE: 'bg-amber-100 text-amber-700 border-amber-200',
-  APROBADO:  'bg-emerald-100 text-emerald-700 border-emerald-200',
+  APROBADO: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   RECHAZADO: 'bg-red-100 text-red-600 border-red-200',
 };
 
@@ -33,6 +38,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
   const [tab, setTab] = useState<ActiveTab>('solicitudes');
   const [search, setSearch] = useState('');
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showTicketAnalytics, setShowTicketAnalytics] = useState(false);
 
   // Sala CRUD state
   const [showSalaForm, setShowSalaForm] = useState(false);
@@ -41,6 +47,10 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
   // Asignacion CRUD state
   const [showAsigForm, setShowAsigForm] = useState(false);
   const [editingAsig, setEditingAsig] = useState<AsignacionRecord | null>(null);
+
+  // ── Filtro de calendario ───────────────────────────────────────────────────
+  const [calFilter, setCalFilter] = useState<{ day: number; month: number; year: number } | null>(null);
+  const [calSedeFilter, setCalSedeFilter] = useState<string | null>(null);
 
   // Delete confirm modal
   const [deleteConfirm, setDeleteConfirm] = useState<
@@ -54,6 +64,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
   const [ticketProcessing, setTicketProcessing] = useState<number | null>(null);
   const [respuestaModal, setRespuestaModal] = useState<{ ticket: TicketRecord } | null>(null);
   const [respuestaText, setRespuestaText] = useState('');
+  const [ticketError, setTicketError] = useState<string | null>(null);
 
   // ── Computed ───────────────────────────────────────────────────────────────
   const solicitudes = useMemo(() =>
@@ -69,9 +80,27 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
   const filteredSalas = salas.filter(s =>
     !q || s.sala.toLowerCase().includes(q) || s.sede.toLowerCase().includes(q)
   );
-  const filteredAsigs = aprobadas.filter(a =>
-    !q || a.campana.toLowerCase().includes(q) || a.sala.toLowerCase().includes(q) || a.formador.toLowerCase().includes(q)
-  );
+
+  // Aplica búsqueda + filtros del calendario (sede y/o día)
+  const filteredAsigs = useMemo(() => {
+    let result = aprobadas.filter(a =>
+      !q || a.campana.toLowerCase().includes(q) || a.sala.toLowerCase().includes(q) || a.formador.toLowerCase().includes(q)
+    );
+    if (calSedeFilter) {
+      result = result.filter(a => a.sede === calSedeFilter);
+    }
+    if (calFilter) {
+      const target = new Date(calFilter.year, calFilter.month, calFilter.day);
+      target.setHours(0, 0, 0, 0);
+      result = result.filter(a => {
+        const s = parseAsignacionDate(a.fechaInicial);
+        const e = parseAsignacionDate(a.fechaFin);
+        if (!s || !e) return false;
+        return target >= s && target <= e;
+      });
+    }
+    return result;
+  }, [aprobadas, q, calFilter, calSedeFilter]);
   const filteredSolicitudes = solicitudes.filter(a =>
     !q || a.campana.toLowerCase().includes(q) || a.sala.toLowerCase().includes(q) || a.formador.toLowerCase().includes(q)
   );
@@ -139,21 +168,29 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
   };
 
   const handleRespondTicket = async () => {
-    if (!respuestaModal) return;
+    if (!respuestaModal || !respuestaText.trim()) return;
     setTicketProcessing(respuestaModal.ticket.rowIndex);
-    await respondTicket(respuestaModal.ticket.rowIndex, respuestaText);
-    setRespuestaModal(null);
-    setRespuestaText('');
-    setTicketProcessing(null);
-    await loadTickets();
-    onRefresh();
+    setTicketError(null);
+    try {
+      await respondTicket(respuestaModal.ticket, respuestaText.trim());
+      // Pequeña pausa para que el sheet refleje el cambio antes de recargar
+      await new Promise(r => setTimeout(r, 1200));
+      setRespuestaModal(null);
+      setRespuestaText('');
+      await loadTickets();
+      onRefresh();
+    } catch {
+      setTicketError('No se pudo guardar la respuesta. Verifica que el Apps Script esté desplegado.');
+    } finally {
+      setTicketProcessing(null);
+    }
   };
 
   // ── Badge ───────────────────────────────────────────────────────────────────
   const estadoBadge = (estado: string) => (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border ${ESTADO_COLORS[estado] ?? 'bg-slate-100 text-slate-500 border-slate-200'}`}>
       {estado === 'PENDIENTE' && <Clock3 className="w-3 h-3" />}
-      {estado === 'APROBADO'  && <CheckCircle className="w-3 h-3" />}
+      {estado === 'APROBADO' && <CheckCircle className="w-3 h-3" />}
       {estado === 'RECHAZADO' && <XCircle className="w-3 h-3" />}
       {estado}
     </span>
@@ -170,13 +207,22 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
             <h2 className="text-2xl font-extrabold mt-0.5">{user.nombre}</h2>
             <p className="text-violet-300 text-sm">{user.cargo}</p>
           </div>
-          <button
-            onClick={() => setShowAnalytics(true)}
-            className="flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/20 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm shrink-0"
-          >
-            <BarChart3 className="w-4 h-4" />
-            Data Analytics
-          </button>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <button
+              onClick={() => setShowAnalytics(true)}
+              className="flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/20 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Analytics Salas
+            </button>
+            <button
+              onClick={() => setShowTicketAnalytics(true)}
+              className="flex items-center gap-2 bg-orange-500/80 hover:bg-orange-500 border border-orange-300/40 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
+            >
+              <Ticket className="w-4 h-4" />
+              Analytics Tickets
+            </button>
+          </div>
         </div>
         <div className="flex flex-wrap gap-3 mt-4">
           <div className="bg-white/10 rounded-xl px-4 py-2 text-center">
@@ -314,7 +360,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
                         <div className="flex items-center gap-1"><Clock className="w-3 h-3" />{a.horario}</div>
                       </td>
                       <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                        <div className="flex items-center gap-1"><Calendar className="w-3 h-3" />{a.fechaInicial} → {a.fechaFin}</div>
+                        <div className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatAsignacionRango(a.fechaInicial, a.fechaFin)}</div>
                       </td>
                       <td className="px-4 py-3 text-slate-600 text-center">{a.dPersonas}</td>
                       <td className="px-4 py-3">
@@ -353,67 +399,112 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
 
       {/* ── ASIGNACIONES TAB ── */}
       {tab === 'asignaciones' && (
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Horario', 'Fechas', 'Personas', 'Estado', 'Ticket', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredAsigs.length === 0 ? (
-                <tr><td colSpan={11} className="text-center py-12 text-slate-400">Sin asignaciones aprobadas</td></tr>
-              ) : filteredAsigs.map((a, i) => (
-                <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="px-4 py-3 font-semibold text-slate-800">{a.campana}</td>
-                  <td className="px-4 py-3 text-slate-500">{a.req}</td>
-                  <td className="px-4 py-3 text-slate-700 max-w-[180px] truncate" title={a.sala}>{a.sala}</td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-bold">{a.sede}</span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600 max-w-[140px] truncate" title={a.formador}>
-                    <div className="flex items-center gap-1.5"><Users className="w-3 h-3 text-slate-400 shrink-0" />{a.formador}</div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">
-                    <div className="flex items-center gap-1"><Clock className="w-3 h-3 text-slate-400" />{a.horario}</div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                    <div className="flex items-center gap-1"><Calendar className="w-3 h-3 text-slate-400" />{a.fechaInicial} → {a.fechaFin}</div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600 text-center">{a.dPersonas}</td>
-                  <td className="px-4 py-3">{estadoBadge(a.estadoAsignacion || 'APROBADO')}</td>
-                  <td className="px-4 py-3">
-                    {a.ticket ? (
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded w-fit">
-                          {a.ticket}
-                        </span>
-                        <span className={`text-[9px] font-bold px-1.5 py-px rounded w-fit ${
-                          a.estadoTicket === 'CERRADO'    ? 'bg-slate-100 text-slate-500' :
-                          a.estadoTicket === 'RESPONDIDO' ? 'bg-blue-100 text-blue-600' :
-                                                            'bg-orange-100 text-orange-500'
-                        }`}>
-                          {a.estadoTicket || 'ABIERTO'}
-                        </span>
-                      </div>
-                    ) : <span className="text-slate-300 text-xs">—</span>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => { setEditingAsig(a); setShowAsigForm(true); }} className="p-1.5 rounded-lg hover:bg-violet-50 text-violet-500 transition-colors">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => handleDeleteAsig(a)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
+        <div className="flex gap-4 items-start">
+
+          {/* Tabla */}
+          <div className="flex-1 min-w-0 bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+
+            {/* Banner filtros del calendario */}
+            {(calFilter || calSedeFilter) && (
+              <div className="flex items-center justify-between gap-3 bg-violet-50 border-b border-violet-100 px-4 py-2.5">
+                <div className="flex flex-wrap items-center gap-2 text-violet-700">
+                  <Calendar className="w-4 h-4 shrink-0" />
+                  <span className="text-sm font-bold">
+                    {calSedeFilter && <>Sede {calSedeFilter}</>}
+                    {calSedeFilter && calFilter && ' · '}
+                    {calFilter && <>Día {calFilter.day} de {MONTH_NAMES_ES[calFilter.month]} {calFilter.year}</>}
+                  </span>
+                  <span className="bg-violet-200 text-violet-800 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                    {filteredAsigs.length}
+                  </span>
+                </div>
+                <button
+                  onClick={() => { setCalFilter(null); setCalSedeFilter(null); }}
+                  className="flex items-center gap-1 text-xs font-bold text-violet-500 hover:text-violet-700 bg-violet-100 hover:bg-violet-200 px-2.5 py-1 rounded-lg transition-all shrink-0"
+                >
+                  <XCircle className="w-3.5 h-3.5" /> Limpiar
+                </button>
+              </div>
+            )}
+
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Horario', 'Fechas', 'Personas', 'Estado', 'Ticket', ''].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredAsigs.length === 0 ? (
+                  <tr><td colSpan={11} className="text-center py-12 text-slate-400">
+                    {(calFilter || calSedeFilter)
+                      ? 'Sin asignaciones con los filtros seleccionados'
+                      : 'Sin asignaciones aprobadas'}
+                  </td></tr>
+                ) : filteredAsigs.map((a, i) => (
+                  <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-slate-800">{a.campana}</td>
+                    <td className="px-4 py-3 text-slate-500">{a.req}</td>
+                    <td className="px-4 py-3 text-slate-700 max-w-[180px] truncate" title={a.sala}>{a.sala}</td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-bold">{a.sede}</span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 max-w-[140px] truncate" title={a.formador}>
+                      <div className="flex items-center gap-1.5"><Users className="w-3 h-3 text-slate-400 shrink-0" />{a.formador}</div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">
+                      <div className="flex items-center gap-1"><Clock className="w-3 h-3 text-slate-400" />{a.horario}</div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                      <div className="flex items-center gap-1"><Calendar className="w-3 h-3 text-slate-400" />{formatAsignacionRango(a.fechaInicial, a.fechaFin)}</div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 text-center">{a.dPersonas}</td>
+                    <td className="px-4 py-3">{estadoBadge(a.estadoAsignacion || 'APROBADO')}</td>
+                    <td className="px-4 py-3">
+                      {a.ticket ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded w-fit">
+                            {a.ticket}
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-px rounded w-fit ${a.estadoTicket === 'CERRADO' ? 'bg-slate-100 text-slate-500' :
+                              a.estadoTicket === 'RESPONDIDO' ? 'bg-blue-100 text-blue-600' :
+                                'bg-orange-100 text-orange-500'
+                            }`}>
+                            {a.estadoTicket || 'ABIERTO'}
+                          </span>
+                        </div>
+                      ) : <span className="text-slate-300 text-xs">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { setEditingAsig(a); setShowAsigForm(true); }} className="p-1.5 rounded-lg hover:bg-violet-50 text-violet-500 transition-colors">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleDeleteAsig(a)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>{/* fin tabla */}
+
+          {/* Calendario lateral */}
+          <div className="w-96 shrink-0">
+            <CalendarioAsignaciones
+              asignaciones={aprobadas}
+              selectedDay={calFilter?.day ?? null}
+              selectedSede={calSedeFilter}
+              onDaySelect={(day, month, year) =>
+                setCalFilter(day !== null ? { day, month, year } : null)
+              }
+              onSedeSelect={setCalSedeFilter}
+            />
+          </div>
+
         </div>
       )}
 
@@ -481,7 +572,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
                           {abierto && (
                             <button
                               disabled={ticketProcessing === t.rowIndex}
-                              onClick={() => { setRespuestaModal({ ticket: t }); setRespuestaText(''); }}
+                              onClick={() => { setRespuestaModal({ ticket: t }); setRespuestaText(''); setTicketError(null); }}
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold transition-all disabled:opacity-50"
                             >
                               <CheckCircle className="w-3 h-3" /> Responder
@@ -570,7 +661,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
                   <p className="text-blue-200 text-xs mt-0.5">El ticket quedará como RESPONDIDO (no cerrado)</p>
                 </div>
               </div>
-              <button onClick={() => setRespuestaModal(null)} className="text-white/70 hover:text-white">
+              <button onClick={() => { setRespuestaModal(null); setTicketError(null); }} className="text-white/70 hover:text-white">
                 <XCircle className="w-5 h-5" />
               </button>
             </div>
@@ -595,8 +686,14 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
                   className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
                 />
               </div>
+              {ticketError && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-red-600 text-xs font-medium">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {ticketError}
+                </div>
+              )}
               <div className="flex gap-3">
-                <button onClick={() => setRespuestaModal(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50">
+                <button onClick={() => { setRespuestaModal(null); setTicketError(null); }} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50">
                   Cancelar
                 </button>
                 <button
@@ -694,6 +791,13 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
           asignaciones={asignaciones}
           tickets={tickets}
           onClose={() => setShowAnalytics(false)}
+        />
+      )}
+      {showTicketAnalytics && (
+        <TicketAnalyticsDashboard
+          asignaciones={asignaciones}
+          tickets={tickets}
+          onClose={() => setShowTicketAnalytics(false)}
         />
       )}
     </div>

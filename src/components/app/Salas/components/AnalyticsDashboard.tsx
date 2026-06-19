@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import {
   X, BarChart3, Users, Building2, Ticket, Clock,
   TrendingUp, Award, Activity, Sun, Moon, MapPin,
-  CheckCircle, AlertCircle, Percent,
+  CheckCircle, Percent,
 } from 'lucide-react';
 import type { SalaRecord, AsignacionRecord, TicketRecord } from '../utils/types';
 
@@ -13,13 +13,13 @@ interface Props {
   onClose: () => void;
 }
 
-type SedeFilter  = 'ALL' | 'TELARES' | 'ROYAL' | 'ELEMENTO';
+type SedeFilter = 'ALL' | 'TELARES' | 'ROYAL' | 'ELEMENTO';
 type TurnoFilter = 'ALL' | 'AM' | 'PM';
 type EstadoFilter = 'ALL' | 'APROBADO' | 'PENDIENTE' | 'RECHAZADO';
 
 const SEDE_HEX: Record<string, string> = {
-  TELARES:  '#3b82f6',
-  ROYAL:    '#8b5cf6',
+  TELARES: '#3b82f6',
+  ROYAL: '#8b5cf6',
   ELEMENTO: '#10b981',
 };
 
@@ -41,7 +41,13 @@ function isTurnoAM(horario: string) {
   return !h.startsWith('14') && !h.startsWith('15') && !h.startsWith('16');
 }
 
-// ── Mini chart components ─────────────────────────────────────────────────────
+function resolveTicketEstado(t: TicketRecord): 'ABIERTO' | 'RESPONDIDO' | 'CERRADO' {
+  if (t.fechaCierre) return 'CERRADO';
+  if (t.respuesta?.trim()) return 'RESPONDIDO';
+  return 'ABIERTO';
+}
+
+// â”€â”€ Mini chart components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function HBar({
   label, value, max, color, total,
@@ -141,12 +147,13 @@ function Card({ title, icon, children }: { title: string; icon: React.ReactNode;
   );
 }
 
-// ── Main dashboard ────────────────────────────────────────────────────────────
+// â”€â”€ Main dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClose }: Props) {
-  const [sede,   setSede]   = useState<SedeFilter>('ALL');
-  const [turno,  setTurno]  = useState<TurnoFilter>('ALL');
+  const [sede, setSede] = useState<SedeFilter>('ALL');
+  const [turno, setTurno] = useState<TurnoFilter>('ALL');
   const [estado, setEstado] = useState<EstadoFilter>('ALL');
+  const [coordinador, setCoordinador] = useState<string>('ALL');
 
   // Salas únicas (sin duplicar AM/PM del catálogo)
   const salasUnicas = useMemo(
@@ -154,24 +161,35 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
     [salas],
   );
 
+  const coordinadoresDisponibles = useMemo(() => {
+    const map = new Map<string, number>();
+    asignaciones.forEach(a => {
+      const f = a.formador?.trim();
+      if (f) map.set(f, (map.get(f) || 0) + 1);
+    });
+    return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [asignaciones]);
+
   // Asignaciones filtradas por los controles
   const asigsFiltradas = useMemo(() => asignaciones.filter(a => {
     if (sede !== 'ALL' && !a.sede.toUpperCase().includes(sede)) return false;
     if (turno === 'AM' && !isTurnoAM(a.horario)) return false;
-    if (turno === 'PM' &&  isTurnoAM(a.horario)) return false;
+    if (turno === 'PM' && isTurnoAM(a.horario)) return false;
     if (estado !== 'ALL' && a.estadoAsignacion !== estado) return false;
+    if (coordinador !== 'ALL' && a.formador?.trim() !== coordinador) return false;
     return true;
-  }), [asignaciones, sede, turno, estado]);
+  }), [asignaciones, sede, turno, estado, coordinador]);
 
-  const aprobadas  = useMemo(() => asigsFiltradas.filter(a => (a.estadoAsignacion || 'APROBADO') === 'APROBADO'), [asigsFiltradas]);
-  const pendientes = useMemo(() => asigsFiltradas.filter(a => a.estadoAsignacion === 'PENDIENTE'),                [asigsFiltradas]);
+  const aprobadas = useMemo(() => asigsFiltradas.filter(a => (a.estadoAsignacion || 'APROBADO') === 'APROBADO'), [asigsFiltradas]);
+  const pendientes = useMemo(() => asigsFiltradas.filter(a => a.estadoAsignacion === 'PENDIENTE'), [asigsFiltradas]);
 
   // KPI values
-  const totalPersonas       = aprobadas.reduce((s, a) => s + (parseInt(a.dPersonas) || 0), 0);
+  const totalPersonas = aprobadas.reduce((s, a) => s + (parseInt(a.dPersonas) || 0), 0);
   const coordinadoresActivos = new Set(aprobadas.map(a => a.formador).filter(Boolean)).size;
-  const salasEnUso          = new Set(aprobadas.map(a => a.sala)).size;
-  const ticketsAbiertos     = tickets.filter(t => !t.fechaCierre).length;
-  const ticketsCerrados     = tickets.filter(t =>  !!t.fechaCierre).length;
+  const salasEnUso = new Set(aprobadas.map(a => a.sala)).size;
+  const ticketsAbiertos = tickets.filter(t => resolveTicketEstado(t) === 'ABIERTO').length;
+  const ticketsRespondidos = tickets.filter(t => resolveTicketEstado(t) === 'RESPONDIDO').length;
+  const ticketsCerrados = tickets.filter(t => resolveTicketEstado(t) === 'CERRADO').length;
 
   // Distribución por sede (asignaciones aprobadas)
   const bySedeAsig = useMemo(() => {
@@ -195,7 +213,7 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
   const excl = salasUnicas.filter(s => s.tipo === 'EXCLUSIVA').length;
   const rota = salasUnicas.filter(s => s.tipo === 'ROTATIVA').length;
 
-  // Estado global de todas las asignaciones (ignora filtro de estado para mostrar distribución real)
+  // Estado global de todas las asignaciones (ignora filtro de estado para mostrar distribuciÃ³n real)
   const estadoGlobal = useMemo(() => {
     const map: Record<string, number> = { APROBADO: 0, PENDIENTE: 0, RECHAZADO: 0 };
     asignaciones.forEach(a => { const e = a.estadoAsignacion || 'APROBADO'; map[e] = (map[e] || 0) + 1; });
@@ -216,12 +234,17 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [aprobadas]);
 
-  // Top fallas en tickets
-  const topFallas = useMemo(() => {
+  // Asignaciones por coordinador (formador)
+  const topCoordinadores = useMemo(() => {
     const map: Record<string, number> = {};
-    tickets.forEach(t => { const f = t.fallaPuntual || 'Sin descripción'; map[f] = (map[f] || 0) + 1; });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  }, [tickets]);
+    aprobadas.forEach(a => {
+      const f = a.formador?.trim() || 'Sin coordinador';
+      map[f] = (map[f] || 0) + 1;
+    });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  }, [aprobadas]);
+
+  const maxTopCoord = Math.max(...topCoordinadores.map(([, v]) => v), 1);
 
   // Ocupación de salas por sede
   const ocupacion = useMemo(() =>
@@ -234,18 +257,17 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
     [bySedeSalas, aprobadas],
   );
 
-  const maxBySedeAsig  = Math.max(...bySedeAsig.map(([, v]) => v), 1);
-  const maxTopCampana  = Math.max(...topCampanas.map(([, v]) => v), 1);
-  const maxTopSala     = Math.max(...topSalas.map(([, v]) => v), 1);
-  const maxFalla       = Math.max(...topFallas.map(([, v]) => v), 1);
+  const maxBySedeAsig = Math.max(...bySedeAsig.map(([, v]) => v), 1);
+  const maxTopCampana = Math.max(...topCampanas.map(([, v]) => v), 1);
+  const maxTopSala = Math.max(...topSalas.map(([, v]) => v), 1);
 
   const totalCapacidad = salasUnicas.reduce((s, sala) => s + (parseInt(sala.capacidad) || 0), 0);
-  const ocupPct        = totalCapacidad > 0 ? Math.round((totalPersonas / totalCapacidad) * 100) : 0;
+  const ocupPct = totalCapacidad > 0 ? Math.round((totalPersonas / totalCapacidad) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col overflow-hidden">
 
-      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="bg-white border-b border-slate-200 shadow-sm shrink-0">
         <div className="max-w-screen-2xl mx-auto px-6 py-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -256,9 +278,12 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
                 <BarChart3 className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-base font-extrabold text-slate-800">Data Analytics · Salas 2026</h1>
+                <h1 className="text-base font-extrabold text-slate-800">Data Analytics · Salas</h1>
                 <p className="text-xs text-slate-400">
-                  {asignaciones.length} asignaciones · {salasUnicas.length} salas · {tickets.length} tickets
+                  {asigsFiltradas.length} asignaciones filtradas · {salasUnicas.length} salas · {tickets.length} tickets
+                  {coordinador !== 'ALL' && (
+                    <> · Coordinador: <span className="font-semibold text-amber-600">{coordinador}</span></>
+                  )}
                 </p>
               </div>
             </div>
@@ -269,11 +294,10 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
                 <button
                   key={s}
                   onClick={() => setSede(s)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    sede === s
-                      ? 'bg-white shadow text-slate-800'
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${sede === s
+                    ? 'bg-white shadow text-slate-800'
+                    : 'text-slate-400 hover:text-slate-600'
+                    }`}
                 >
                   {s === 'ALL' ? 'Todas las sedes' : s}
                 </button>
@@ -283,8 +307,8 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
             {/* Filtro turno */}
             <div className="flex items-center gap-0.5 bg-slate-100 rounded-xl p-1">
               <button onClick={() => setTurno('ALL')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${turno === 'ALL' ? 'bg-white shadow text-slate-800' : 'text-slate-400'}`}>Todos</button>
-              <button onClick={() => setTurno('AM')}  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${turno === 'AM'  ? 'bg-amber-400 text-amber-900 shadow' : 'text-slate-400'}`}><Sun  className="w-3 h-3" />AM</button>
-              <button onClick={() => setTurno('PM')}  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${turno === 'PM'  ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}><Moon className="w-3 h-3" />PM</button>
+              <button onClick={() => setTurno('AM')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${turno === 'AM' ? 'bg-amber-400 text-amber-900 shadow' : 'text-slate-400'}`}><Sun className="w-3 h-3" />AM</button>
+              <button onClick={() => setTurno('PM')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${turno === 'PM' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}><Moon className="w-3 h-3" />PM</button>
             </div>
 
             {/* Filtro estado */}
@@ -292,10 +316,10 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
               {(['ALL', 'APROBADO', 'PENDIENTE', 'RECHAZADO'] as EstadoFilter[]).map(e => {
                 const active = estado === e;
                 const activeClass =
-                  e === 'APROBADO'  ? 'bg-emerald-500 text-white shadow' :
-                  e === 'PENDIENTE' ? 'bg-amber-400 text-amber-900 shadow' :
-                  e === 'RECHAZADO' ? 'bg-red-500 text-white shadow' :
-                  'bg-white shadow text-slate-800';
+                  e === 'APROBADO' ? 'bg-emerald-500 text-white shadow' :
+                    e === 'PENDIENTE' ? 'bg-amber-400 text-amber-900 shadow' :
+                      e === 'RECHAZADO' ? 'bg-red-500 text-white shadow' :
+                        'bg-white shadow text-slate-800';
                 return (
                   <button
                     key={e}
@@ -306,6 +330,24 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
                   </button>
                 );
               })}
+            </div>
+
+            {/* Filtro coordinador */}
+            <div className="flex items-center gap-2 bg-slate-100 rounded-xl pl-3 pr-2 py-1.5 max-w-[240px]">
+              <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <select
+                value={coordinador}
+                onChange={e => setCoordinador(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-700 outline-none w-full truncate cursor-pointer"
+                title={coordinador === 'ALL' ? 'Todos los coordinadores' : coordinador}
+              >
+                <option value="ALL">Todos los coordinadores</option>
+                {coordinadoresDisponibles.map(([nombre, count]) => (
+                  <option key={nombre} value={nombre}>
+                    {nombre} ({count})
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Close */}
@@ -319,11 +361,11 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
         </div>
       </div>
 
-      {/* ── SCROLLABLE BODY ─────────────────────────────────────────────────── */}
+      {/* â”€â”€ SCROLLABLE BODY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex-1 overflow-auto">
         <div className="max-w-screen-2xl mx-auto px-6 py-6 space-y-5">
 
-          {/* ── ROW 1: KPIs ─────────────────────────────────────────────── */}
+          {/* â”€â”€ ROW 1: KPIs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             <KPI
               label="Asignaciones activas"
@@ -349,14 +391,14 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
             <KPI
               label="Coordinadores"
               value={coordinadoresActivos}
-              sub="con sala asignada"
+              sub={coordinador !== 'ALL' ? 'filtrado' : 'con sala asignada'}
               color="text-amber-600"
               icon={<Award className="w-5 h-5 text-amber-400" />}
             />
             <KPI
-              label="Tickets abiertos"
-              value={ticketsAbiertos}
-              sub={`${ticketsCerrados} cerrado${ticketsCerrados !== 1 ? 's' : ''}`}
+              label="Tickets"
+              value={tickets.length}
+              sub={`${ticketsAbiertos} abiertos · ${ticketsRespondidos} respondidos · ${ticketsCerrados} cerrados`}
               color="text-orange-600"
               icon={<Ticket className="w-5 h-5 text-orange-400" />}
             />
@@ -369,19 +411,19 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
             />
           </div>
 
-          {/* ── ROW 2: 3 donuts ─────────────────────────────────────────── */}
+          {/* â”€â”€ ROW 2: 3 donuts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
             <Card title="Turno (asignaciones activas)" icon={<Clock className="w-4 h-4 text-slate-400" />}>
               <DonutChart segments={[
                 { label: 'Mañana 06:00–14:00', value: turnoAM, color: '#f59e0b' },
-                { label: 'Tarde 14:00–22:00',  value: turnoPM, color: '#6366f1' },
+                { label: 'Tarde 14:00–22:00', value: turnoPM, color: '#6366f1' },
               ]} />
             </Card>
 
             <Card title="Estado de todas las asignaciones" icon={<CheckCircle className="w-4 h-4 text-slate-400" />}>
               <DonutChart segments={[
-                { label: 'Aprobado',  value: estadoGlobal.APROBADO  || 0, color: '#10b981' },
+                { label: 'Aprobado', value: estadoGlobal.APROBADO || 0, color: '#10b981' },
                 { label: 'Pendiente', value: estadoGlobal.PENDIENTE || 0, color: '#f59e0b' },
                 { label: 'Rechazado', value: estadoGlobal.RECHAZADO || 0, color: '#ef4444' },
               ]} />
@@ -390,23 +432,23 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
             <Card title="Tipo de sala (catálogo)" icon={<Building2 className="w-4 h-4 text-slate-400" />}>
               <DonutChart segments={[
                 { label: 'Exclusiva', value: excl, color: '#f59e0b' },
-                { label: 'Rotativa',  value: rota, color: '#0ea5e9' },
+                { label: 'Rotativa', value: rota, color: '#0ea5e9' },
               ]} />
             </Card>
 
           </div>
 
-          {/* ── ROW 3: por sede + ocupación ─────────────────────────────── */}
+          {/* â”€â”€ ROW 3: por sede + ocupaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
             <Card title="Asignaciones aprobadas por sede" icon={<MapPin className="w-4 h-4 text-slate-400" />}>
               {bySedeAsig.length === 0
                 ? <p className="text-xs text-slate-400 text-center py-8">Sin asignaciones aprobadas</p>
                 : <div className="space-y-3">
-                    {bySedeAsig.map(([s, v]) => (
-                      <HBar key={s} label={s} value={v} max={maxBySedeAsig} color={getSedeHex(s)} total={aprobadas.length} />
-                    ))}
-                  </div>
+                  {bySedeAsig.map(([s, v]) => (
+                    <HBar key={s} label={s} value={v} max={maxBySedeAsig} color={getSedeHex(s)} total={aprobadas.length} />
+                  ))}
+                </div>
               }
             </Card>
 
@@ -442,17 +484,17 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
 
           </div>
 
-          {/* ── ROW 4: top campañas + top salas ─────────────────────────── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* ROW 4: top campañas + top salas + coordinadores */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
             <Card title="Top campañas con más asignaciones" icon={<TrendingUp className="w-4 h-4 text-slate-400" />}>
               {topCampanas.length === 0
                 ? <p className="text-xs text-slate-400 text-center py-8">Sin datos</p>
                 : <div className="space-y-2.5">
-                    {topCampanas.map(([c, v], i) => (
-                      <HBar key={c} label={c} value={v} max={maxTopCampana} color={PALETTE[i % PALETTE.length]} total={aprobadas.length} />
-                    ))}
-                  </div>
+                  {topCampanas.map(([c, v], i) => (
+                    <HBar key={c} label={c} value={v} max={maxTopCampana} color={PALETTE[i % PALETTE.length]} total={aprobadas.length} />
+                  ))}
+                </div>
               }
             </Card>
 
@@ -460,80 +502,51 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
               {topSalas.length === 0
                 ? <p className="text-xs text-slate-400 text-center py-8">Sin datos</p>
                 : <div className="space-y-2.5">
-                    {topSalas.map(([s, v], i) => (
-                      <HBar key={s} label={s} value={v} max={maxTopSala} color={PALETTE[i % PALETTE.length]} total={aprobadas.length} />
-                    ))}
-                  </div>
+                  {topSalas.map(([s, v], i) => (
+                    <HBar key={s} label={s} value={v} max={maxTopSala} color={PALETTE[i % PALETTE.length]} total={aprobadas.length} />
+                  ))}
+                </div>
               }
             </Card>
 
-          </div>
-
-          {/* ── ROW 5: tickets ──────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-            <Card title="Resumen de tickets" icon={<Ticket className="w-4 h-4 text-slate-400" />}>
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 text-center">
-                  <p className="text-2xl font-black text-orange-600">{ticketsAbiertos}</p>
-                  <p className="text-xs text-orange-400 font-semibold mt-0.5">Abiertos</p>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
-                  <p className="text-2xl font-black text-slate-600">{ticketsCerrados}</p>
-                  <p className="text-xs text-slate-400 font-semibold mt-0.5">Cerrados</p>
-                </div>
-                <div className="bg-violet-50 border border-violet-100 rounded-xl p-3 text-center">
-                  <p className="text-2xl font-black text-violet-600">{tickets.length}</p>
-                  <p className="text-xs text-violet-400 font-semibold mt-0.5">Total</p>
-                </div>
-              </div>
-              {tickets.length > 0 && (
-                <>
-                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-orange-400 transition-all duration-700"
-                      style={{ width: `${Math.round((ticketsAbiertos / tickets.length) * 100)}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1.5">
-                    {Math.round((ticketsAbiertos / tickets.length) * 100)}% pendientes de cierre ·{' '}
-                    {Math.round((ticketsCerrados / tickets.length) * 100)}% resueltos
-                  </p>
-                </>
-              )}
-            </Card>
-
-            <Card title="Top fallas reportadas" icon={<AlertCircle className="w-4 h-4 text-slate-400" />}>
-              {topFallas.length === 0
-                ? <p className="text-xs text-slate-400 text-center py-8">Sin tickets registrados</p>
+            <Card title="Reservas por coordinador" icon={<Award className="w-4 h-4 text-slate-400" />}>
+              {topCoordinadores.length === 0
+                ? <p className="text-xs text-slate-400 text-center py-8">Sin datos</p>
                 : <div className="space-y-2.5">
-                    {topFallas.map(([f, v], i) => (
+                  {topCoordinadores.map(([c, v], i) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCoordinador(c === 'Sin coordinador' ? 'ALL' : c)}
+                      className={`w-full text-left rounded-lg transition-colors ${coordinador === c ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
+                    >
                       <HBar
-                        key={f}
-                        label={f}
+                        label={c}
                         value={v}
-                        max={maxFalla}
-                        color={['#ef4444', '#f97316', '#f59e0b', '#ec4899', '#8b5cf6', '#64748b'][i]}
-                        total={tickets.length}
+                        max={maxTopCoord}
+                        color={coordinador === c ? '#f59e0b' : PALETTE[i % PALETTE.length]}
+                        total={aprobadas.length}
                       />
-                    ))}
-                  </div>
+                    </button>
+                  ))}
+                </div>
               }
             </Card>
 
           </div>
 
-          {/* ── ROW 6: detalle catálogo por sede ────────────────────────── */}
+
+          {/* â”€â”€ ROW 6: detalle catálogo por sede â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Card title="Detalle catálogo por sede" icon={<Building2 className="w-4 h-4 text-slate-400" />}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {bySedeSalas.map(([s, totalSalas]) => {
-                const color    = getSedeHex(s);
-                const exclS    = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tipo === 'EXCLUSIVA').length;
-                const rotaS    = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tipo === 'ROTATIVA').length;
-                const capS     = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase())).reduce((sum, x) => sum + (parseInt(x.capacidad) || 0), 0);
-                const equipS   = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase())).reduce((sum, x) => sum + (parseInt(x.equipos) || 0), 0);
+                const color = getSedeHex(s);
+                const exclS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tipo === 'EXCLUSIVA').length;
+                const rotaS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tipo === 'ROTATIVA').length;
+                const capS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase())).reduce((sum, x) => sum + (parseInt(x.capacidad) || 0), 0);
+                const equipS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase())).reduce((sum, x) => sum + (parseInt(x.equipos) || 0), 0);
                 const tableroS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tablero === 'SI').length;
-                const tvS      = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tv === 'SI').length;
+                const tvS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tv === 'SI').length;
                 return (
                   <div key={s} className="rounded-2xl border border-slate-100 p-4 space-y-3">
                     <div className="flex items-center gap-2">
