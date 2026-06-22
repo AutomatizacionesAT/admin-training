@@ -288,29 +288,33 @@ export default function Academy() {
     return rows.filter((row) => applyRowFilters(row)).sort((a, b) => compareRows(a, b, sortField, sortOrder));
   }, [rows, applyRowFilters, sortField, sortOrder]);
 
+  const activeCoordinadores = useMemo(() => Array.from(new Set(rows.map((row) => row.coordinador).filter(Boolean))), [rows]);
+  const activeCampanas = useMemo(() => Array.from(new Set(rows.map((row) => row.campana).filter(Boolean))), [rows]);
+  const activeIndustrias = useMemo(() => Array.from(new Set(rows.map((row) => row.industria).filter(Boolean))), [rows]);
+
   const availableCoordinadores = useMemo(() => Array.from(new Set(rows.filter((row) => applyRowFilters(row, ['coordinadores'])).map((row) => row.coordinador).filter(Boolean))).sort(), [rows, applyRowFilters]);
   const availableCampanas = useMemo(() => Array.from(new Set(rows.filter((row) => applyRowFilters(row, ['campanas'])).map((row) => row.campana).filter(Boolean))).sort(), [rows, applyRowFilters]);
   const availableIndustrias = useMemo(() => Array.from(new Set(rows.filter((row) => applyRowFilters(row, ['industrias'])).map((row) => row.industria).filter(Boolean))).sort(), [rows, applyRowFilters]);
   useEffect(() => {
     setSelectedCoordinadores((current) => {
-      const next = current.filter((value) => availableCoordinadores.includes(value));
+      const next = current.filter((value) => activeCoordinadores.includes(value));
       return sameArray(current, next) ? current : next;
     });
-  }, [availableCoordinadores]);
+  }, [activeCoordinadores]);
 
   useEffect(() => {
     setSelectedCampanas((current) => {
-      const next = current.filter((value) => availableCampanas.includes(value));
+      const next = current.filter((value) => activeCampanas.includes(value));
       return sameArray(current, next) ? current : next;
     });
-  }, [availableCampanas]);
+  }, [activeCampanas]);
 
   useEffect(() => {
     setSelectedIndustrias((current) => {
-      const next = current.filter((value) => availableIndustrias.includes(value));
+      const next = current.filter((value) => activeIndustrias.includes(value));
       return sameArray(current, next) ? current : next;
     });
-  }, [availableIndustrias]);
+  }, [activeIndustrias]);
 
   useEffect(() => {
     if (filteredRows.length === 0) {
