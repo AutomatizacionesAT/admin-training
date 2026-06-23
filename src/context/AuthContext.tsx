@@ -15,6 +15,7 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '1007144082', nombre: 'Jhon Jairo Giraldo Rodriguez', cargo: 'Jefe de Negocios', rol: 'SUPER_ADMIN' },
     { documento: '52829724', nombre: 'Diana Maritza Perderos Cuervo', cargo: 'Analista de Negocios', rol: 'SUPER_ADMIN' },
     { documento: '1018509964', nombre: 'Sebastian Santos Polania', cargo: 'Analista de Negocios', rol: 'SUPER_ADMIN' },
+    { documento: '79616534', nombre: 'Carlos Daste', cargo: 'Gerente de Negocios', rol: 'SUPER_ADMIN' },
     // ── Coordinadores ─────────────────────────────────────────────────────────
     { documento: '52508133', nombre: 'Gladys Lilana Herrera Olaya', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1012421029', nombre: 'Stefany Lizarrazo Jimenez', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },

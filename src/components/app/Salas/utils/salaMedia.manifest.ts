@@ -38,6 +38,12 @@ export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
       "/salas/telares/Sala Cafe 3.jpg",
     ],
   },
+  "COLOMBIA": {
+    fotos: [
+      "/salas/royal/Sala Colombia.jpg",
+      "/salas/royal/Sala Colombia 2.jpg",
+    ],
+  },
   "DIJON": {
     fotos: [
       "/salas/telares/Sala Dijon.jpg",
@@ -80,11 +86,25 @@ export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
       "/salas/telares/Sala Marsella 3.jpg",
     ],
   },
+  "MILAN": {
+    fotos: [
+      "/salas/telares/Sala Milan.jpg",
+      "/salas/telares/Sala Milan 2.jpg",
+      "/salas/telares/Sala Milan 3.jpg",
+    ],
+  },
   "MONTPELLIER": {
     fotos: [
       "/salas/telares/Sala Montpellier.jpg",
       "/salas/telares/Sala Montpellier 2.jpg",
       "/salas/telares/Sala Montpellier 3.jpg",
+    ],
+  },
+  "NEVERS": {
+    fotos: [
+      "/salas/telares/Sala Nevers.jpg",
+      "/salas/telares/Sala Nevers 2.jpg",
+      "/salas/telares/Sala Nevers 3.jpg",
     ],
   },
   "ORANGE": {
@@ -137,6 +157,12 @@ export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
     fotos: [
       "/salas/elemento/Sala Training Room 2.jpg",
       "/salas/elemento/Sala Training Room 2 2.jpg",
+    ],
+  },
+  "VERSALLES": {
+    fotos: [
+      "/salas/telares/Sala Versalles.jpg",
+      "/salas/telares/Sala Versalles 2.jpg",
     ],
   },
 };
