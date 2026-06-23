@@ -605,7 +605,7 @@ export default function AgileTraining() {
           ],
         },
         {
-          title: 'Desarrollo Digital',
+          title: 'Desarrollo Digital (Herramientas diferenciales - Metodologías por objetivos)',
           percent: selectedRow.desarrolloDigitalPct,
           items: [
             { label: 'Herramientas diferenciales', value: selectedRow.herramientasDiferenciales },
@@ -974,6 +974,19 @@ export default function AgileTraining() {
                             </div>
 
                             {selectedLaunchItems.map((section, index) => {
+                              if (index === 2) {
+                                return (
+                                  <div key={section.title} className="rounded-2xl border border-slate-200 bg-white">
+                                    <div className="flex w-full items-center justify-between gap-4 p-4 text-left">
+                                      <h3 className="text-lg font-bold text-slate-900">{section.title}</h3>
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-lg font-black text-slate-900">{formatPercent(section.percent)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
                               const key = `lanzamiento${index + 1}`;
                               const isOpen = openSections[key];
                               return (
