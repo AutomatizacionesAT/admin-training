@@ -121,6 +121,17 @@ export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
       "/salas/telares/Sala Paris 3.jpg",
     ],
   },
+  "PISO 3 01": {
+    fotos: [
+      "/salas/royal/Sala Piso 3 01 2.jpeg",
+      "/salas/royal/Sala Piso 3 01 3.jpeg",
+    ],
+  },
+  "PISO 3 01.": {
+    fotos: [
+      "/salas/royal/Sala Piso 3 01..jpeg",
+    ],
+  },
   "PISO 4 ALA A": {
     fotos: [
       "/salas/elemento/Sala Piso 4 Ala A.jpg",
