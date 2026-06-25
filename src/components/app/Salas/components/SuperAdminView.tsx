@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Pencil, Trash2, Building2, ClipboardList,
   Users, Calendar, Clock, MapPin, Search, RefreshCw,
-  CheckCircle, XCircle, Clock3, Ticket, AlertCircle, Bell, BarChart3, Loader2
+  CheckCircle, XCircle, Clock3, Ticket, AlertCircle, Bell, BarChart3, Loader2, ArrowLeft
 } from 'lucide-react';
 import type { SalaRecord, AsignacionRecord, TicketRecord, SalasUser } from '../utils/types';
 import SalaFormModal from './SalaFormModal';
@@ -22,6 +22,7 @@ interface Props {
   salas: SalaRecord[];
   asignaciones: AsignacionRecord[];
   onRefresh: () => void;
+  onBackToGeneral: () => void;
 }
 
 type ActiveTab = 'solicitudes' | 'asignaciones' | 'tickets' | 'catalogo';
@@ -34,7 +35,7 @@ const ESTADO_COLORS: Record<string, string> = {
   RECHAZADO: 'bg-red-100 text-red-600 border-red-200',
 };
 
-export default function SuperAdminView({ user, salas, asignaciones, onRefresh }: Props) {
+export default function SuperAdminView({ user, salas, asignaciones, onRefresh, onBackToGeneral }: Props) {
   const [tab, setTab] = useState<ActiveTab>('solicitudes');
   const [search, setSearch] = useState('');
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -285,6 +286,10 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh }:
         </div>
 
         <div className="flex items-center gap-2">
+          <button onClick={onBackToGeneral} title="Volver a vista general" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">
+            <ArrowLeft className="w-4 h-4" />
+            General
+          </button>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input

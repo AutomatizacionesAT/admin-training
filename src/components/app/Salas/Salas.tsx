@@ -21,6 +21,11 @@ export default function Salas() {
   const user = salasUser;
   const isSuperAdmin = user?.rol === 'SUPER_ADMIN';
   const isCoordinador = user?.rol === 'COORDINADOR';
+  const [activeView, setActiveView] = useState<'general' | 'coordinador' | 'superadmin'>('general');
+
+  useEffect(() => {
+    setActiveView('general');
+  }, [user?.documento]);
 
   // ─── Load data ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async (silent = false) => {
@@ -64,9 +69,11 @@ export default function Salas() {
               <h1 className="text-2xl font-extrabold text-white tracking-tight">Salas 2026</h1>
             </div>
             <p className="text-slate-400 text-sm">
-              {isSuperAdmin
-                ? '🔐 Vista Super Administrador — control total'
-                : 'Catálogo público de salas disponibles por sede'
+              {activeView === 'general'
+                ? 'Vista general de salas'
+                : isSuperAdmin
+                  ? '🔐 Vista Super Administrador — gestión y control'
+                  : 'Vista de coordinador — solicitudes y seguimiento'
               }
             </p>
           </div>
@@ -111,24 +118,33 @@ export default function Salas() {
 
         {!loading && !error && (
           <>
-            {isSuperAdmin && (
+            {activeView === 'general' && (
+              <PublicView
+                salas={salas}
+                asignaciones={asignaciones}
+                canSolicitar={!!user && isCoordinador}
+                canGestionar={!!user && isSuperAdmin}
+                onSolicitar={() => setActiveView('coordinador')}
+                onGestionar={() => setActiveView('superadmin')}
+              />
+            )}
+            {activeView === 'superadmin' && isSuperAdmin && (
               <SuperAdminView
                 user={user!}
                 salas={salas}
                 asignaciones={asignaciones}
                 onRefresh={onRefresh}
+                onBackToGeneral={() => setActiveView('general')}
               />
             )}
-            {isCoordinador && (
+            {activeView === 'coordinador' && isCoordinador && (
               <CoordinadorView
                 user={user!}
                 salas={salas}
                 asignaciones={asignaciones}
                 onRefresh={onRefresh}
+                onBackToGeneral={() => setActiveView('general')}
               />
-            )}
-            {!user && (
-              <PublicView salas={salas} asignaciones={asignaciones} />
             )}
           </>
         )}

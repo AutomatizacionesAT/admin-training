@@ -8,6 +8,10 @@ import SalaDetailModal from './SalaDetailModal';
 interface Props {
   salas: SalaRecord[];
   asignaciones: AsignacionRecord[];
+  canSolicitar?: boolean;
+  canGestionar?: boolean;
+  onSolicitar?: () => void;
+  onGestionar?: () => void;
 }
 
 const SEDE_COLORS: Record<string, { bg: string; text: string; border: string; badge: string; bar: string }> = {
@@ -287,7 +291,7 @@ function SalaCard({ sala, sede, isNight, allSalas, onSelect }: SalaCardProps) {
   );
 }
 
-export default function PublicView({ salas, asignaciones }: Props) {
+export default function PublicView({ salas, asignaciones, canSolicitar = false, canGestionar = false, onSolicitar, onGestionar }: Props) {
   const [turno, setTurno] = useState<Turno>('AM');
   const [sedeFilter, setSedeFilter] = useState<string>('ALL');
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>('ALL');
@@ -476,6 +480,37 @@ export default function PublicView({ salas, asignaciones }: Props) {
             <p className="text-xs text-amber-800 font-semibold">puestos turno mañana</p>
           </div>
           <div className="absolute right-6 top-3 text-amber-600/40 text-lg select-none pointer-events-none">☀ ☀ ☀</div>
+        </div>
+      )}
+
+      {(canSolicitar || canGestionar) && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Accesos según rol</p>
+            <p className="mt-1 text-sm text-slate-600">
+              {canSolicitar ? 'Entra a solicitar y gestionar tus asignaciones.' : 'Consulta general del catálogo de salas.'}
+            </p>
+          </div>
+          {canSolicitar && onSolicitar && (
+            <button
+              type="button"
+              onClick={onSolicitar}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#005082] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#004066]"
+            >
+              <ClipboardList className="h-4 w-4" />
+              Solicitar
+            </button>
+          )}
+          {canGestionar && onGestionar && (
+            <button
+              type="button"
+              onClick={onGestionar}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#F7941D] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#df850f]"
+            >
+              <Building2 className="h-4 w-4" />
+              Gestionar
+            </button>
+          )}
         </div>
       )}
 
