@@ -41,12 +41,12 @@ const TABS: AcademyTab[] = [
 ];
 
 function formatPercent(value: number | null): string {
-  if (value === null) return 'Pendiente';
+  if (value === null) return '-';
   return `${Math.round(value)}%`;
 }
 
 function normalizeText(value: string): string {
-  return value.trim().toLowerCase();
+  return value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 function getProgressTone(value: number | null): string {
@@ -54,6 +54,10 @@ function getProgressTone(value: number | null): string {
   if (value >= 100) return 'text-emerald-600';
   if (value > 0) return 'text-amber-600';
   return 'text-rose-600';
+}
+
+function formatProgressDisplay(display: string, value: number | null): string {
+  return value === null ? display : `${Math.round(value)}%`;
 }
 
 function getStatusTone(status: string): string {
@@ -213,16 +217,16 @@ function MultiSelectFilter({ label, placeholder, options, selected, onToggle, on
             filteredOptions.map((option) => {
               const active = selected.includes(option);
               return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => {
-                    onToggle(option);
-                    setQuery('');
-                    setOpen(true);
-                  }}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm ${active ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
-                >
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => {
+                      onToggle(option);
+                      setOpen(true);
+                      inputRef.current?.focus();
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm ${active ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                  >
                   <span>{option}</span>
                   {active ? <Check className="h-4 w-4" /> : null}
                 </button>
@@ -522,8 +526,8 @@ export default function Academy() {
                             </td>
                             <td className="px-4 py-4 align-top text-slate-700">{row.coordinador || 'Sin coordinador'}</td>
                             <td className="px-4 py-4 align-top text-slate-700">{row.industria || 'Sin industria'}</td>
-                            <td className={`px-4 py-4 align-top text-lg font-black ${getProgressTone(row.backupPct)}`}>{formatPercent(row.backupPct)}</td>
-                            <td className={`px-4 py-4 align-top text-lg font-black ${getProgressTone(row.migracionPct)}`}>{formatPercent(row.migracionPct)}</td>
+                            <td className={`px-4 py-4 align-top text-lg font-black ${getProgressTone(row.backupPct)}`}>{formatProgressDisplay(row.backupRaw, row.backupPct)}</td>
+                            <td className={`px-4 py-4 align-top text-lg font-black ${getProgressTone(row.migracionPct)}`}>{formatProgressDisplay(row.migracionRaw, row.migracionPct)}</td>
                           </tr>
                         );
                       })}
@@ -547,11 +551,11 @@ export default function Academy() {
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="rounded-2xl border border-slate-200 bg-white p-5">
                           <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Backup</p>
-                          <p className={`mt-2 text-4xl font-black ${getProgressTone(selectedRow.backupPct)}`}>{formatPercent(selectedRow.backupPct)}</p>
+                          <p className={`mt-2 text-4xl font-black ${getProgressTone(selectedRow.backupPct)}`}>{formatProgressDisplay(selectedRow.backupRaw, selectedRow.backupPct)}</p>
                         </div>
                         <div className="rounded-2xl border border-slate-200 bg-white p-5">
                           <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Migración</p>
-                          <p className={`mt-2 text-4xl font-black ${getProgressTone(selectedRow.migracionPct)}`}>{formatPercent(selectedRow.migracionPct)}</p>
+                          <p className={`mt-2 text-4xl font-black ${getProgressTone(selectedRow.migracionPct)}`}>{formatProgressDisplay(selectedRow.migracionRaw, selectedRow.migracionPct)}</p>
                         </div>
                       </div>
 

@@ -59,7 +59,7 @@ function formatPercent(value: number): string {
 }
 
 function normalizeText(value: string): string {
-  return value.trim().toLowerCase();
+  return value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 function getBadgeClasses(tone: 'blue' | 'green' | 'amber' | 'slate' | 'violet' | 'rose' | 'brown') {
@@ -304,8 +304,8 @@ function MultiSelectFilter({ label, placeholder, options, selected, onToggle, on
                   type="button"
                   onClick={() => {
                     onToggle(option);
-                    setQuery('');
                     setOpen(true);
+                    inputRef.current?.focus();
                   }}
                   className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${active ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
                 >

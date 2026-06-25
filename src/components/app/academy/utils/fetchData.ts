@@ -20,21 +20,28 @@ function getCellText(value: string | number | null): string {
 
 function parseProgress(value: string | number | null): { raw: string; pct: number | null } {
   if (value === null || value === undefined || value === '') {
-    return { raw: 'Pendiente', pct: null };
+    return { raw: '-', pct: null };
   }
 
   if (typeof value === 'number') {
-    const pct = value <= 1 ? value * 100 : value;
-    return { raw: `${Math.round(pct)}%`, pct };
+    if (value >= 0 && value <= 1) {
+      return { raw: `${Math.round(value * 100)}%`, pct: value * 100 };
+    }
+
+    return { raw: String(value), pct: null };
   }
 
-  const numeric = Number.parseFloat(String(value).replace(/[^\d.-]/g, ''));
-  if (Number.isFinite(numeric)) {
-    const pct = numeric <= 1 ? numeric * 100 : numeric;
-    return { raw: `${Math.round(pct)}%`, pct };
+  const text = String(value).trim();
+  if (!text) {
+    return { raw: '-', pct: null };
   }
 
-  return { raw: String(value), pct: null };
+  const numeric = Number(text);
+  if (Number.isFinite(numeric) && numeric >= 0 && numeric <= 1) {
+    return { raw: `${Math.round(numeric * 100)}%`, pct: numeric * 100 };
+  }
+
+  return { raw: text, pct: null };
 }
 
 function parseDateCell(value: string | number | null): { display: string; iso: string } {
