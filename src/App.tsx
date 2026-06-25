@@ -1,4 +1,5 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
+import type { ReactNode } from "react";
 import Home from "@/components/app/page";
 import Simulator from "@/components/app/simulator/Simulator";
 import Navbar from "@/components/web/Navbar";
@@ -10,23 +11,44 @@ import AgileTraining from "./components/app/agile_training/AgileTraining";
 import Academy from "./components/app/academy/Academy";
 
 import { AuthProvider } from "@/context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function RequireAccess({ children, allow }: { children: ReactNode; allow: boolean }) {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated || !allow) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function AppContent() {
+  const { isAuthenticated, canAccessBiometrico, canAccessUsabilidad } = useAuth();
+
+  return (
+    <div>
+      {isAuthenticated ? <Navbar /> : null}
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/simulator" element={<RequireAuth><Simulator /></RequireAuth>} />
+        <Route path="/web-training" element={<RequireAuth><WebTraining /></RequireAuth>} />
+        <Route path="/usabilidad-web-training" element={<RequireAccess allow={canAccessUsabilidad}><UsabilidadWebTraining /></RequireAccess>} />
+        <Route path="/informe-biometrico" element={<RequireAccess allow={canAccessBiometrico}><InformeBiometrico /></RequireAccess>} />
+        <Route path="/salas" element={<RequireAuth><Salas /></RequireAuth>} />
+        <Route path="/agile-training" element={<RequireAuth><AgileTraining /></RequireAuth>} />
+        <Route path="/academy" element={<RequireAuth><Academy /></RequireAuth>} />
+      </Routes>
+    </div>
+  );
+}
 
 function App() {
   return (
     <AuthProvider>
-      <div>
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/simulator" element={<Simulator />} />
-          <Route path="/web-training" element={<WebTraining />} />
-          <Route path="/usabilidad-web-training" element={<UsabilidadWebTraining />} />
-          <Route path="/informe-biometrico" element={<InformeBiometrico />} />
-          <Route path="/salas" element={<Salas />} />
-          <Route path="/agile-training" element={<AgileTraining />} />
-          <Route path="/academy" element={<Academy />} />
-        </Routes>
-      </div>
+      <AppContent />
     </AuthProvider>
   );
 }

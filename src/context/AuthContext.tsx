@@ -30,6 +30,8 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '1012385857', nombre: 'Walther Duvan Gomez Osorio', cargo: 'Lider de Formación', rol: 'COORDINADOR' },
     { documento: '1022390304', nombre: 'Karol Citysan Ferreira Quevedo', cargo: 'Prof. Gestión de Procesos', rol: 'COORDINADOR' },
     { documento: '1075303121', nombre: 'Jhon Fredy Gonzalez Alvarez', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '108830969', nombre: 'Johan Sebastian Quinchia Vargas', cargo: 'Agile Training', rol: 'COORDINADOR' },
+    { documento: '1088351617', nombre: 'Vanessa Agudelo Garcia', cargo: 'Agile Training', rol: 'COORDINADOR' },
 ];
 
 const ADMIN_PASSWORD = 'desarrollo2026';
@@ -43,7 +45,12 @@ const ADMIN_GLOBAL_USER: SalasUser = {
 
 
 interface AuthContextType {
+    isAuthenticated: boolean;
     isAdmin: boolean;
+    isSuperAdmin: boolean;
+    isCoordinador: boolean;
+    canAccessUsabilidad: boolean;
+    canAccessBiometrico: boolean;
     salasUser: SalasUser | null;
     login: (input: string) => boolean;
     logout: () => void;
@@ -54,6 +61,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [isAdmin, setIsAdmin] = useState(false);
     const [salasUser, setSalasUser] = useState<SalasUser | null>(null);
+    const isAuthenticated = isAdmin || !!salasUser;
+    const isSuperAdmin = isAdmin || salasUser?.rol === 'SUPER_ADMIN';
+    const isCoordinador = salasUser?.rol === 'COORDINADOR';
+    const canAccessUsabilidad = isAdmin || isSuperAdmin;
+    const canAccessBiometrico = isAdmin || isSuperAdmin;
 
     const login = (input: string): boolean => {
         const value = input.trim();
@@ -81,7 +93,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ isAdmin, salasUser, login, logout }}>
+        <AuthContext.Provider value={{
+            isAuthenticated,
+            isAdmin,
+            isSuperAdmin,
+            isCoordinador,
+            canAccessUsabilidad,
+            canAccessBiometrico,
+            salasUser,
+            login,
+            logout,
+        }}>
             {children}
         </AuthContext.Provider>
     );

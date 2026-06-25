@@ -179,3 +179,16 @@
 .home-feature-card-delay-5 {
   animation-delay: 4.8s;
 }
+
+@keyframes home-login-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.rotate-scuare {
+  background: conic-gradient(from 0deg, #22d3ee, #2563eb, #8b5cf6, #22d3ee);
+  animation: home-login-spin 3.2s linear infinite;
+  filter: blur(0.2px);
+  pointer-events: none;
+}

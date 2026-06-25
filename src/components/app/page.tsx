@@ -1,8 +1,27 @@
-import { MonitorPlay, BookOpen, Fingerprint, Rocket, DoorOpen } from "lucide-react";
+import { useState } from 'react';
+import { LogIn, MonitorPlay, BookOpen, Fingerprint, Rocket, DoorOpen } from "lucide-react";
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
+import GlobalLoginModal from '../web/GlobalLoginModal';
 
 export default function Home() {
+  const { isAuthenticated, login } = useAuth();
+  const [showLogin, setShowLogin] = useState(false);
+  const shellHeight = isAuthenticated ? 'min-h-[calc(100vh-72px)]' : 'min-h-screen';
+
+  const handleLoginSuccess = (input: string): boolean => {
+    const ok = login(input);
+    if (ok) {
+      toast.success('Sesión iniciada', {
+        description: input.trim() === 'desarrollo2026' ? 'Has iniciado sesión como administrador.' : 'Acceso concedido.',
+      });
+      setShowLogin(false);
+    }
+    return ok;
+  };
+
   return (
-    <main className="relative w-full min-h-[calc(100vh-72px)] overflow-hidden bg-linear-to-br from-white via-slate-50 to-blue-50 font-['Inter',sans-serif]">
+    <main className={`relative w-full ${shellHeight} overflow-hidden bg-linear-to-br from-white via-slate-50 to-blue-50 font-['Inter',sans-serif]`}>
       {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] right-[-5%] h-[600px] w-[600px] rounded-full bg-[#0047BA]/8 blur-[120px]" />
@@ -35,6 +54,21 @@ export default function Home() {
               usabilidad, proyecciones, biométrico, agile training, academy y salas
               desde una sola experiencia administrativa.
             </p>
+
+            {!isAuthenticated ? (
+              <div className="relative w-40 h-15 flex items-center justify-center overflow-hidden rounded-full">
+                <button
+                  type="button"
+                  onClick={() => setShowLogin(true)}
+                  className="relative w-38 h-13 z-10 inline-flex items-center gap-3 rounded-full px-7 py-3 text-sm font-bold uppercase tracking-[0.2em] text-white bg-linear-to-r from-[#0047BA] to-[#8A2BE2] transition-all duration-300 hover:w-40 hover:h-15 hover:cursor-[url('/cursors/hover/desbloquear.png'),_pointer]"
+                >
+                  <LogIn className="h-4 w-4" />
+                  Login
+                </button>
+                <div aria-hidden="true" className="rotate-scuare absolute w-[180px] h-[180px] top-[-55px] left-[-13px] pointer-events-none" />
+              </div>
+
+            ) : null}
           </div>
 
           {/* Features / Presentation Cards */}
@@ -96,6 +130,13 @@ export default function Home() {
 
         </div>
       </div>
+
+      {showLogin ? (
+        <GlobalLoginModal
+          onLogin={handleLoginSuccess}
+          onClose={() => setShowLogin(false)}
+        />
+      ) : null}
     </main>
   );
 }

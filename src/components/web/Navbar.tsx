@@ -1,28 +1,14 @@
-import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { UserCircle, LogOut, Lock } from "lucide-react";
-import GlobalLoginModal from "./GlobalLoginModal";
+import { UserCircle, LogOut } from "lucide-react";
 
 export default function Navbar() {
   const location = useLocation();
-  const { isAdmin, salasUser, login, logout } = useAuth();
-  const [showLogin, setShowLogin] = useState(false);
+  const { isAdmin, isSuperAdmin, isCoordinador, salasUser, logout } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
-  const isLoggedIn = isAdmin || !!salasUser;
-
-  const handleLoginSuccess = (input: string): boolean => {
-    const ok = login(input);
-    if (ok) {
-      toast.success('Sesión iniciada', {
-        description: isAdmin ? 'Has iniciado sesión como administrador.' : `Bienvenido/a`,
-      });
-    }
-    return ok;
-  };
 
   const handleLogout = () => {
     if (confirm('¿Cerrar sesión?')) {
@@ -40,7 +26,12 @@ export default function Navbar() {
     { name: "Agile Training", path: "/agile-training" },
     { name: "Academy", path: "/academy" },
     { name: "Salas", path: "/salas" },
-  ];
+  ].filter((link) => {
+    if (link.path === '/usabilidad-web-training' || link.path === '/informe-biometrico') {
+      return isAdmin || isSuperAdmin || !isCoordinador;
+    }
+    return true;
+  });
 
   return (
     <>
@@ -70,7 +61,7 @@ export default function Navbar() {
                 <Link key={link.path} to={link.path}>
                   <Button
                     variant={isActive(link.path) ? "default" : "ghost"}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${isActive(link.path)
+                    className={`px-4 py-2 rounded-lg font-medium transition-all hover:cursor-pointer ${isActive(link.path)
                       ? "bg-[#0047BA] hover:bg-[#003ea6] text-white shadow-sm shadow-[#0047BA]/20"
                       : "text-gray-600 hover:text-[#0047BA] hover:bg-[#ecf1ff]"
                       }`}
@@ -87,42 +78,26 @@ export default function Navbar() {
               <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
 
               <Button
-                variant={isLoggedIn ? "outline" : "ghost"}
-                onClick={isLoggedIn ? handleLogout : () => setShowLogin(true)}
-                className={`flex items-center gap-2 rounded-full px-4 transition-all ${isAdmin
+                variant="outline"
+                onClick={handleLogout}
+                className={`flex items-center gap-2 rounded-full px-4 transition-all hover:cursor-pointer ${isAdmin
                     ? "border-[#8A2BE2] text-[#8A2BE2] hover:bg-[#8A2BE2]/10"
                     : salasUser
                       ? "border-indigo-400 text-indigo-600 hover:bg-indigo-50"
                       : "text-gray-500 hover:text-[#0047BA] hover:bg-gray-100"
                   }`}
-                title={isLoggedIn ? "Cerrar sesión" : "Iniciar sesión"}
+                title="Cerrar sesión"
               >
-                {isLoggedIn ? (
-                  <>
-                    <UserCircle className="w-5 h-5" />
-                    <span className="hidden sm:inline font-medium">
-                      {isAdmin ? "Admin Mode" : salasUser?.nombre.split(" ")[0]}
-                    </span>
-                    <LogOut className="w-4 h-4 ml-1 opacity-70" />
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-5 h-5" />
-                    <span className="hidden sm:inline font-medium">Login</span>
-                  </>
-                )}
+                <UserCircle className="w-5 h-5" />
+                <span className="hidden sm:inline font-medium">
+                  {isAdmin ? "Admin Mode" : salasUser?.nombre.split(" ")[0]}
+                </span>
+                <LogOut className="w-4 h-4 ml-1 opacity-70" />
               </Button>
             </div>
           </div>
         </div>
       </nav>
-
-      {showLogin && (
-        <GlobalLoginModal
-          onLogin={handleLoginSuccess}
-          onClose={() => setShowLogin(false)}
-        />
-      )}
     </>
   );
 }
