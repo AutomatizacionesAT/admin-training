@@ -164,9 +164,110 @@ function mapAsignacionToRow(d) {
   ];
 }
 
+function normalizeText(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function parseAsignacionDate(raw) {
+  if (!raw) return null;
+
+  if (raw instanceof Date) {
+    var fromDate = new Date(raw.getTime());
+    fromDate.setHours(0, 0, 0, 0);
+    return fromDate;
+  }
+
+  var text = String(raw).trim();
+  if (!text) return null;
+
+  var gs = text.match(/Date\((\d{4}),(\d+),(\d+)\)/);
+  if (gs) {
+    var fromGs = new Date(+gs[1], +gs[2], +gs[3]);
+    fromGs.setHours(0, 0, 0, 0);
+    return fromGs;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    var iso = new Date(text + 'T00:00:00');
+    if (!isNaN(iso.getTime())) {
+      iso.setHours(0, 0, 0, 0);
+      return iso;
+    }
+  }
+
+  var dmy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmy) {
+    var fromDmy = new Date(+dmy[3], +dmy[2] - 1, +dmy[1]);
+    fromDmy.setHours(0, 0, 0, 0);
+    return fromDmy;
+  }
+
+  var ymd = text.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (ymd) {
+    var fromYmd = new Date(+ymd[1], +ymd[2] - 1, +ymd[3]);
+    fromYmd.setHours(0, 0, 0, 0);
+    return fromYmd;
+  }
+
+  var fallback = new Date(text);
+  if (isNaN(fallback.getTime())) return null;
+  fallback.setHours(0, 0, 0, 0);
+  return fallback;
+}
+
+function datesOverlap(s1, e1, s2, e2) {
+  return s1 <= e2 && s2 <= e1;
+}
+
+function findAsignacionConflict(doc, data, excludeRowIndex) {
+  var sheet = doc.getSheetByName("SALAS_ASIGNACIONES");
+  if (!sheet || sheet.getLastRow() < 2) return null;
+
+  var sala = normalizeText(data.sala);
+  var horario = normalizeText(data.horario);
+  var newStart = parseAsignacionDate(data.fechaInicial);
+  var newEnd = parseAsignacionDate(data.fechaFin);
+  if (!sala || !horario || !newStart || !newEnd) return null;
+
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 12).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    var rowIndex = i + 2;
+    if (excludeRowIndex && rowIndex === excludeRowIndex) continue;
+
+    var estado = normalizeText(rows[i][9]);
+    if (estado === 'RECHAZADO') continue;
+
+    if (normalizeText(rows[i][2]) !== sala) continue;
+    if (normalizeText(rows[i][7]) !== horario) continue;
+
+    var existStart = parseAsignacionDate(rows[i][5]);
+    var existEnd = parseAsignacionDate(rows[i][6]);
+    if (!existStart || !existEnd) continue;
+
+    if (datesOverlap(newStart, newEnd, existStart, existEnd)) {
+      return {
+        rowIndex: rowIndex,
+        campana: String(rows[i][0] || '').trim(),
+        sala: String(rows[i][2] || '').trim(),
+        horario: String(rows[i][7] || '').trim(),
+        estado: String(rows[i][9] || '').trim() || 'PENDIENTE'
+      };
+    }
+  }
+
+  return null;
+}
+
 function handleCreateAsignacion(doc, data, debugSheet) {
   var sheet = doc.getSheetByName("SALAS_ASIGNACIONES");
   if (!sheet) return createErrorResponse("Sheet SALAS_ASIGNACIONES not found");
+
+  var conflicto = findAsignacionConflict(doc, data, null);
+  if (conflicto) {
+    logToDebug(debugSheet, "Conflicto asignacion: sala " + conflicto.sala + " / horario " + conflicto.horario + " / estado " + conflicto.estado + " / fila " + conflicto.rowIndex);
+    return createErrorResponse("Sala no disponible en el rango seleccionado");
+  }
+
   var row = mapAsignacionToRow(data);
   sheet.getRange(sheet.getLastRow() + 1, 1, 1, row.length).setValues([row]);
   logToDebug(debugSheet, "Asignacion creada: " + data.campana + " | Estado: " + (data.estadoAsignacion || 'PENDIENTE'));
@@ -176,6 +277,13 @@ function handleCreateAsignacion(doc, data, debugSheet) {
 function handleUpdateAsignacion(doc, payload, debugSheet) {
   var sheet = doc.getSheetByName("SALAS_ASIGNACIONES");
   if (!sheet) return createErrorResponse("Sheet SALAS_ASIGNACIONES not found");
+
+  var conflicto = findAsignacionConflict(doc, payload.data || {}, payload.rowIndex);
+  if (conflicto) {
+    logToDebug(debugSheet, "Conflicto update asignacion: sala " + conflicto.sala + " / horario " + conflicto.horario + " / estado " + conflicto.estado + " / fila " + conflicto.rowIndex);
+    return createErrorResponse("Sala no disponible en el rango seleccionado");
+  }
+
   var row = mapAsignacionToRow(payload.data);
   sheet.getRange(payload.rowIndex, 1, 1, row.length).setValues([row]);
   logToDebug(debugSheet, "Asignacion actualizada fila: " + payload.rowIndex);

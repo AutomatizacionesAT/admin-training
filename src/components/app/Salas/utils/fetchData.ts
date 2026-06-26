@@ -1,7 +1,7 @@
 import type { SalaRecord, AsignacionRecord, SalasAdminRecord, SalasRole, TicketRecord } from './types';
 
 const SHEET_ID = '1OtFWpA1NnkErvYmgwjqkic48b9UvGshEKAbBvcl-RuA';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwE52WUXgJ4l95HQweDdb9oNsFzgrj94Z9O4Tf5EUvGkjD_g0r67LZ5QfgWT4bwbYw/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbw9Yhu7K4rkz7Rv-Zhy-9UFfHlW_57s4qBy--vNPz6yOlvI6vcQAe3nzHg1p6Ow0fGP/exec';
 
 interface GvizCell { v: string | number | null; f?: string; }
 interface GvizRow { c: (GvizCell | null)[]; }
@@ -169,14 +169,32 @@ export async function loginByCedula(cedula: string): Promise<SalasAdminRecord | 
   return admins.find(a => a.documento === cedula.trim()) ?? null;
 }
 
-// ─── CRUD vía Apps Script (modo no-cors) ──────────────────────────────────────
-async function gasPost(payload: object): Promise<void> {
-  await fetch(GAS_URL, {
+// ─── CRUD vía Apps Script ─────────────────────────────────────────────────────
+async function gasPost(payload: object): Promise<{ result?: string; error?: string; [key: string]: unknown }> {
+  const response = await fetch(GAS_URL, {
     method: 'POST',
-    mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(payload),
   });
+
+  const text = await response.text();
+  let parsed: { result?: string; error?: string; [key: string]: unknown };
+
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error(text || 'Respuesta inválida del Apps Script');
+  }
+
+  if (!response.ok) {
+    throw new Error(parsed.error || `Error HTTP ${response.status}`);
+  }
+
+  if (parsed.result === 'error') {
+    throw new Error(parsed.error || 'Error en Apps Script');
+  }
+
+  return parsed;
 }
 
 // ─── Sala CRUD ────────────────────────────────────────────────────────────────

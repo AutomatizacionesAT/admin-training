@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Pencil, Trash2, Building2, ClipboardList,
-  Users, Calendar, Clock, MapPin, Search, RefreshCw,
+  Users, Calendar, Clock, MapPin, Search,
   CheckCircle, XCircle, Clock3, Ticket, AlertCircle, Bell, BarChart3, Loader2, ArrowLeft
 } from 'lucide-react';
 import type { SalaRecord, AsignacionRecord, TicketRecord, SalasUser } from '../utils/types';
@@ -299,9 +299,6 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
               className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white w-44"
             />
           </div>
-          <button onClick={onRefresh} title="Actualizar" className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all">
-            <RefreshCw className="w-4 h-4" />
-          </button>
           {tab === 'catalogo' && (
             <button
               onClick={() => { setEditingSala(null); setShowSalaForm(true); }}
@@ -518,9 +515,6 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-bold text-slate-600">{tickets.length} ticket{tickets.length !== 1 ? 's' : ''} registrados</p>
-            <button onClick={loadTickets} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-orange-500 transition-colors">
-              <RefreshCw className="w-3.5 h-3.5" /> Recargar
-            </button>
           </div>
           {tickets.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 py-16 text-center">

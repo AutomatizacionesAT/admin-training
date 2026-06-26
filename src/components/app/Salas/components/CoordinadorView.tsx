@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Calendar, Clock, Users, MapPin, Info,
-  Plus, Ticket, CheckCircle, XCircle, Clock3, RefreshCw, MessageSquare, ArrowLeft
+  Plus, Ticket, CheckCircle, XCircle, Clock3, MessageSquare, ArrowLeft
 } from 'lucide-react';
 import type { AsignacionRecord, SalaRecord, SalasUser, TicketRecord } from '../utils/types';
 import AsignacionFormModal from './AsignacionFormModal';
@@ -232,9 +232,6 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
           <button onClick={onBackToGeneral} className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition-all hover:bg-slate-50" title="Volver a vista general">
             <ArrowLeft className="w-4 h-4" />
             General
-          </button>
-          <button onClick={onRefresh} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all" title="Actualizar">
-            <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={() => setShowSolicitud(true)}

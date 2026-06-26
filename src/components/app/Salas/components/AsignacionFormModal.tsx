@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Save, Loader2, AlertTriangle } from 'lucide-react';
+import { X, Save, Loader2, AlertTriangle, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { AsignacionRecord, SalaRecord } from '../utils/types';
 import { SALAS_USERS } from '@/context/AuthContext';
 import {
@@ -94,10 +94,48 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function formatISODate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function sameDay(a: Date | null, b: Date): boolean {
+  if (!a) return false;
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function isRangeBlocked(start: Date, end: Date, blockedDays: Set<string>): boolean {
+  const cursor = new Date(start.getTime());
+  cursor.setHours(0, 0, 0, 0);
+  const limit = new Date(end.getTime());
+  limit.setHours(0, 0, 0, 0);
+
+  while (cursor <= limit) {
+    if (blockedDays.has(formatISODate(cursor))) return true;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return false;
+}
+
+function getSelectionHint(start: Date | null, end: Date | null): string {
+  if (!start) return 'Seleccione fecha de inicio';
+  if (!end) return 'Seleccione fecha fin';
+  return 'Rango seleccionado';
+}
+
 export default function AsignacionFormModal({ initial, salas = [], asignaciones = [], onSave, onClose, modoSolicitud, coordinadorDefault, saving: savingExternal }: Props) {
   const [form, setForm] = useState<Omit<AsignacionRecord, 'rowIndex'>>(EMPTY);
   const [savingInternal, setSavingInternal] = useState(false);
   const [dateError, setDateError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const today = new Date();
+  const [calendarMonth, setCalendarMonth] = useState(today.getMonth());
+  const [calendarYear, setCalendarYear] = useState(today.getFullYear());
+  const [selectedStart, setSelectedStart] = useState<Date | null>(null);
+  const [selectedEnd, setSelectedEnd] = useState<Date | null>(null);
   const saving = savingExternal ?? savingInternal;
 
   // Conflictos recalculados en tiempo real
@@ -106,9 +144,39 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
     [form, asignaciones, initial?.rowIndex],
   );
   const hayConflicto = conflictos.length > 0;
+  const canUseAvailabilityCalendar = Boolean(modoSolicitud && form.sede && form.sala && form.horario && form.formador);
+
+  const occupiedDays = useMemo(() => {
+    const set = new Set<string>();
+    if (!modoSolicitud || !form.sede || !form.sala || !form.horario) return set;
+
+    asignaciones.forEach((a) => {
+      if (initial?.rowIndex && a.rowIndex === initial.rowIndex) return;
+      if ((a.estadoAsignacion || 'APROBADO') === 'RECHAZADO') return;
+      if (a.sala !== form.sala) return;
+      if (a.horario !== form.horario) return;
+
+      const start = parseAsignacionDate(a.fechaInicial);
+      const end = parseAsignacionDate(a.fechaFin);
+      if (!start || !end) return;
+
+      const cursor = new Date(start.getTime());
+      cursor.setHours(0, 0, 0, 0);
+      const limit = new Date(end.getTime());
+      limit.setHours(0, 0, 0, 0);
+      while (cursor <= limit) {
+        set.add(formatISODate(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    });
+
+    return set;
+  }, [asignaciones, form.horario, form.sala, form.sede, initial?.rowIndex, modoSolicitud]);
+  const selectionHint = getSelectionHint(selectedStart, selectedEnd);
 
   useEffect(() => {
     setDateError('');
+    setSubmitError('');
     if (initial) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { rowIndex: _r, ...rest } = initial;
@@ -121,6 +189,15 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
       setForm({ ...EMPTY, formador: coordinadorDefault ?? '' });
     }
   }, [initial, coordinadorDefault]);
+
+  useEffect(() => {
+    if (!canUseAvailabilityCalendar) return;
+    const seed = parseAsignacionDate(form.fechaInicial) || today;
+    setCalendarMonth(seed.getMonth());
+    setCalendarYear(seed.getFullYear());
+    setSelectedStart(parseAsignacionDate(form.fechaInicial));
+    setSelectedEnd(parseAsignacionDate(form.fechaFin));
+  }, [canUseAvailabilityCalendar, form.fechaInicial, form.fechaFin]);
 
   const set = (key: keyof typeof EMPTY, val: string) =>
     setForm(prev => ({ ...prev, [key]: val }));
@@ -157,17 +234,75 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleSedeChange = (sede: string) => {
-    setForm(prev => ({ ...prev, sede, sala: '', horario: '' }));
+    setSelectedStart(null);
+    setSelectedEnd(null);
+    setDateError('');
+    setForm(prev => ({ ...prev, sede, sala: '', horario: '', fechaInicial: '', fechaFin: '' }));
   };
 
   const handleSalaChange = (salaName: string) => {
     const found = salas.find(s => s.sala === salaName && s.sede === form.sede);
-    setForm(prev => ({ ...prev, sala: salaName, horario: found?.horario || '' }));
+    setSelectedStart(null);
+    setSelectedEnd(null);
+    setDateError('');
+    setForm(prev => ({ ...prev, sala: salaName, horario: found?.horario || '', fechaInicial: '', fechaFin: '' }));
+  };
+
+  const handleDateSelection = (day: number) => {
+    if (!canUseAvailabilityCalendar) return;
+
+    const clicked = new Date(calendarYear, calendarMonth, day);
+    clicked.setHours(0, 0, 0, 0);
+    const clickedIso = formatISODate(clicked);
+
+    if (occupiedDays.has(clickedIso)) {
+      setDateError('Ese día ya está ocupado para la sala y horario seleccionados.');
+      return;
+    }
+
+    setDateError('');
+
+    if (!selectedStart || (selectedStart && selectedEnd)) {
+      setSelectedStart(clicked);
+      setSelectedEnd(null);
+      setForm(prev => ({ ...prev, fechaInicial: clickedIso, fechaFin: '' }));
+      return;
+    }
+
+    if (clicked < selectedStart) {
+      setSelectedStart(clicked);
+      setSelectedEnd(null);
+      setForm(prev => ({ ...prev, fechaInicial: clickedIso, fechaFin: '' }));
+      return;
+    }
+
+    if (isRangeBlocked(selectedStart, clicked, occupiedDays)) {
+      setDateError('El rango incluye días ocupados. Selecciona fechas disponibles.');
+      return;
+    }
+
+    setSelectedEnd(clicked);
+    setForm(prev => ({ ...prev, fechaInicial: formatISODate(selectedStart), fechaFin: clickedIso }));
+  };
+
+  const handleChangeMonth = (delta: number) => {
+    const next = new Date(calendarYear, calendarMonth + delta, 1);
+    setCalendarMonth(next.getMonth());
+    setCalendarYear(next.getFullYear());
+  };
+
+  const clearDateSelection = () => {
+    setSelectedStart(null);
+    setSelectedEnd(null);
+    setDateError('');
+    setSubmitError('');
+    setForm((prev) => ({ ...prev, fechaInicial: '', fechaFin: '' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.campana || !form.sede || !form.sala) return;
+    setSubmitError('');
 
     const fechaInicial = toInputDateValue(form.fechaInicial) || form.fechaInicial;
     const fechaFin = toInputDateValue(form.fechaFin) || form.fechaFin;
@@ -191,8 +326,13 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
 
     const payload = { ...form, fechaInicial, fechaFin };
     setSavingInternal(true);
-    try { await onSave(payload); }
-    finally { setSavingInternal(false); }
+    try {
+      await onSave(payload);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'No se pudo guardar la solicitud.');
+    } finally {
+      setSavingInternal(false);
+    }
   };
 
   return (
@@ -209,7 +349,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
               <p className="text-blue-200 text-xs mt-0.5">La solicitud quedará pendiente hasta ser aprobada</p>
             )}
           </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white">
+          <button type="button" onClick={onClose} className="text-white/70 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -266,7 +406,12 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
 
           {/* 3. Horario (auto-poblado, pero editable) */}
           <Field label="Horario">
-            <select value={form.horario} onChange={e => set('horario', e.target.value)} className={inputCls}>
+            <select value={form.horario} onChange={e => {
+              setSelectedStart(null);
+              setSelectedEnd(null);
+              setDateError('');
+              setForm(prev => ({ ...prev, horario: e.target.value, fechaInicial: '', fechaFin: '' }));
+            }} className={inputCls}>
               <option value="">Selecciona horario...</option>
               {horariosDisponibles.map(h => <option key={h} value={h}>{h}</option>)}
             </select>
@@ -285,29 +430,141 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
           </Field>
 
           {/* Fechas */}
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Desde">
-              <input
-                type="date"
-                value={form.fechaInicial}
-                onChange={e => { set('fechaInicial', e.target.value); setDateError(''); }}
-                className={inputCls}
-                required
-              />
-            </Field>
-            <Field label="Hasta">
-              <input
-                type="date"
-                value={form.fechaFin}
-                min={form.fechaInicial || undefined}
-                onChange={e => { set('fechaFin', e.target.value); setDateError(''); }}
-                className={inputCls}
-                required
-              />
-            </Field>
-          </div>
-          {dateError && (
-            <p className="text-xs font-semibold text-red-600">{dateError}</p>
+          {modoSolicitud ? (
+            <div className={`rounded-2xl border p-4 ${canUseAvailabilityCalendar ? 'border-blue-200 bg-blue-50/50' : 'border-slate-200 bg-slate-50'}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Disponibilidad</p>
+                  <h3 className="mt-1 text-sm font-bold text-slate-800">Calendario de ocupación</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {canUseAvailabilityCalendar
+                      ? selectionHint
+                      : 'Selecciona sede, sala, horario y coordinador para habilitar el calendario.'}
+                  </p>
+                </div>
+                <div className="text-right text-xs text-slate-500">
+                  <p className="font-semibold text-slate-700">Inicio</p>
+                  <p>{form.fechaInicial || '—'}</p>
+                  <p className="mt-2 font-semibold text-slate-700">Fin</p>
+                  <p>{form.fechaFin || '—'}</p>
+                </div>
+              </div>
+
+              {dateError ? (
+                <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700">
+                  {dateError}
+                </p>
+              ) : null}
+
+              {canUseAvailabilityCalendar ? (
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <button type="button" onClick={() => handleChangeMonth(-1)} className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50">
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                      <Calendar className="h-4 w-4 text-blue-500" />
+                      <span className="capitalize">{new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' }).format(new Date(calendarYear, calendarMonth, 1))}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedStart ? (
+                        <button type="button" onClick={clearDateSelection} className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 transition hover:bg-rose-100">
+                          Borrar selección
+                        </button>
+                      ) : null}
+                      <button type="button" onClick={() => handleChangeMonth(1)} className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50">
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => <div key={day}>{day}</div>)}
+                  </div>
+
+                  {(() => {
+                    const firstDay = new Date(calendarYear, calendarMonth, 1).getDay();
+                    const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+                    const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+
+                    return (
+                      <div className="mt-2 grid grid-cols-7 gap-1">
+                        {Array.from({ length: startOffset }).map((_, i) => <div key={`sp-${i}`} className="h-9" />)}
+                        {Array.from({ length: daysInMonth }, (_, index) => index + 1).map((day) => {
+                          const current = new Date(calendarYear, calendarMonth, day);
+                          current.setHours(0, 0, 0, 0);
+                          const iso = formatISODate(current);
+                          const occupied = occupiedDays.has(iso);
+                          const selected = sameDay(selectedStart, current) || sameDay(selectedEnd, current);
+                          const inRange = !!selectedStart && !!selectedEnd && current > selectedStart && current < selectedEnd;
+
+                          let cls = 'border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50';
+                          if (occupied) cls = 'border border-red-200 bg-red-50 text-red-600 cursor-not-allowed opacity-80';
+                          if (inRange) cls = 'border border-indigo-200 bg-indigo-100 text-indigo-900';
+                          if (selected && !isRangeBlocked(selectedStart ?? current, selectedEnd ?? current, occupiedDays)) {
+                            cls = sameDay(selectedStart, current)
+                              ? 'border-2 border-cyan-400 bg-cyan-500 text-white shadow-[0_0_0_4px_rgba(34,211,238,0.18)]'
+                              : 'border-2 border-violet-500 bg-violet-600 text-white shadow-[0_0_0_4px_rgba(139,92,246,0.18)]';
+                          }
+                          if (sameDay(selectedStart, current) && sameDay(selectedEnd, current)) {
+                            cls = 'border-2 border-fuchsia-500 bg-fuchsia-600 text-white shadow-[0_0_0_4px_rgba(217,70,239,0.18)]';
+                          }
+
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              disabled={occupied}
+                              onClick={() => handleDateSelection(day)}
+                              className={`relative h-9 rounded-xl text-xs font-bold transition ${cls}`}
+                            >
+                              {day}
+                              {occupied ? <span className="absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-red-500" /> : null}
+                              {selected ? <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-white/95" /> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-500">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-red-700"><span className="h-2 w-2 rounded-full bg-red-500" />Ocupado</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2 py-1 text-cyan-700"><span className="h-2 w-2 rounded-full bg-cyan-500" />Inicio</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-1 text-violet-700"><span className="h-2 w-2 rounded-full bg-violet-500" />Fin</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-blue-700"><span className="h-2 w-2 rounded-full bg-blue-500" />Seleccionado</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-slate-600"><span className="h-2 w-2 rounded-full bg-slate-300" />Disponible</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Desde">
+                <input
+                  type="date"
+                  value={form.fechaInicial}
+                  onChange={e => { set('fechaInicial', e.target.value); setDateError(''); }}
+                  className={inputCls}
+                  required
+                />
+              </Field>
+              <Field label="Hasta">
+                <input
+                  type="date"
+                  value={form.fechaFin}
+                  min={form.fechaInicial || undefined}
+                  onChange={e => { set('fechaFin', e.target.value); setDateError(''); }}
+                  className={inputCls}
+                  required
+                />
+              </Field>
+            </div>
+          )}
+          {submitError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {submitError}
+            </div>
           )}
 
           {/* ── Banner de conflictos ────────────────────────────────────────── */}
@@ -348,7 +605,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
 
         {/* Footer */}
         <div className="p-5 border-t border-slate-100 flex gap-3 shrink-0">
-          <button onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all">
+          <button type="button" onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all">
             Cancelar
           </button>
           <button
