@@ -146,7 +146,7 @@ function handleDeleteSala(doc, payload, debugSheet) {
 // ─── SALAS_ASIGNACIONES CRUD ──────────────────────────────────────────────────
 // Columnas: CAMPAÑA(1) REQ(2) SALA(3) SEDE(4) FORMADOR(5) FECHA INICIAL(6)
 //           FECHA FIN(7) HORARIO(8) CANTIDAD(9) ESTADO ASIGNACION(10)
-//           TICKET(11) ESTADO TICKET(12)
+//           TICKET(11) ESTADO TICKET(12) COORDINADOR(13) REQUERIMIENTO(14)
 function mapAsignacionToRow(d) {
   return [
     d.campana            || '',
@@ -160,7 +160,9 @@ function mapAsignacionToRow(d) {
     d.dPersonas          || '',
     d.estadoAsignacion   || 'PENDIENTE',
     d.ticket             || '',
-    d.estadoTicket       || ''
+    d.estadoTicket       || '',
+    d.coordinador        || '',
+    d.requerimiento      || ''
   ];
 }
 
@@ -229,7 +231,7 @@ function findAsignacionConflict(doc, data, excludeRowIndex) {
   var newEnd = parseAsignacionDate(data.fechaFin);
   if (!sala || !horario || !newStart || !newEnd) return null;
 
-  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 12).getValues();
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
   for (var i = 0; i < rows.length; i++) {
     var rowIndex = i + 2;
     if (excludeRowIndex && rowIndex === excludeRowIndex) continue;

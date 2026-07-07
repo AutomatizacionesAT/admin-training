@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, Save, Loader2, AlertTriangle, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { AsignacionRecord, SalaRecord } from '../utils/types';
-import { SALAS_USERS } from '@/context/AuthContext';
 import {
   parseAsignacionDate,
   toInputDateValue,
@@ -17,7 +16,7 @@ interface Props {
   onClose: () => void;
   /** Si true, el botón dice "Enviar solicitud" y muestra info de modo coordinador */
   modoSolicitud?: boolean;
-  /** Pre-rellena el campo formador con este nombre */
+  /** Pre-rellena el campo coordinador con este nombre */
   coordinadorDefault?: string;
   /** Estado de guardado externo (para que el padre controle el spinner) */
   saving?: boolean;
@@ -77,7 +76,7 @@ function detectarConflictos(
 
 const EMPTY: Omit<AsignacionRecord, 'rowIndex'> = {
   campana: '', req: '', sala: '', sede: '',
-  formador: '', fechaInicial: '', fechaFin: '',
+  formador: '', coordinador: '', requerimiento: '', fechaInicial: '', fechaFin: '',
   horario: '', dPersonas: '',
   estadoAsignacion: 'APROBADO', ticket: '', estadoTicket: '',
 };
@@ -144,7 +143,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
     [form, asignaciones, initial?.rowIndex],
   );
   const hayConflicto = conflictos.length > 0;
-  const canUseAvailabilityCalendar = Boolean(modoSolicitud && form.sede && form.sala && form.horario && form.formador);
+  const canUseAvailabilityCalendar = Boolean(modoSolicitud && form.sede && form.sala && form.horario && form.coordinador);
 
   const occupiedDays = useMemo(() => {
     const set = new Set<string>();
@@ -186,7 +185,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
         fechaFin: toInputDateValue(rest.fechaFin),
       });
     } else {
-      setForm({ ...EMPTY, formador: coordinadorDefault ?? '' });
+      setForm({ ...EMPTY, coordinador: coordinadorDefault ?? '' });
     }
   }, [initial, coordinadorDefault]);
 
@@ -229,9 +228,6 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
       .map(s => s.horario);
   }, [salas, form.sala]);
 
-  // ── Coordinadores ──────────────────────────────────────────────────────────
-  const coordinadores = SALAS_USERS.filter(u => u.rol === 'COORDINADOR' || u.rol === 'SUPER_ADMIN');
-
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleSedeChange = (sede: string) => {
     setSelectedStart(null);
@@ -246,6 +242,14 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
     setSelectedEnd(null);
     setDateError('');
     setForm(prev => ({ ...prev, sala: salaName, horario: found?.horario || '', fechaInicial: '', fechaFin: '' }));
+  };
+
+  const handleRequerimientoChange = (value: string) => {
+    setForm(prev => ({
+      ...prev,
+      requerimiento: value,
+      req: value === 'Formación inicial' ? prev.req : '',
+    }));
   };
 
   const handleDateSelection = (day: number) => {
@@ -357,7 +361,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
 
-          {/* Campaña + REQ */}
+          {/* Campaña + personas */}
           <Field label="Campaña">
             <input
               type="text"
@@ -370,13 +374,25 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="REQ.">
-              <input type="text" value={form.req} onChange={e => set('req', e.target.value)} placeholder="Requerimiento" className={inputCls} />
-            </Field>
             <Field label="N° Personas">
               <input type="number" value={form.dPersonas} onChange={e => set('dPersonas', e.target.value)} min="1" className={inputCls} />
             </Field>
+            <Field label="Requerimiento">
+              <select value={form.requerimiento} onChange={e => handleRequerimientoChange(e.target.value)} className={inputCls}>
+                <option value="">Selecciona...</option>
+                <option value="Formación inicial">Formación inicial</option>
+                <option value="Formación continua">Formación continua</option>
+                <option value="OJT">OJT</option>
+                <option value="Otros">Otros</option>
+              </select>
+            </Field>
           </div>
+
+          {form.requerimiento === 'Formación inicial' && (
+            <Field label="REQ.">
+              <input type="text" value={form.req} onChange={e => set('req', e.target.value)} placeholder="Número del requerimiento" className={inputCls} />
+            </Field>
+          )}
 
           {/* 1. Sede primero */}
           <Field label="Sede">
@@ -417,17 +433,28 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
             </select>
           </Field>
 
-          {/* 4. Coordinador dropdown */}
-          <Field label="Coordinador / Formador">
-            <select value={form.formador} onChange={e => set('formador', e.target.value)} className={inputCls}>
-              <option value="">Selecciona un coordinador...</option>
-              {coordinadores.map(c => (
-                <option key={c.documento} value={c.nombre}>
-                  {c.nombre} — {c.cargo}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {/* 4. Personas responsables */}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Formador">
+              <input
+                type="text"
+                value={form.formador}
+                onChange={e => set('formador', e.target.value)}
+                placeholder="Nombre del formador"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Coordinador">
+              <input
+                type="text"
+                value={form.coordinador}
+                onChange={e => set('coordinador', e.target.value)}
+                placeholder="Nombre del coordinador"
+                className={inputCls}
+                readOnly={Boolean(modoSolicitud)}
+              />
+            </Field>
+          </div>
 
           {/* Fechas */}
           {modoSolicitud ? (
@@ -439,7 +466,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
                   <p className="mt-1 text-xs text-slate-500">
                     {canUseAvailabilityCalendar
                       ? selectionHint
-                      : 'Selecciona sede, sala, horario y coordinador para habilitar el calendario.'}
+                      : 'Selecciona sede, sala, horario, coordinador y formador para habilitar el calendario.'}
                   </p>
                 </div>
                 <div className="text-right text-xs text-slate-500">
@@ -610,7 +637,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
           </button>
           <button
             onClick={handleSubmit as unknown as React.MouseEventHandler}
-            disabled={saving || !form.campana || !form.sede || !form.sala || !form.fechaInicial || !form.fechaFin || (modoSolicitud && hayConflicto)}
+            disabled={saving || !form.campana || !form.sede || !form.sala || !form.fechaInicial || !form.fechaFin || !form.formador || !form.coordinador || (modoSolicitud && hayConflicto)}
             className={`flex-1 rounded-xl py-2.5 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 transition-all text-white ${modoSolicitud && hayConflicto
                 ? 'bg-red-400 cursor-not-allowed'
                 : 'bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'

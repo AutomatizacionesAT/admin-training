@@ -30,7 +30,7 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '1012385857', nombre: 'Walther Duvan Gomez Osorio', cargo: 'Lider de Formación', rol: 'COORDINADOR' },
     { documento: '1022390304', nombre: 'Karol Citysan Ferreira Quevedo', cargo: 'Prof. Gestión de Procesos', rol: 'COORDINADOR' },
     { documento: '1075303121', nombre: 'Jhon Fredy Gonzalez Alvarez', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
-    { documento: '108830969', nombre: 'Johan Sebastian Quinchia Vargas', cargo: 'Agile Training', rol: 'COORDINADOR' },
+    { documento: '1088309969', nombre: 'Johan Sebastian Quinchia Vargas', cargo: 'Agile Training', rol: 'COORDINADOR' },
     { documento: '1088351617', nombre: 'Vanessa Agudelo Garcia', cargo: 'Agile Training', rol: 'COORDINADOR' },
 ];
 

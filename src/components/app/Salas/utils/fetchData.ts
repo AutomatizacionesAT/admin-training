@@ -1,7 +1,7 @@
 import type { SalaRecord, AsignacionRecord, SalasAdminRecord, SalasRole, TicketRecord } from './types';
 
 const SHEET_ID = '1OtFWpA1NnkErvYmgwjqkic48b9UvGshEKAbBvcl-RuA';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbw9Yhu7K4rkz7Rv-Zhy-9UFfHlW_57s4qBy--vNPz6yOlvI6vcQAe3nzHg1p6Ow0fGP/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyBiBgFs5rcesYYKxrZCKOXeA3JZoQz1dwJMFq1eFy-L7QBxssNXORqQx38mgxW4QpJ/exec';
 
 interface GvizCell { v: string | number | null; f?: string; }
 interface GvizRow { c: (GvizCell | null)[]; }
@@ -76,6 +76,7 @@ export async function fetchSalasCatalogo(): Promise<SalaRecord[]> {
 // Columnas: CAMPAÑA(0) REQ(1) SALA(2) SEDE(3) FORMADOR(4) FECHA INICIAL(5)
 //           FECHA FIN(6) HORARIO(7) CANTIDAD PERSONAS(8)
 //           ESTADO ASIGNACION SALA(9) TICKET(10) ESTADO TICKET(11)
+//           COORDINADOR(12) REQUERIMIENTO(13)
 export async function fetchSalasAsignaciones(): Promise<AsignacionRecord[]> {
   const rows = await fetchSheet('SALAS_ASIGNACIONES');
   const result: AsignacionRecord[] = [];
@@ -99,6 +100,8 @@ export async function fetchSalasAsignaciones(): Promise<AsignacionRecord[]> {
       estadoAsignacion: cell(row, 9) || 'APROBADO',
       ticket: cell(row, 10),
       estadoTicket: cell(row, 11),
+      coordinador: cell(row, 12),
+      requerimiento: cell(row, 13),
     });
     rowIndex++;
   });

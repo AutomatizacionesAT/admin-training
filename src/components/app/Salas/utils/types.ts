@@ -19,6 +19,7 @@ export interface AsignacionRecord {
   sala: string;
   sede: string;
   formador: string;
+  coordinador: string;
   fechaInicial: string;
   fechaFin: string;
   horario: string;
@@ -26,6 +27,7 @@ export interface AsignacionRecord {
   estadoAsignacion: string;  // PENDIENTE | APROBADO | RECHAZADO
   ticket: string;            // número de ticket si existe
   estadoTicket: string;      // ABIERTO | CERRADO
+  requerimiento: string;
 }
 
 // ─── Ticket de asignación ─────────────────────────────────────────────────────

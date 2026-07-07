@@ -66,11 +66,14 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
     fetchTickets().then(setTickets).catch(() => setTickets([]));
   }, [asignaciones]);
 
-  // Asignaciones propias (por nombre o documento)
+  const normalize = (value: string) => value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase().trim();
+
+  // Asignaciones propias (por coordinador)
   const mis = asignaciones.filter(a => {
-    const f = (a.formador ?? '').toUpperCase();
-    const n = (user.nombre ?? '').toUpperCase();
-    return f.includes(user.documento) || (n.length > 3 && f.includes(n.split(' ')[0]));
+    const c = normalize(a.coordinador ?? '');
+    const n = normalize(user.nombre ?? '');
+    const d = normalize(user.documento ?? '');
+    return c.includes(d) || (n.length > 3 && c.includes(n.split(' ')[0]));
   });
 
   const pendientes = mis.filter(a => (a.estadoAsignacion || 'APROBADO') === 'PENDIENTE');
