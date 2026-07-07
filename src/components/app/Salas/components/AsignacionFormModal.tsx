@@ -16,6 +16,8 @@ interface Props {
   onClose: () => void;
   /** Si true, el botón dice "Enviar solicitud" y muestra info de modo coordinador */
   modoSolicitud?: boolean;
+  /** Si true, usa el calendario de disponibilidad también fuera del modo solicitud */
+  useAvailabilityCalendar?: boolean;
   /** Pre-rellena el campo coordinador con este nombre */
   coordinadorDefault?: string;
   /** Estado de guardado externo (para que el padre controle el spinner) */
@@ -125,7 +127,7 @@ function getSelectionHint(start: Date | null, end: Date | null): string {
   return 'Rango seleccionado';
 }
 
-export default function AsignacionFormModal({ initial, salas = [], asignaciones = [], onSave, onClose, modoSolicitud, coordinadorDefault, saving: savingExternal }: Props) {
+export default function AsignacionFormModal({ initial, salas = [], asignaciones = [], onSave, onClose, modoSolicitud, useAvailabilityCalendar, coordinadorDefault, saving: savingExternal }: Props) {
   const [form, setForm] = useState<Omit<AsignacionRecord, 'rowIndex'>>(EMPTY);
   const [savingInternal, setSavingInternal] = useState(false);
   const [dateError, setDateError] = useState('');
@@ -143,11 +145,12 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
     [form, asignaciones, initial?.rowIndex],
   );
   const hayConflicto = conflictos.length > 0;
-  const canUseAvailabilityCalendar = Boolean(modoSolicitud && form.sede && form.sala && form.horario && form.coordinador);
+  const shouldUseAvailabilityCalendar = Boolean(modoSolicitud || useAvailabilityCalendar);
+  const canUseAvailabilityCalendar = Boolean((modoSolicitud || useAvailabilityCalendar) && form.sede && form.sala && form.horario && form.coordinador);
 
   const occupiedDays = useMemo(() => {
     const set = new Set<string>();
-    if (!modoSolicitud || !form.sede || !form.sala || !form.horario) return set;
+    if (!(modoSolicitud || useAvailabilityCalendar) || !form.sede || !form.sala || !form.horario) return set;
 
     asignaciones.forEach((a) => {
       if (initial?.rowIndex && a.rowIndex === initial.rowIndex) return;
@@ -170,7 +173,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
     });
 
     return set;
-  }, [asignaciones, form.horario, form.sala, form.sede, initial?.rowIndex, modoSolicitud]);
+  }, [asignaciones, form.horario, form.sala, form.sede, initial?.rowIndex, modoSolicitud, useAvailabilityCalendar]);
   const selectionHint = getSelectionHint(selectedStart, selectedEnd);
 
   useEffect(() => {
@@ -457,7 +460,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
           </div>
 
           {/* Fechas */}
-          {modoSolicitud ? (
+          {shouldUseAvailabilityCalendar ? (
             <div className={`rounded-2xl border p-4 ${canUseAvailabilityCalendar ? 'border-blue-200 bg-blue-50/50' : 'border-slate-200 bg-slate-50'}`}>
               <div className="flex items-start justify-between gap-4">
                 <div>

@@ -17,7 +17,7 @@ type TicketEstado = 'ABIERTO' | 'RESPONDIDO' | 'CERRADO';
 
 interface EnrichedTicket extends TicketRecord {
   sede: string;
-  formador: string;
+  coordinador: string;
   estado: TicketEstado;
 }
 
@@ -215,7 +215,7 @@ export default function TicketAnalyticsDashboard({ asignaciones, tickets, onClos
       return {
         ...t,
         sede: asig?.sede?.trim() || 'Sin sede',
-        formador: asig?.formador?.trim() || 'Sin coordinador',
+        coordinador: asig?.coordinador?.trim() || 'Sin coordinador',
         estado: resolveTicketEstado(t),
       } satisfies EnrichedTicket;
     });
@@ -233,7 +233,7 @@ export default function TicketAnalyticsDashboard({ asignaciones, tickets, onClos
   const coordinadoresDisponibles = useMemo(() => {
     const map = new Map<string, number>();
     ticketsEnriquecidos.forEach(t => {
-      const f = t.formador?.trim();
+      const f = t.coordinador?.trim();
       if (f && f !== 'Sin coordinador') map.set(f, (map.get(f) || 0) + 1);
     });
     return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -242,7 +242,7 @@ export default function TicketAnalyticsDashboard({ asignaciones, tickets, onClos
   const ticketsFiltrados = useMemo(() => ticketsEnriquecidos.filter(t => {
     if (sede !== 'ALL' && !t.sede.toUpperCase().includes(sede)) return false;
     if (campana !== 'ALL' && t.campana !== campana) return false;
-    if (coordinador !== 'ALL' && t.formador !== coordinador) return false;
+    if (coordinador !== 'ALL' && t.coordinador !== coordinador) return false;
     if (ticketEstado !== 'ALL' && t.estado !== ticketEstado) return false;
     return true;
   }), [ticketsEnriquecidos, sede, campana, coordinador, ticketEstado]);
@@ -313,7 +313,7 @@ export default function TicketAnalyticsDashboard({ asignaciones, tickets, onClos
   const ticketsPorCoordinador = useMemo(() => {
     const map: Record<string, number> = {};
     ticketsFiltrados.forEach(t => {
-      const f = t.formador || 'Sin coordinador';
+      const f = t.coordinador || 'Sin coordinador';
       map[f] = (map[f] || 0) + 1;
     });
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 8);
@@ -696,7 +696,7 @@ export default function TicketAnalyticsDashboard({ asignaciones, tickets, onClos
                             {t.sede}
                           </span>
                         </td>
-                        <td className="px-3 py-2.5 text-slate-600 max-w-[120px] truncate" title={t.formador}>{t.formador}</td>
+                        <td className="px-3 py-2.5 text-slate-600 max-w-[120px] truncate" title={t.coordinador}>{t.coordinador}</td>
                         <td className="px-3 py-2.5 font-semibold text-slate-700">{t.campana}</td>
                         <td className="px-3 py-2.5 text-slate-600 max-w-[140px] truncate" title={t.fallaPuntual}>{t.fallaPuntual}</td>
                         <td className="px-3 py-2.5 text-slate-500 max-w-[120px] truncate" title={t.personaReporta}>{t.personaReporta}</td>

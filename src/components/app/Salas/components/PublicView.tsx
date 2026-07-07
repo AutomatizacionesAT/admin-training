@@ -335,7 +335,7 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
     return h.startsWith('14') || h.startsWith('15');
   });
   const totalAsig = asigFiltradas.length;
-  const coordinadores = new Set(asigFiltradas.map(a => a.formador).filter(Boolean)).size;
+  const coordinadores = new Set(asigFiltradas.map(a => a.coordinador).filter(Boolean)).size;
   const sedesActivas = Object.keys(groupedGlobal).filter(s => s !== 'SIN SEDE').length;
   const sedeEntries = [...Object.entries(groupedGlobal)].sort((a, b) => b[1].length - a[1].length);
   const sedesEnTurno = Object.keys(grouped).filter(s => s !== 'SIN SEDE');

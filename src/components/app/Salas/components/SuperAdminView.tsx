@@ -82,10 +82,18 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
     !q || s.sala.toLowerCase().includes(q) || s.sede.toLowerCase().includes(q)
   );
 
+  const matchAsig = (a: AsignacionRecord) =>
+    !q ||
+    a.campana.toLowerCase().includes(q) ||
+    a.sala.toLowerCase().includes(q) ||
+    a.formador.toLowerCase().includes(q) ||
+    a.coordinador.toLowerCase().includes(q) ||
+    a.requerimiento.toLowerCase().includes(q);
+
   // Aplica búsqueda + filtros del calendario (sede y/o día)
   const filteredAsigs = useMemo(() => {
     let result = aprobadas.filter(a =>
-      !q || a.campana.toLowerCase().includes(q) || a.sala.toLowerCase().includes(q) || a.formador.toLowerCase().includes(q)
+      matchAsig(a)
     );
     if (calSedeFilter) {
       result = result.filter(a => a.sede === calSedeFilter);
@@ -103,7 +111,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
     return result;
   }, [aprobadas, q, calFilter, calSedeFilter]);
   const filteredSolicitudes = solicitudes.filter(a =>
-    !q || a.campana.toLowerCase().includes(q) || a.sala.toLowerCase().includes(q) || a.formador.toLowerCase().includes(q)
+    matchAsig(a)
   );
 
   // ── Sala handlers ──────────────────────────────────────────────────────────
@@ -338,7 +346,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    {['Campaña', 'REQ', 'Sala', 'Sede', 'Coordinador', 'Horario', 'Fechas', 'Personas', 'Acciones'].map(h => (
+                    {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Coordinador', 'Requerimiento', 'Horario', 'Fechas', 'Personas', 'Acciones'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -357,6 +365,17 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                           <Users className="w-3 h-3 text-slate-400 shrink-0" />
                           {a.formador}
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 max-w-[140px] truncate" title={a.coordinador}>
+                        <div className="flex items-center gap-1.5">
+                          <Users className="w-3 h-3 text-slate-400 shrink-0" />
+                          {a.coordinador || '—'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3" title={a.requerimiento}>
+                        <span className="inline-flex max-w-[160px] items-center rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 truncate">
+                          {a.requerimiento || '—'}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                         <div className="flex items-center gap-1"><Clock className="w-3 h-3" />{a.horario}</div>
@@ -429,17 +448,18 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
               </div>
             )}
 
-            <table className="w-full text-sm">
+            <div className="max-h-[calc(100vh-350px)] overflow-auto">
+              <table className="min-w-[1280px] w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
-                  {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Horario', 'Fechas', 'Personas', 'Estado', 'Ticket', ''].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Coordinador', 'Requerimiento', 'Horario', 'Fechas', 'Personas', 'Estado', 'Ticket', ''].map(h => (
+                    <th key={h} className="sticky top-0 z-10 bg-slate-50 px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filteredAsigs.length === 0 ? (
-                  <tr><td colSpan={11} className="text-center py-12 text-slate-400">
+                  <tr><td colSpan={13} className="text-center py-12 text-slate-400">
                     {(calFilter || calSedeFilter)
                       ? 'Sin asignaciones con los filtros seleccionados'
                       : 'Sin asignaciones aprobadas'}
@@ -455,6 +475,10 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                     <td className="px-4 py-3 text-slate-600 max-w-[140px] truncate" title={a.formador}>
                       <div className="flex items-center gap-1.5"><Users className="w-3 h-3 text-slate-400 shrink-0" />{a.formador}</div>
                     </td>
+                    <td className="px-4 py-3 text-slate-600 max-w-[140px] truncate" title={a.coordinador}>
+                      <div className="flex items-center gap-1.5"><Users className="w-3 h-3 text-slate-400 shrink-0" />{a.coordinador || '—'}</div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 max-w-[160px] truncate" title={a.requerimiento}>{a.requerimiento || '—'}</td>
                     <td className="px-4 py-3 text-slate-500">
                       <div className="flex items-center gap-1"><Clock className="w-3 h-3 text-slate-400" />{a.horario}</div>
                     </td>
@@ -491,7 +515,8 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>{/* fin tabla */}
 
           {/* Calendario lateral */}
@@ -780,6 +805,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
           asignaciones={asignaciones}
           onSave={handleSaveAsig}
           onClose={() => { setShowAsigForm(false); setEditingAsig(null); }}
+          useAvailabilityCalendar
         />
       )}
 

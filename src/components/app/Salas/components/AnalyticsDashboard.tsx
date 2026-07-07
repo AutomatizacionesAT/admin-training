@@ -164,7 +164,7 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
   const coordinadoresDisponibles = useMemo(() => {
     const map = new Map<string, number>();
     asignaciones.forEach(a => {
-      const f = a.formador?.trim();
+      const f = a.coordinador?.trim();
       if (f) map.set(f, (map.get(f) || 0) + 1);
     });
     return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -176,7 +176,7 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
     if (turno === 'AM' && !isTurnoAM(a.horario)) return false;
     if (turno === 'PM' && isTurnoAM(a.horario)) return false;
     if (estado !== 'ALL' && a.estadoAsignacion !== estado) return false;
-    if (coordinador !== 'ALL' && a.formador?.trim() !== coordinador) return false;
+    if (coordinador !== 'ALL' && a.coordinador?.trim() !== coordinador) return false;
     return true;
   }), [asignaciones, sede, turno, estado, coordinador]);
 
@@ -185,7 +185,7 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
 
   // KPI values
   const totalPersonas = aprobadas.reduce((s, a) => s + (parseInt(a.dPersonas) || 0), 0);
-  const coordinadoresActivos = new Set(aprobadas.map(a => a.formador).filter(Boolean)).size;
+  const coordinadoresActivos = new Set(aprobadas.map(a => a.coordinador).filter(Boolean)).size;
   const salasEnUso = new Set(aprobadas.map(a => a.sala)).size;
   const ticketsAbiertos = tickets.filter(t => resolveTicketEstado(t) === 'ABIERTO').length;
   const ticketsRespondidos = tickets.filter(t => resolveTicketEstado(t) === 'RESPONDIDO').length;
@@ -238,7 +238,7 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
   const topCoordinadores = useMemo(() => {
     const map: Record<string, number> = {};
     aprobadas.forEach(a => {
-      const f = a.formador?.trim() || 'Sin coordinador';
+      const f = a.coordinador?.trim() || 'Sin coordinador';
       map[f] = (map[f] || 0) + 1;
     });
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 8);
