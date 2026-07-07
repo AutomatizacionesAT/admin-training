@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { Building2, Users, Monitor, Tv2, MapPin, ClipboardList, Lock, RotateCcw, UserCheck, Sun, Moon, Eye, Search, X } from 'lucide-react';
+import { Fragment, useMemo, useState } from 'react';
+import { Building2, Users, Monitor, Tv2, MapPin, ClipboardList, Lock, RotateCcw, UserCheck, Sun, Moon, Eye, Search, X, Calendar } from 'lucide-react';
 import type { SalaRecord, AsignacionRecord } from '../utils/types';
 import { getSalaPhotos } from '../utils/salaMedia';
 import { getSalaTurnos } from '../utils/salaUtils';
 import SalaDetailModal from './SalaDetailModal';
+import TimelineAssignmentModal from './TimelineAssignmentModal';
+import { parseAsignacionDate, formatAsignacionRango } from '../utils/asignacionUtils';
 
 interface Props {
   salas: SalaRecord[];
@@ -105,6 +107,23 @@ function filterBySearch(salas: SalaRecord[], query: string): SalaRecord[] {
     const sede = normalizeSearch(s.sede);
     return name.includes(q) || sede.includes(q);
   });
+}
+
+function getTurnoFromHorario(horario: string): 'AM' | 'PM' {
+  const h = (horario || '').toUpperCase();
+  return h.startsWith('14') || h.startsWith('15') || h.startsWith('16') ? 'PM' : 'AM';
+}
+
+function toDayKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function formatTimelineHeaderDay(date: Date): { day: string; weekday: string } {
+  const weekday = new Intl.DateTimeFormat('es-CO', { weekday: 'short' }).format(date);
+  return { day: String(date.getDate()).padStart(2, '0'), weekday: weekday.slice(0, 3) };
 }
 
 interface KpiCardProps {
@@ -296,7 +315,9 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
   const [sedeFilter, setSedeFilter] = useState<string>('ALL');
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [timelineSearch, setTimelineSearch] = useState('');
   const [selectedSala, setSelectedSala] = useState<{ sala: SalaRecord; sede: string } | null>(null);
+  const [selectedTimeline, setSelectedTimeline] = useState<{ sala: SalaRecord; asignacion: AsignacionRecord } | null>(null);
 
   const isNight = turno === 'PM';
   const isGlobal = turno === 'ALL';
@@ -334,6 +355,55 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
     if (turno === 'AM') return !h.startsWith('14') && !h.startsWith('15');
     return h.startsWith('14') || h.startsWith('15');
   });
+  const timelineRooms = useMemo(() => {
+    const unique = salasFiltradas.filter((s, idx, arr) => arr.findIndex(x => x.sala === s.sala) === idx);
+    return filterBySearch(unique, timelineSearch).sort(
+      (a, b) => a.sede.localeCompare(b.sede) || a.sala.localeCompare(b.sala),
+    );
+  }, [salasFiltradas, timelineSearch]);
+  const groupedTimeline = useMemo(() => groupBySede(timelineRooms), [timelineRooms]);
+  const timelineSedes = useMemo(() => Object.keys(groupedTimeline).filter(s => s !== 'SIN SEDE').sort((a, b) => a.localeCompare(b)), [groupedTimeline]);
+  const approvedAsigs = useMemo(() => asigFiltradas.filter(a => (a.estadoAsignacion || 'APROBADO') === 'APROBADO'), [asigFiltradas]);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const timelineDays = useMemo(() => {
+    const days: Date[] = [];
+    const cursor = new Date(today.getTime());
+    while (cursor <= endOfMonth) {
+      days.push(new Date(cursor.getTime()));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return days;
+  }, [today.getTime(), endOfMonth.getTime()]);
+  const timelineRoomSet = useMemo(() => new Set(timelineRooms.map(r => r.sala)), [timelineRooms]);
+  const occupancyByRoomDay = useMemo(() => {
+    const map = new Map<string, Map<string, { AM?: AsignacionRecord; PM?: AsignacionRecord }>>();
+    approvedAsigs.forEach((a) => {
+      if (!timelineRoomSet.has(a.sala)) return;
+      const start = parseAsignacionDate(a.fechaInicial);
+      const end = parseAsignacionDate(a.fechaFin);
+      if (!start || !end) return;
+
+      const cursor = new Date(Math.max(start.getTime(), today.getTime()));
+      cursor.setHours(0, 0, 0, 0);
+      const limit = new Date(Math.min(end.getTime(), endOfMonth.getTime()));
+      limit.setHours(0, 0, 0, 0);
+      const slot = getTurnoFromHorario(a.horario);
+      const roomMap = map.get(a.sala) ?? new Map<string, { AM?: AsignacionRecord; PM?: AsignacionRecord }>();
+
+      while (cursor <= limit) {
+        const key = toDayKey(cursor);
+        const entry = roomMap.get(key) ?? {};
+        entry[slot] = a;
+        roomMap.set(key, entry);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      map.set(a.sala, roomMap);
+    });
+    return map;
+  }, [approvedAsigs, endOfMonth, today, timelineRoomSet]);
   const totalAsig = asigFiltradas.length;
   const coordinadores = new Set(asigFiltradas.map(a => a.coordinador).filter(Boolean)).size;
   const sedesActivas = Object.keys(groupedGlobal).filter(s => s !== 'SIN SEDE').length;
@@ -482,6 +552,177 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
           <div className="absolute right-6 top-3 text-amber-600/40 text-lg select-none pointer-events-none">☀ ☀ ☀</div>
         </div>
       )}
+
+      {/* ── TIMELINE ─────────────────────────────────────────────────────── */}
+      <div className={`${cardBg} border rounded-2xl p-5 m-10 shadow-sm`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between mb-4">
+          <div>
+            <h3 className={`text-sm font-extrabold uppercase tracking-widest ${titleColor}`}>Timeline de ocupación</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Solo asignaciones aprobadas · naranja AM · azul PM · desde hoy hasta fin de mes
+            </p>
+          </div>
+          <div className="relative w-full lg:w-80">
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isNight ? 'text-slate-500' : 'text-slate-400'}`} />
+            <input
+              type="text"
+              value={timelineSearch}
+              onChange={e => setTimelineSearch(e.target.value)}
+              placeholder="Filtrar por sala o sede"
+              className={`w-full pl-9 pr-9 py-2.5 rounded-xl text-sm font-medium border outline-none transition-all ${isNight
+                ? 'bg-slate-800 border-[#005082]/35 text-slate-100 placeholder:text-slate-500 focus:border-[#005082] focus:ring-2 focus:ring-[#005082]/30'
+                : 'bg-white border-[#005082]/20 text-slate-800 placeholder:text-slate-400 focus:border-[#005082] focus:ring-2 focus:ring-[#005082]/15'
+                }`}
+            />
+            {timelineSearch && (
+              <button
+                type="button"
+                onClick={() => setTimelineSearch('')}
+                aria-label="Limpiar búsqueda"
+                className={`absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${isNight
+                  ? 'text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                  : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                  }`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mb-4 text-[11px] font-semibold">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-orange-700 border border-orange-100">
+            <span className="h-2 w-2 rounded-full bg-orange-500" /> AM
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-blue-700 border border-blue-100">
+            <span className="h-2 w-2 rounded-full bg-blue-500" /> PM
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-slate-600 border border-slate-200">
+            <span className="h-2 w-2 rounded-full bg-slate-300" /> Disponible
+          </span>
+        </div>
+
+        <div className="overflow-auto max-h-[72vh] rounded-2xl border border-slate-200">
+          <div className="min-w-[1400px]">
+            <div
+              className="grid border-b border-slate-200 bg-slate-50"
+              style={{ gridTemplateColumns: `280px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}
+            >
+              <div className={`sticky left-0 top-0 z-30 px-4 py-3 border-r border-slate-200 ${isNight ? 'bg-slate-800 text-slate-100' : 'bg-slate-50 text-slate-700'}`}>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#F7941D]" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Sede / Sala</span>
+                </div>
+              </div>
+              {timelineDays.map((day) => {
+                const { day: dayNum, weekday } = formatTimelineHeaderDay(day);
+                const isToday = toDayKey(day) === toDayKey(today);
+                return (
+                  <div
+                    key={toDayKey(day)}
+                    className={`sticky top-0 z-20 border-r border-slate-200 px-2 py-2 text-center ${isToday ? 'bg-amber-100 text-amber-900' : isNight ? 'bg-slate-800 text-slate-100' : 'bg-slate-50 text-slate-700'}`}
+                  >
+                    <div className="text-[10px] font-bold uppercase tracking-wider">{weekday}</div>
+                    <div className="text-sm font-black leading-none mt-0.5">{dayNum}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {timelineSedes.length === 0 ? (
+              <div className={`px-6 py-12 text-center ${isNight ? 'bg-slate-900 text-slate-400' : 'bg-white text-slate-500'}`}>
+                No hay salas que coincidan con el filtro.
+              </div>
+            ) : (
+              timelineSedes.map((sede) => {
+                const color = getSedeColor(sede, isNight);
+                const rooms = groupedTimeline[sede] ?? [];
+                return (
+                  <Fragment key={sede}>
+                    <div className={`grid border-b border-slate-200 ${isNight ? 'bg-slate-900/70' : 'bg-white'}`} style={{ gridTemplateColumns: `280px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}>
+                      <div className={`sticky left-0 z-10 px-4 py-2.5 border-r border-slate-200 ${isNight ? 'bg-slate-900/85' : 'bg-white'}`} style={{ gridColumn: '1 / -1' }}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`w-2.5 h-2.5 rounded-full ${color.bar}`} />
+                            <span className={`text-sm font-extrabold ${titleColor}`}>{sede}</span>
+                            <span className={`text-xs ${subColor}`}>{rooms.length} sala{rooms.length !== 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {rooms.map((room) => {
+                      const roomOccupancy = occupancyByRoomDay.get(room.sala);
+                      return (
+                        <div
+                          key={room.sala}
+                          className={`grid border-b border-slate-100 ${isNight ? 'bg-slate-900/40' : 'bg-white'}`}
+                          style={{ gridTemplateColumns: `280px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}
+                        >
+                          <div className={`sticky left-0 z-10 px-4 py-3 border-r border-slate-200 ${isNight ? 'bg-slate-900/95' : 'bg-white'}`}>
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`w-2.5 h-2.5 rounded-full ${color.bar} shrink-0`} />
+                                <span className={`text-xs font-bold uppercase tracking-wider truncate ${titleColor}`}>{room.sala}</span>
+                              </div>
+                              <div className={`text-[11px] ${subColor} flex items-center gap-1`}>
+                                <MapPin className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{room.sede}</span>
+                              </div>
+                              <div className={`text-[11px] ${subColor} flex items-center gap-1`}>
+                                <Users className="w-3 h-3 shrink-0" />
+                                <span>{room.capacidad || '—'} puestos</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {timelineDays.map((day) => {
+                            const key = toDayKey(day);
+                            const occupancy = roomOccupancy?.get(key);
+                            const am = occupancy?.AM?.sala === room.sala ? occupancy.AM : null;
+                            const pm = occupancy?.PM?.sala === room.sala ? occupancy.PM : null;
+                            const isToday = key === toDayKey(today);
+                            return (
+                              <div key={key} className={`border-r border-slate-100 px-1.5 py-2 ${isToday ? (isNight ? 'bg-amber-950/30' : 'bg-amber-50/70') : ''}`}>
+                                <div className="h-14 flex flex-col gap-1">
+                                  {am ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedTimeline({ sala: room, asignacion: am })}
+                                      className="h-6 rounded-md bg-orange-500 text-white text-[10px] font-black tracking-wider shadow-sm hover:brightness-110 transition"
+                                      title={`${am.campana} · ${formatAsignacionRango(am.fechaInicial, am.fechaFin)}`}
+                                    >
+                                      AM
+                                    </button>
+                                  ) : (
+                                    <div className="h-6 rounded-md border border-dashed border-slate-200 bg-transparent" />
+                                  )}
+                                  {pm ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedTimeline({ sala: room, asignacion: pm })}
+                                      className="h-6 rounded-md bg-blue-600 text-white text-[10px] font-black tracking-wider shadow-sm hover:brightness-110 transition"
+                                      title={`${pm.campana} · ${formatAsignacionRango(pm.fechaInicial, pm.fechaFin)}`}
+                                    >
+                                      PM
+                                    </button>
+                                  ) : (
+                                    <div className="h-6 rounded-md border border-dashed border-slate-200 bg-transparent" />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </Fragment>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
 
       {(canSolicitar || canGestionar) && (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
@@ -764,6 +1005,14 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
           asignaciones={asignaciones}
           isNight={isNight}
           onClose={() => setSelectedSala(null)}
+        />
+      )}
+      {selectedTimeline && (
+        <TimelineAssignmentModal
+          asignacion={selectedTimeline.asignacion}
+          sala={selectedTimeline.sala}
+          isNight={isNight}
+          onClose={() => setSelectedTimeline(null)}
         />
       )}
     </div>
