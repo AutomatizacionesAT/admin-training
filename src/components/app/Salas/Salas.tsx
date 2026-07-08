@@ -7,6 +7,14 @@ import PublicView from './components/PublicView';
 import CoordinadorView from './components/CoordinadorView';
 import SuperAdminView from './components/SuperAdminView';
 
+type TimelineRequestPreset = {
+  sala: SalaRecord;
+  sede: string;
+  horario: string;
+  fechaInicial: string;
+  fechaFin: string;
+};
+
 export default function Salas() {
   const { salasUser } = useAuth();
 
@@ -22,10 +30,17 @@ export default function Salas() {
   const isSuperAdmin = user?.rol === 'SUPER_ADMIN';
   const isCoordinador = user?.rol === 'COORDINADOR';
   const [activeView, setActiveView] = useState<'general' | 'coordinador' | 'superadmin'>('general');
+  const [timelinePreset, setTimelinePreset] = useState<TimelineRequestPreset | null>(null);
 
   useEffect(() => {
     setActiveView('general');
   }, [user?.documento]);
+
+  useEffect(() => {
+    if (activeView !== 'coordinador') {
+      setTimelinePreset(null);
+    }
+  }, [activeView]);
 
   // ─── Load data ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async (silent = false) => {
@@ -124,8 +139,15 @@ export default function Salas() {
                 asignaciones={asignaciones}
                 canSolicitar={!!user && isCoordinador}
                 canGestionar={!!user && isSuperAdmin}
-                onSolicitar={() => setActiveView('coordinador')}
+                onSolicitar={() => {
+                  setTimelinePreset(null);
+                  setActiveView('coordinador');
+                }}
                 onGestionar={() => setActiveView('superadmin')}
+                onTimelineRequest={(preset) => {
+                  setTimelinePreset(preset);
+                  setActiveView('coordinador');
+                }}
               />
             )}
             {activeView === 'superadmin' && isSuperAdmin && (
@@ -144,6 +166,7 @@ export default function Salas() {
                 asignaciones={asignaciones}
                 onRefresh={onRefresh}
                 onBackToGeneral={() => setActiveView('general')}
+                timelinePreset={timelinePreset}
               />
             )}
           </>

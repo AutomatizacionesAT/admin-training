@@ -26,18 +26,18 @@ function RequireAccess({ children, allow }: { children: ReactNode; allow: boolea
 }
 
 function AppContent() {
-  const { isAuthenticated, canAccessBiometrico, canAccessUsabilidad } = useAuth();
+  const { canAccessBiometrico, canAccessUsabilidad } = useAuth();
 
   return (
     <div>
-      {isAuthenticated ? <Navbar /> : null}
+      <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/simulator" element={<RequireAuth><Simulator /></RequireAuth>} />
         <Route path="/web-training" element={<RequireAuth><WebTraining /></RequireAuth>} />
         <Route path="/usabilidad-web-training" element={<RequireAccess allow={canAccessUsabilidad}><UsabilidadWebTraining /></RequireAccess>} />
         <Route path="/informe-biometrico" element={<RequireAccess allow={canAccessBiometrico}><InformeBiometrico /></RequireAccess>} />
-        <Route path="/salas" element={<RequireAuth><Salas /></RequireAuth>} />
+        <Route path="/salas" element={<Salas />} />
         <Route path="/agile-training" element={<RequireAuth><AgileTraining /></RequireAuth>} />
         <Route path="/academy" element={<RequireAuth><Academy /></RequireAuth>} />
       </Routes>

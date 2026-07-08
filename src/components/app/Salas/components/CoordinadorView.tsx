@@ -15,6 +15,7 @@ interface Props {
   asignaciones: AsignacionRecord[];
   onRefresh: () => void;
   onBackToGeneral: () => void;
+  timelinePreset?: { sala: SalaRecord; sede: string; horario: string; fechaInicial: string; fechaFin: string } | null;
 }
 
 const ESTADO_CONFIG = {
@@ -56,8 +57,9 @@ const TICKET_ESTADO_CONFIG = {
   CERRADO:     { label: 'Cerrado',                    cls: 'bg-slate-100 text-slate-500' },
 } as const;
 
-export default function CoordinadorView({ user, salas, asignaciones, onRefresh, onBackToGeneral }: Props) {
+export default function CoordinadorView({ user, salas, asignaciones, onRefresh, onBackToGeneral, timelinePreset }: Props) {
   const [showSolicitud, setShowSolicitud] = useState(false);
+  const [requestPreset, setRequestPreset] = useState<Props['timelinePreset']>(null);
   const [ticketTarget, setTicketTarget] = useState<AsignacionRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [tickets, setTickets] = useState<TicketRecord[]>([]);
@@ -65,6 +67,12 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
   useEffect(() => {
     fetchTickets().then(setTickets).catch(() => setTickets([]));
   }, [asignaciones]);
+
+  useEffect(() => {
+    if (!timelinePreset) return;
+    setRequestPreset(timelinePreset);
+    setShowSolicitud(true);
+  }, [timelinePreset]);
 
   const normalize = (value: string) => value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase().trim();
 
@@ -237,7 +245,10 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
             General
           </button>
           <button
-            onClick={() => setShowSolicitud(true)}
+            onClick={() => {
+              setRequestPreset(null);
+              setShowSolicitud(true);
+            }}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
           >
             <Plus className="w-4 h-4" /> Solicitar sala
@@ -302,10 +313,14 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
           salas={salas}
           asignaciones={asignaciones}
           onSave={handleSolicitud}
-          onClose={() => setShowSolicitud(false)}
+          onClose={() => {
+            setShowSolicitud(false);
+            setRequestPreset(null);
+          }}
           modoSolicitud
           coordinadorDefault={user.nombre}
           saving={saving}
+          preset={requestPreset ?? undefined}
         />
       )}
       {ticketTarget && (

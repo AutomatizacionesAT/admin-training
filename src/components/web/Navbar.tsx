@@ -6,7 +6,7 @@ import { UserCircle, LogOut } from "lucide-react";
 
 export default function Navbar() {
   const location = useLocation();
-  const { isAdmin, isSuperAdmin, isCoordinador, salasUser, logout } = useAuth();
+  const { isAdmin, isSuperAdmin, isCoordinador, salasUser, isAuthenticated, logout } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -27,6 +27,9 @@ export default function Navbar() {
     { name: "Academy", path: "/academy" },
     { name: "Salas", path: "/salas" },
   ].filter((link) => {
+    if (!isAuthenticated) {
+      return link.path === '/' || link.path === '/salas';
+    }
     if (link.path === '/usabilidad-web-training' || link.path === '/informe-biometrico') {
       return isAdmin || isSuperAdmin || !isCoordinador;
     }
@@ -77,23 +80,25 @@ export default function Navbar() {
 
               <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
 
-              <Button
-                variant="outline"
-                onClick={handleLogout}
-                className={`flex items-center gap-2 rounded-full px-4 transition-all hover:cursor-pointer ${isAdmin
-                    ? "border-[#8A2BE2] text-[#8A2BE2] hover:bg-[#8A2BE2]/10"
-                    : salasUser
-                      ? "border-indigo-400 text-indigo-600 hover:bg-indigo-50"
-                      : "text-gray-500 hover:text-[#0047BA] hover:bg-gray-100"
-                  }`}
-                title="Cerrar sesión"
-              >
-                <UserCircle className="w-5 h-5" />
-                <span className="hidden sm:inline font-medium">
-                  {isAdmin ? "Admin Mode" : salasUser?.nombre.split(" ")[0]}
-                </span>
-                <LogOut className="w-4 h-4 ml-1 opacity-70" />
-              </Button>
+              {isAuthenticated && (
+                <Button
+                  variant="outline"
+                  onClick={handleLogout}
+                  className={`flex items-center gap-2 rounded-full px-4 transition-all hover:cursor-pointer ${isAdmin
+                      ? "border-[#8A2BE2] text-[#8A2BE2] hover:bg-[#8A2BE2]/10"
+                      : salasUser
+                        ? "border-indigo-400 text-indigo-600 hover:bg-indigo-50"
+                        : "text-gray-500 hover:text-[#0047BA] hover:bg-gray-100"
+                    }`}
+                  title="Cerrar sesión"
+                >
+                  <UserCircle className="w-5 h-5" />
+                  <span className="hidden sm:inline font-medium">
+                    {isAdmin ? "Admin Mode" : salasUser?.nombre.split(" ")[0]}
+                  </span>
+                  <LogOut className="w-4 h-4 ml-1 opacity-70" />
+                </Button>
+              )}
             </div>
           </div>
         </div>

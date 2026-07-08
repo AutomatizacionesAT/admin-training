@@ -22,6 +22,8 @@ interface Props {
   coordinadorDefault?: string;
   /** Estado de guardado externo (para que el padre controle el spinner) */
   saving?: boolean;
+  /** Preset recibido desde el timeline público */
+  preset?: { sala: SalaRecord; sede: string; horario: string; fechaInicial: string; fechaFin: string } | null;
 }
 
 // ── Utilidades de fecha (conflictos) ─────────────────────────────────────────
@@ -127,7 +129,7 @@ function getSelectionHint(start: Date | null, end: Date | null): string {
   return 'Rango seleccionado';
 }
 
-export default function AsignacionFormModal({ initial, salas = [], asignaciones = [], onSave, onClose, modoSolicitud, useAvailabilityCalendar, coordinadorDefault, saving: savingExternal }: Props) {
+export default function AsignacionFormModal({ initial, salas = [], asignaciones = [], onSave, onClose, modoSolicitud, useAvailabilityCalendar, coordinadorDefault, saving: savingExternal, preset }: Props) {
   const [form, setForm] = useState<Omit<AsignacionRecord, 'rowIndex'>>(EMPTY);
   const [savingInternal, setSavingInternal] = useState(false);
   const [dateError, setDateError] = useState('');
@@ -189,8 +191,23 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
       });
     } else {
       setForm({ ...EMPTY, coordinador: coordinadorDefault ?? '' });
+      if (preset) {
+        const presetSala = salas.find(s => s.sala === preset.sala.sala && s.sede === preset.sala.sede)
+          ?? salas.find(s => s.sala === preset.sala.sala)
+          ?? null;
+
+        setForm(prev => ({
+          ...prev,
+          coordinador: coordinadorDefault ?? '',
+          sede: preset.sede || preset.sala.sede || '',
+          sala: preset.sala.sala,
+          horario: preset.horario || presetSala?.horario || '',
+          fechaInicial: preset.fechaInicial,
+          fechaFin: preset.fechaFin,
+        }));
+      }
     }
-  }, [initial, coordinadorDefault]);
+  }, [initial, coordinadorDefault, preset, salas]);
 
   useEffect(() => {
     if (!canUseAvailabilityCalendar) return;
