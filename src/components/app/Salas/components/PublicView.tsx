@@ -990,7 +990,7 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
               {canSolicitar ? 'Entra a solicitar y gestionar tus asignaciones.' : 'Consulta general del catálogo de salas.'}
             </p>
           </div>
-          {canSolicitar && onSolicitar && (
+          {canSolicitar && onSolicitar && !canGestionar && (
             <button
               type="button"
               onClick={onSolicitar}

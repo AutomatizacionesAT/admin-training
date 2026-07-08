@@ -141,12 +141,12 @@ export default function Salas() {
                 canGestionar={!!user && isSuperAdmin}
                 onSolicitar={() => {
                   setTimelinePreset(null);
-                  setActiveView('coordinador');
+                  setActiveView(isSuperAdmin ? 'superadmin' : 'coordinador');
                 }}
                 onGestionar={() => setActiveView('superadmin')}
                 onTimelineRequest={(preset) => {
                   setTimelinePreset(preset);
-                  setActiveView('coordinador');
+                  setActiveView(isSuperAdmin ? 'superadmin' : 'coordinador');
                 }}
               />
             )}
@@ -157,6 +157,7 @@ export default function Salas() {
                 asignaciones={asignaciones}
                 onRefresh={onRefresh}
                 onBackToGeneral={() => setActiveView('general')}
+                timelinePreset={timelinePreset}
               />
             )}
             {activeView === 'coordinador' && isCoordinador && (

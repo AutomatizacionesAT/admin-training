@@ -23,6 +23,7 @@ interface Props {
   asignaciones: AsignacionRecord[];
   onRefresh: () => void;
   onBackToGeneral: () => void;
+  timelinePreset?: { sala: SalaRecord; sede: string; horario: string; fechaInicial: string; fechaFin: string } | null;
 }
 
 type ActiveTab = 'solicitudes' | 'asignaciones' | 'tickets' | 'catalogo';
@@ -35,11 +36,12 @@ const ESTADO_COLORS: Record<string, string> = {
   RECHAZADO: 'bg-red-100 text-red-600 border-red-200',
 };
 
-export default function SuperAdminView({ user, salas, asignaciones, onRefresh, onBackToGeneral }: Props) {
+export default function SuperAdminView({ user, salas, asignaciones, onRefresh, onBackToGeneral, timelinePreset }: Props) {
   const [tab, setTab] = useState<ActiveTab>('solicitudes');
   const [search, setSearch] = useState('');
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showTicketAnalytics, setShowTicketAnalytics] = useState(false);
+  const [requestPreset, setRequestPreset] = useState<Props['timelinePreset']>(null);
 
   // Sala CRUD state
   const [showSalaForm, setShowSalaForm] = useState(false);
@@ -68,12 +70,12 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
   const [ticketError, setTicketError] = useState<string | null>(null);
 
   // ── Computed ───────────────────────────────────────────────────────────────
-  const solicitudes = useMemo(() =>
-    asignaciones.filter(a => (a.estadoAsignacion || 'APROBADO') === 'PENDIENTE'),
-    [asignaciones]
-  );
   const aprobadas = useMemo(() =>
     asignaciones.filter(a => (a.estadoAsignacion || 'APROBADO') === 'APROBADO'),
+    [asignaciones]
+  );
+  const solicitudes = useMemo(() =>
+    asignaciones.filter(a => (a.estadoAsignacion || 'APROBADO') === 'PENDIENTE'),
     [asignaciones]
   );
 
@@ -89,6 +91,8 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
     a.formador.toLowerCase().includes(q) ||
     a.coordinador.toLowerCase().includes(q) ||
     a.requerimiento.toLowerCase().includes(q);
+
+  const filteredSolicitudes = useMemo(() => solicitudes.filter(a => matchAsig(a)), [solicitudes, q]);
 
   // Aplica búsqueda + filtros del calendario (sede y/o día)
   const filteredAsigs = useMemo(() => {
@@ -110,9 +114,13 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
     }
     return result;
   }, [aprobadas, q, calFilter, calSedeFilter]);
-  const filteredSolicitudes = solicitudes.filter(a =>
-    matchAsig(a)
-  );
+  useEffect(() => {
+    if (!timelinePreset) return;
+    setRequestPreset(timelinePreset);
+    setEditingAsig(null);
+    setTab('asignaciones');
+    setShowAsigForm(true);
+  }, [timelinePreset]);
 
   // ── Sala handlers ──────────────────────────────────────────────────────────
   const handleSaveSala = async (data: Omit<SalaRecord, 'rowIndex'>) => {
@@ -136,6 +144,19 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
 
   const handleDeleteAsig = (a: AsignacionRecord) => setDeleteConfirm({ type: 'asig', item: a });
 
+  // ── Aprobar / Rechazar solicitud ───────────────────────────────────────────
+  const [processingEstado, setProcessingEstado] = useState<number | null>(null);
+
+  const handleEstado = async (a: AsignacionRecord, estado: 'APROBADO' | 'RECHAZADO') => {
+    setProcessingEstado(a.rowIndex);
+    try {
+      await updateEstadoAsignacion(a.rowIndex, estado);
+      onRefresh();
+    } finally {
+      setProcessingEstado(null);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!deleteConfirm) return;
     setDeleting(true);
@@ -146,19 +167,6 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
       onRefresh();
     } finally {
       setDeleting(false);
-    }
-  };
-
-  // ── Aprobar / Rechazar solicitud ────────────────────────────────────────────
-  const [processingEstado, setProcessingEstado] = useState<number | null>(null);
-
-  const handleEstado = async (a: AsignacionRecord, estado: 'APROBADO' | 'RECHAZADO') => {
-    setProcessingEstado(a.rowIndex);
-    try {
-      await updateEstadoAsignacion(a.rowIndex, estado);
-      onRefresh();
-    } finally {
-      setProcessingEstado(null);
     }
   };
 
@@ -256,7 +264,6 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
       {/* Tabs + actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-wrap bg-white border border-slate-200 rounded-xl p-1 shadow-sm gap-1">
-          {/* Solicitudes pendientes — badge rojo si hay */}
           <button
             onClick={() => handleTabChange('solicitudes')}
             className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'solicitudes' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'}`}
@@ -309,7 +316,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
           </div>
           {tab === 'catalogo' && (
             <button
-              onClick={() => { setEditingSala(null); setShowSalaForm(true); }}
+              onClick={() => { setEditingSala(null); setShowSalaForm(true); setRequestPreset(null); }}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
             >
               <Plus className="w-4 h-4" /> Sala
@@ -317,7 +324,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
           )}
           {tab === 'asignaciones' && (
             <button
-              onClick={() => { setEditingAsig(null); setShowAsigForm(true); }}
+              onClick={() => { setEditingAsig(null); setShowAsigForm(true); setRequestPreset(null); }}
               className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
             >
               <Plus className="w-4 h-4" /> Asignación
@@ -385,12 +392,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                       </td>
                       <td className="px-4 py-3 text-slate-600 text-center">{a.dPersonas}</td>
                       <td className="px-4 py-3">
-                        {processingEstado === a.rowIndex ? (
-                          <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium">
-                            <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
-                            Procesando...
-                          </div>
-                        ) : (
+                        {a.estadoAsignacion === 'PENDIENTE' ? (
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => handleEstado(a, 'APROBADO')}
@@ -407,6 +409,8 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                               <XCircle className="w-3 h-3" /> Rechazar
                             </button>
                           </div>
+                        ) : (
+                          estadoBadge(a.estadoAsignacion || 'APROBADO')
                         )}
                       </td>
                     </tr>
@@ -504,7 +508,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => { setEditingAsig(a); setShowAsigForm(true); }} className="p-1.5 rounded-lg hover:bg-violet-50 text-violet-500 transition-colors">
+                        <button onClick={() => { setEditingAsig(a); setShowAsigForm(true); setRequestPreset(null); }} className="p-1.5 rounded-lg hover:bg-violet-50 text-violet-500 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => handleDeleteAsig(a)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition-colors">
@@ -798,14 +802,15 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
           onClose={() => { setShowSalaForm(false); setEditingSala(null); }}
         />
       )}
-      {showAsigForm && (
+          {showAsigForm && (
         <AsignacionFormModal
           initial={editingAsig}
           salas={salas}
           asignaciones={asignaciones}
           onSave={handleSaveAsig}
-          onClose={() => { setShowAsigForm(false); setEditingAsig(null); }}
+          onClose={() => { setShowAsigForm(false); setEditingAsig(null); setRequestPreset(null); }}
           useAvailabilityCalendar
+          preset={requestPreset ?? undefined}
         />
       )}
 
