@@ -1,5 +1,5 @@
-import { Fragment, useMemo, useState } from 'react';
-import { Building2, Users, Monitor, Tv2, MapPin, ClipboardList, Lock, RotateCcw, UserCheck, Sun, Moon, Eye, Search, X, Calendar } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Building2, Users, Monitor, Tv2, MapPin, ClipboardList, Lock, RotateCcw, UserCheck, Sun, Moon, Eye, Search, X, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { SalaRecord, AsignacionRecord } from '../utils/types';
 import { getSalaPhotos } from '../utils/salaMedia';
 import { getSalaTurnos } from '../utils/salaUtils';
@@ -311,13 +311,19 @@ function SalaCard({ sala, sede, isNight, allSalas, onSelect }: SalaCardProps) {
 }
 
 export default function PublicView({ salas, asignaciones, canSolicitar = false, canGestionar = false, onSolicitar, onGestionar }: Props) {
-  const [turno, setTurno] = useState<Turno>('AM');
+  const [turno, setTurno] = useState<Turno>('ALL');
   const [sedeFilter, setSedeFilter] = useState<string>('ALL');
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [timelineSearch, setTimelineSearch] = useState('');
+  const [timelineMonth, setTimelineMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [selectedSala, setSelectedSala] = useState<{ sala: SalaRecord; sede: string } | null>(null);
   const [selectedTimeline, setSelectedTimeline] = useState<{ sala: SalaRecord; asignacion: AsignacionRecord } | null>(null);
+  const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const timelineDayRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const isNight = turno === 'PM';
   const isGlobal = turno === 'ALL';
@@ -364,46 +370,82 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
   const groupedTimeline = useMemo(() => groupBySede(timelineRooms), [timelineRooms]);
   const timelineSedes = useMemo(() => Object.keys(groupedTimeline).filter(s => s !== 'SIN SEDE').sort((a, b) => a.localeCompare(b)), [groupedTimeline]);
   const approvedAsigs = useMemo(() => asigFiltradas.filter(a => (a.estadoAsignacion || 'APROBADO') === 'APROBADO'), [asigFiltradas]);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const monthStart = useMemo(() => new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), 1), [timelineMonth]);
+  const monthEnd = useMemo(() => new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + 1, 0), [timelineMonth]);
+  const monthLabel = useMemo(() => new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' }).format(monthStart), [monthStart]);
+  const currentDayKey = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return toDayKey(now);
+  }, []);
+  const activeScrollDayKey = useMemo(() => {
+    const now = new Date();
+    const sameMonth = now.getFullYear() === timelineMonth.getFullYear() && now.getMonth() === timelineMonth.getMonth();
+    const seed = new Date(sameMonth ? now.getTime() : monthStart.getTime());
+    seed.setHours(0, 0, 0, 0);
+    return toDayKey(seed);
+  }, [monthStart, timelineMonth]);
   const timelineDays = useMemo(() => {
     const days: Date[] = [];
-    const cursor = new Date(today.getTime());
-    while (cursor <= endOfMonth) {
+    const cursor = new Date(monthStart.getTime());
+    while (cursor <= monthEnd) {
       days.push(new Date(cursor.getTime()));
       cursor.setDate(cursor.getDate() + 1);
     }
     return days;
-  }, [today.getTime(), endOfMonth.getTime()]);
+  }, [monthStart, monthEnd]);
   const timelineRoomSet = useMemo(() => new Set(timelineRooms.map(r => r.sala)), [timelineRooms]);
-  const occupancyByRoomDay = useMemo(() => {
-    const map = new Map<string, Map<string, { AM?: AsignacionRecord; PM?: AsignacionRecord }>>();
+  const roomTimelineBars = useMemo(() => {
+    type Bar = {
+      lane: number;
+      startIndex: number;
+      endIndex: number;
+      asignacion: AsignacionRecord;
+    };
+
+    const map = new Map<string, Bar[]>();
+    const dayMs = 24 * 60 * 60 * 1000;
+
     approvedAsigs.forEach((a) => {
       if (!timelineRoomSet.has(a.sala)) return;
       const start = parseAsignacionDate(a.fechaInicial);
       const end = parseAsignacionDate(a.fechaFin);
       if (!start || !end) return;
 
-      const cursor = new Date(Math.max(start.getTime(), today.getTime()));
-      cursor.setHours(0, 0, 0, 0);
-      const limit = new Date(Math.min(end.getTime(), endOfMonth.getTime()));
-      limit.setHours(0, 0, 0, 0);
-      const slot = getTurnoFromHorario(a.horario);
-      const roomMap = map.get(a.sala) ?? new Map<string, { AM?: AsignacionRecord; PM?: AsignacionRecord }>();
+      const clippedStart = new Date(Math.max(start.getTime(), monthStart.getTime()));
+      const clippedEnd = new Date(Math.min(end.getTime(), monthEnd.getTime()));
+      clippedStart.setHours(0, 0, 0, 0);
+      clippedEnd.setHours(0, 0, 0, 0);
+      if (clippedStart > clippedEnd) return;
 
-      while (cursor <= limit) {
-        const key = toDayKey(cursor);
-        const entry = roomMap.get(key) ?? {};
-        entry[slot] = a;
-        roomMap.set(key, entry);
-        cursor.setDate(cursor.getDate() + 1);
+      const startIndex = Math.floor((clippedStart.getTime() - monthStart.getTime()) / dayMs);
+      const endIndex = Math.floor((clippedEnd.getTime() - monthStart.getTime()) / dayMs);
+      const bars = map.get(a.sala) ?? [];
+
+      let lane = 0;
+      while (bars.some(b => b.lane === lane && !(endIndex < b.startIndex || startIndex > b.endIndex))) {
+        lane++;
       }
 
-      map.set(a.sala, roomMap);
+      bars.push({ lane, startIndex, endIndex, asignacion: a });
+      map.set(a.sala, bars);
     });
+
     return map;
-  }, [approvedAsigs, endOfMonth, today, timelineRoomSet]);
+  }, [approvedAsigs, monthEnd, monthStart, timelineRoomSet]);
+
+  useEffect(() => {
+    const container = timelineScrollRef.current;
+    const target = timelineDayRefs.current[activeScrollDayKey] ?? timelineDayRefs.current[toDayKey(monthStart)];
+    if (!container || !target) return;
+
+    const id = window.requestAnimationFrame(() => {
+      const left = Math.max(target.offsetLeft - (container.clientWidth / 2) + (target.clientWidth / 2), 0);
+      container.scrollTo({ left, behavior: 'smooth' });
+    });
+
+    return () => window.cancelAnimationFrame(id);
+  }, [activeScrollDayKey, monthStart, timelineDays.length, timelineRooms.length]);
   const totalAsig = asigFiltradas.length;
   const coordinadores = new Set(asigFiltradas.map(a => a.coordinador).filter(Boolean)).size;
   const sedesActivas = Object.keys(groupedGlobal).filter(s => s !== 'SIN SEDE').length;
@@ -446,6 +488,9 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
   const divColor = isNight ? 'bg-slate-700' : 'bg-slate-200';
   const divText = isNight ? 'text-slate-500' : 'text-slate-400';
   const barBg = isNight ? 'bg-slate-700' : 'bg-slate-100';
+  const timelineGroupTop = 56;
+  const timelineLaneHeight = 28;
+  const timelineBarInset = 4;
 
   return (
     <div className="space-y-10 transition-colors duration-500">
@@ -555,12 +600,33 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
 
       {/* ── TIMELINE ─────────────────────────────────────────────────────── */}
       <div className={`${cardBg} border rounded-2xl p-5 m-10 shadow-sm`}>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between mb-4">
-          <div>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-4">
+          <div className="min-w-0">
             <h3 className={`text-sm font-extrabold uppercase tracking-widest ${titleColor}`}>Timeline de ocupación</h3>
             <p className="mt-1 text-xs text-slate-400">
-              Solo asignaciones aprobadas · naranja AM · azul PM · desde hoy hasta fin de mes
+              Solo asignaciones aprobadas · naranja AM · azul PM · mes seleccionado
             </p>
+          </div>
+          <div className="flex items-center justify-center gap-2 lg:flex-1">
+            <button
+              type="button"
+              onClick={() => setTimelineMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+              className={`w-9 h-9 rounded-full border flex items-center justify-center transition ${isNight ? 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+              aria-label="Mes anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className={`px-4 py-2 rounded-full border text-sm font-black capitalize tracking-wide ${isNight ? 'border-slate-700 bg-slate-800 text-slate-100' : 'border-slate-200 bg-white text-slate-800'}`}>
+              {monthLabel}
+            </div>
+            <button
+              type="button"
+              onClick={() => setTimelineMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+              className={`w-9 h-9 rounded-full border flex items-center justify-center transition ${isNight ? 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+              aria-label="Mes siguiente"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
           <div className="relative w-full lg:w-80">
             <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isNight ? 'text-slate-500' : 'text-slate-400'}`} />
@@ -591,24 +657,24 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mb-4 text-[11px] font-semibold">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-orange-700 border border-orange-100">
-            <span className="h-2 w-2 rounded-full bg-orange-500" /> AM
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100/80 px-2.5 py-1 text-orange-900 border border-orange-200">
+            <span className="h-2 w-2 rounded-full bg-orange-700" /> AM
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-blue-700 border border-blue-100">
-            <span className="h-2 w-2 rounded-full bg-blue-500" /> PM
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100/80 px-2.5 py-1 text-sky-900 border border-sky-200">
+            <span className="h-2 w-2 rounded-full bg-[#005082]" /> PM
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-slate-600 border border-slate-200">
-            <span className="h-2 w-2 rounded-full bg-slate-300" /> Disponible
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200/80 px-2.5 py-1 text-slate-700 border border-slate-300">
+            <span className="h-2 w-2 rounded-full bg-slate-500" /> Disponible
           </span>
         </div>
 
-        <div className="overflow-auto max-h-[72vh] rounded-2xl border border-slate-200">
+        <div ref={timelineScrollRef} className="overflow-auto max-h-[50vh] rounded-2xl border border-slate-200">
           <div className="min-w-[1400px]">
             <div
-              className="grid border-b border-slate-200 bg-slate-50"
-              style={{ gridTemplateColumns: `280px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}
+              className="sticky top-0 z-40 grid border-b border-slate-200 bg-slate-50 shadow-[0_1px_0_rgba(148,163,184,0.18)]"
+              style={{ gridTemplateColumns: `300px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}
             >
-              <div className={`sticky left-0 top-0 z-30 px-4 py-3 border-r border-slate-200 ${isNight ? 'bg-slate-800 text-slate-100' : 'bg-slate-50 text-slate-700'}`}>
+              <div className={`sticky left-0 top-0 z-50 px-4 py-3 border-r border-slate-200 ${isNight ? 'bg-slate-800 text-slate-100' : 'bg-slate-50 text-slate-700'}`}>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-[#F7941D]" />
                   <span className="text-xs font-bold uppercase tracking-wider">Sede / Sala</span>
@@ -616,11 +682,12 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
               </div>
               {timelineDays.map((day) => {
                 const { day: dayNum, weekday } = formatTimelineHeaderDay(day);
-                const isToday = toDayKey(day) === toDayKey(today);
+                const isToday = toDayKey(day) === currentDayKey;
                 return (
                   <div
                     key={toDayKey(day)}
-                    className={`sticky top-0 z-20 border-r border-slate-200 px-2 py-2 text-center ${isToday ? 'bg-amber-100 text-amber-900' : isNight ? 'bg-slate-800 text-slate-100' : 'bg-slate-50 text-slate-700'}`}
+                    ref={(el) => { timelineDayRefs.current[toDayKey(day)] = el; }}
+                    className={`sticky top-0 z-40 border-r border-slate-200 px-2 py-2 text-center transition-all ${isToday ? 'bg-amber-400 text-amber-950 ring-2 ring-inset ring-amber-600 shadow-[inset_0_0_0_1px_rgba(180,83,9,0.25)]' : isNight ? 'bg-slate-800 text-slate-100' : 'bg-slate-300/80 text-slate-800'}`}
                   >
                     <div className="text-[10px] font-bold uppercase tracking-wider">{weekday}</div>
                     <div className="text-sm font-black leading-none mt-0.5">{dayNum}</div>
@@ -639,80 +706,79 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
                 const rooms = groupedTimeline[sede] ?? [];
                 return (
                   <Fragment key={sede}>
-                    <div className={`grid border-b border-slate-200 ${isNight ? 'bg-slate-900/70' : 'bg-white'}`} style={{ gridTemplateColumns: `280px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}>
-                      <div className={`sticky left-0 z-10 px-4 py-2.5 border-r border-slate-200 ${isNight ? 'bg-slate-900/85' : 'bg-white'}`} style={{ gridColumn: '1 / -1' }}>
-                        <div className="flex items-center justify-between gap-3">
+                    <div className={`grid border-b ${isNight ? 'bg-slate-900/70' : 'bg-white'}`} style={{ gridTemplateColumns: `300px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}>
+                      <div className={`sticky left-0 z-40 px-4 py-2.5 border-r border-slate-200 shadow-[0_1px_0_rgba(148,163,184,0.12)] ${isNight ? 'bg-slate-900/85' : 'bg-slate-200/95'}`} style={{ gridColumn: '1 / 2', top: `${timelineGroupTop}px` }}>
+                        <div className="flex flex-col gap-0.5">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`w-2.5 h-2.5 rounded-full ${color.bar}`} />
+                            <span className={`text-[10px] font-bold uppercase tracking-widest ${subColor}`}>Sede</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
                             <span className={`text-sm font-extrabold ${titleColor}`}>{sede}</span>
                             <span className={`text-xs ${subColor}`}>{rooms.length} sala{rooms.length !== 1 ? 's' : ''}</span>
                           </div>
                         </div>
                       </div>
+                      <div className={`border-b border-slate-800 ${isNight ? 'bg-slate-900/70' : 'bg-white'}`} style={{ gridColumn: '2 / -1', top: `${timelineGroupTop}px` }} />
                     </div>
 
                     {rooms.map((room) => {
-                      const roomOccupancy = occupancyByRoomDay.get(room.sala);
+                      const bars = roomTimelineBars.get(room.sala) ?? [];
+                      const laneCount = Math.max(...bars.map(bar => bar.lane), -1) + 1;
+                      const rowHeight = Math.max(laneCount * timelineLaneHeight + 8, timelineLaneHeight + 14);
                       return (
                         <div
                           key={room.sala}
-                          className={`grid border-b border-slate-100 ${isNight ? 'bg-slate-900/40' : 'bg-white'}`}
-                          style={{ gridTemplateColumns: `280px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}
+                          className={`grid border-b ${isNight ? 'bg-slate-900/40 border-slate-100' : 'bg-white border-slate-200'}`}
+                          style={{ gridTemplateColumns: `300px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}
                         >
-                          <div className={`sticky left-0 z-10 px-4 py-3 border-r border-slate-200 ${isNight ? 'bg-slate-900/95' : 'bg-white'}`}>
+                          <div className={`sticky left-0 z-10 px-4 py-3 border-r border-slate-200 ${isNight ? 'bg-slate-800' : 'bg-slate-100'}`} style={{ minHeight: rowHeight }} title={room.sala}>
                             <div className="flex flex-col gap-1">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className={`w-2.5 h-2.5 rounded-full ${color.bar} shrink-0`} />
                                 <span className={`text-xs font-bold uppercase tracking-wider truncate ${titleColor}`}>{room.sala}</span>
                               </div>
-                              <div className={`text-[11px] ${subColor} flex items-center gap-1`}>
-                                <MapPin className="w-3 h-3 shrink-0" />
-                                <span className="truncate">{room.sede}</span>
-                              </div>
-                              <div className={`text-[11px] ${subColor} flex items-center gap-1`}>
-                                <Users className="w-3 h-3 shrink-0" />
-                                <span>{room.capacidad || '—'} puestos</span>
-                              </div>
                             </div>
                           </div>
 
-                          {timelineDays.map((day) => {
-                            const key = toDayKey(day);
-                            const occupancy = roomOccupancy?.get(key);
-                            const am = occupancy?.AM?.sala === room.sala ? occupancy.AM : null;
-                            const pm = occupancy?.PM?.sala === room.sala ? occupancy.PM : null;
-                            const isToday = key === toDayKey(today);
-                            return (
-                              <div key={key} className={`border-r border-slate-100 px-1.5 py-2 ${isToday ? (isNight ? 'bg-amber-950/30' : 'bg-amber-50/70') : ''}`}>
-                                <div className="h-14 flex flex-col gap-1">
-                                  {am ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setSelectedTimeline({ sala: room, asignacion: am })}
-                                      className="h-6 rounded-md bg-orange-500 text-white text-[10px] font-black tracking-wider shadow-sm hover:brightness-110 transition"
-                                      title={`${am.campana} · ${formatAsignacionRango(am.fechaInicial, am.fechaFin)}`}
-                                    >
-                                      AM
-                                    </button>
-                                  ) : (
-                                    <div className="h-6 rounded-md border border-dashed border-slate-200 bg-transparent" />
-                                  )}
-                                  {pm ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setSelectedTimeline({ sala: room, asignacion: pm })}
-                                      className="h-6 rounded-md bg-blue-600 text-white text-[10px] font-black tracking-wider shadow-sm hover:brightness-110 transition"
-                                      title={`${pm.campana} · ${formatAsignacionRango(pm.fechaInicial, pm.fechaFin)}`}
-                                    >
-                                      PM
-                                    </button>
-                                  ) : (
-                                    <div className="h-6 rounded-md border border-dashed border-slate-200 bg-transparent" />
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
+                          <div className="relative z-0 border-b border-slate-200" style={{ gridColumn: '2 / -1', minHeight: rowHeight }}>
+                            <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${timelineDays.length}, minmax(84px, 1fr))` }}>
+                              {timelineDays.map((day) => {
+                                const key = toDayKey(day);
+                                const isToday = key === currentDayKey;
+                                return (
+                                  <div
+                                    key={key}
+                                    className={` ${isToday ? (isNight ? 'bg-amber-100/20' : 'bg-amber-400/20') : isNight ? 'bg-slate-950/10' : 'bg-white/40'}`}
+                                  />
+                                );
+                              })}
+                            </div>
+
+                            {bars.length === 0 ? (
+                              <div className={`relative z-10 flex h-full items-center px-4 text-xs ${subColor}`}>Sin asignaciones aprobadas en este mes</div>
+                            ) : bars.map((bar) => {
+                              const totalDays = timelineDays.length;
+                              const left = (bar.startIndex / totalDays) * 100;
+                              const width = (((bar.endIndex - bar.startIndex + 1) / totalDays) * 100)- 0.5;
+                              const top = bar.lane * timelineLaneHeight + timelineBarInset;
+                              const colorClass = getTurnoFromHorario(bar.asignacion.horario) === 'AM'
+                                ? 'bg-orange-400 hover:bg-orange-500'
+                                : 'bg-[#005082] hover:bg-[#003b5f]';
+                              return (
+                                <button
+                                  key={`${bar.asignacion.rowIndex}-${bar.lane}`}
+                                  type="button"
+                                  onClick={() => setSelectedTimeline({ sala: room, asignacion: bar.asignacion })}
+                                  className={`absolute z-20 h-6 rounded-md px-3 text-left text-[10px] font-black tracking-wider text-white shadow-sm transition hover:cursor-pointer ${colorClass}`}
+                                  style={{ left: `${left}%`, width: `${width}%`, top }}
+                                  title={`${bar.asignacion.campana} · ${formatAsignacionRango(bar.asignacion.fechaInicial, bar.asignacion.fechaFin)} \n${`Horario: `} ${bar.asignacion.horario} \n${`Coordinador: `} ${bar.asignacion.coordinador} \n${`Formador: `} ${bar.asignacion.formador}`}
+                                >
+                                  <span className="block truncate">{bar.asignacion.campana} | {bar.asignacion.coordinador} | {bar.asignacion.formador} | {bar.asignacion.horario}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     })}
