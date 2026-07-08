@@ -137,7 +137,7 @@ export default function Salas() {
               <PublicView
                 salas={salas}
                 asignaciones={asignaciones}
-                canSolicitar={!!user && isCoordinador}
+                canSolicitar={!!user && (isCoordinador || isSuperAdmin)}
                 canGestionar={!!user && isSuperAdmin}
                 onSolicitar={() => {
                   setTimelinePreset(null);
