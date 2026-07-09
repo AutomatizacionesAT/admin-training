@@ -170,6 +170,13 @@ export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
       "/salas/elemento/Sala Training Room 2 2.jpg",
     ],
   },
+  "VENEZUELA": {
+    fotos: [
+      "/salas/royal/Sala Venezuela.jpg",
+      "/salas/royal/Sala Venezuela 2.jpg",
+      "/salas/royal/Sala Venezuela 3.jpg",
+    ],
+  },
   "VERSALLES": {
     fotos: [
       "/salas/telares/Sala Versalles.jpg",

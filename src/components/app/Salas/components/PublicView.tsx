@@ -505,6 +505,7 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
 
   const handleFillTimelineRequest = () => {
     if (!normalizedTimelineSelection || !onTimelineRequest || !timelineHorario) return;
+    if ((timelineHorario === 'AM' && !timelineAvailability.AM) || (timelineHorario === 'PM' && !timelineAvailability.PM)) return;
 
     onTimelineRequest({
       sala: normalizedTimelineSelection.room,
@@ -535,6 +536,32 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
       end,
     };
   }, [timelineDays, timelineSelection]);
+
+  const timelineAvailability = useMemo(() => {
+    if (!normalizedTimelineSelection) {
+      return { AM: false, PM: false };
+    }
+
+    const roomBars = roomTimelineBars.get(normalizedTimelineSelection.room.sala) ?? [];
+    const startIndex = normalizedTimelineSelection.startIndex;
+    const endIndex = normalizedTimelineSelection.endIndex;
+
+    const hasConflict = (turno: 'AM' | 'PM') => roomBars.some((bar) => {
+      if (getTurnoFromHorario(bar.asignacion.horario) !== turno) return false;
+      return !(endIndex < bar.startIndex || startIndex > bar.endIndex);
+    });
+
+    return {
+      AM: !hasConflict('AM'),
+      PM: !hasConflict('PM'),
+    };
+  }, [normalizedTimelineSelection, roomTimelineBars]);
+
+  useEffect(() => {
+    if (!timelineHorario) return;
+    if (timelineHorario === 'AM' && !timelineAvailability.AM) setTimelineHorario('');
+    if (timelineHorario === 'PM' && !timelineAvailability.PM) setTimelineHorario('');
+  }, [timelineAvailability.AM, timelineAvailability.PM, timelineHorario]);
 
   useEffect(() => {
     const container = timelineScrollRef.current;
@@ -801,14 +828,14 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
               >
                 Limpiar
               </button>
-              <button
-                type="button"
-                onClick={handleFillTimelineRequest}
-                disabled={!normalizedTimelineSelection || !onTimelineRequest || !timelineHorario}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#F7941D] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#df850f] disabled:opacity-50 hover:cursor-pointer"
-              >
-                Completar solicitud
-              </button>
+                <button
+                  type="button"
+                  onClick={handleFillTimelineRequest}
+                  disabled={!normalizedTimelineSelection || !onTimelineRequest || !timelineHorario || (timelineHorario === 'AM' ? !timelineAvailability.AM : !timelineAvailability.PM)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#F7941D] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#df850f] disabled:opacity-50 hover:cursor-pointer"
+                >
+                  Completar solicitud
+                </button>
               {normalizedTimelineSelection && (
                 <div className={`flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 ${isNight ? 'border-slate-700 bg-slate-800/80' : 'border-slate-200 bg-white'}`}>
                   <span className={`text-[10px] font-black uppercase tracking-widest ${isNight ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -816,15 +843,21 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
                   </span>
                   {(['AM', 'PM'] as const).map((option) => {
                     const active = timelineHorario === option;
+                    const disabled = option === 'AM' ? !timelineAvailability.AM : !timelineAvailability.PM;
                     return (
                       <button
                         key={option}
                         type="button"
-                        onClick={() => setTimelineHorario(option)}
-                        className={`inline-flex min-w-28 items-center justify-center rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-widest transition hover:cursor-pointer ${active
+                        onClick={() => {
+                          if (!disabled) setTimelineHorario(option);
+                        }}
+                        disabled={disabled}
+                        className={`inline-flex min-w-28 items-center justify-center rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-widest transition ${active
                           ? option === 'AM'
                             ? 'border-orange-300 bg-orange-500 text-white shadow-sm'
                             : 'border-[#005082] bg-[#005082] text-white shadow-sm'
+                          : disabled
+                            ? 'border-slate-200 bg-slate-100 text-slate-300 cursor-not-allowed'
                           : isNight
                             ? 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-700'
                             : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
