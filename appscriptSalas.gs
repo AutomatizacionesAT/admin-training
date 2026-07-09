@@ -146,7 +146,7 @@ function handleDeleteSala(doc, payload, debugSheet) {
 // ─── SALAS_ASIGNACIONES CRUD ──────────────────────────────────────────────────
 // Columnas: CAMPAÑA(1) REQ(2) SALA(3) SEDE(4) FORMADOR(5) FECHA INICIAL(6)
 //           FECHA FIN(7) HORARIO(8) CANTIDAD(9) ESTADO ASIGNACION(10)
-//           TICKET(11) ESTADO TICKET(12) COORDINADOR(13) REQUERIMIENTO(14)
+//           TICKET(11) ESTADO TICKET(12) COORDINADOR(13) TIPO DE USO(14)
 function mapAsignacionToRow(d) {
   return [
     d.campana            || '',
@@ -162,7 +162,7 @@ function mapAsignacionToRow(d) {
     d.ticket             || '',
     d.estadoTicket       || '',
     d.coordinador        || '',
-    d.requerimiento      || ''
+    d.tipoDeUso          || ''
   ];
 }
 

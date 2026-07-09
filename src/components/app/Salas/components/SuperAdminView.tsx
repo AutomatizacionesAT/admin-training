@@ -100,7 +100,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
     a.sala.toLowerCase().includes(q) ||
     a.formador.toLowerCase().includes(q) ||
     a.coordinador.toLowerCase().includes(q) ||
-    a.requerimiento.toLowerCase().includes(q);
+    a.tipoDeUso.toLowerCase().includes(q);
 
   const filteredSolicitudes = useMemo(() => solicitudes.filter(a => matchAsig(a)), [solicitudes, q]);
 
@@ -373,7 +373,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Coordinador', 'Requerimiento', 'Horario', 'Fechas', 'Personas', 'Acciones'].map(h => (
+                    {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Coordinador', 'Tipo de uso', 'Horario', 'Fechas', 'Personas', 'Acciones'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -399,9 +399,9 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                           {a.coordinador || '—'}
                         </div>
                       </td>
-                      <td className="px-4 py-3" title={a.requerimiento}>
+                      <td className="px-4 py-3" title={a.tipoDeUso}>
                         <span className="inline-flex max-w-[160px] items-center rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 truncate">
-                          {a.requerimiento || '—'}
+                          {a.tipoDeUso || '—'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
@@ -476,7 +476,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
               <table className="min-w-[1280px] w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
-                  {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Coordinador', 'Requerimiento', 'Horario', 'Fechas', 'Personas', 'Estado', 'Ticket', ''].map(h => (
+                  {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Coordinador', 'Tipo de uso', 'Horario', 'Fechas', 'Personas', 'Estado', 'Ticket', ''].map(h => (
                     <th key={h} className="sticky top-0 z-10 bg-slate-50 px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -502,7 +502,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                     <td className="px-4 py-3 text-slate-600 max-w-[140px] truncate" title={a.coordinador}>
                       <div className="flex items-center gap-1.5"><Users className="w-3 h-3 text-slate-400 shrink-0" />{a.coordinador || '—'}</div>
                     </td>
-                    <td className="px-4 py-3 text-slate-500 max-w-[160px] truncate" title={a.requerimiento}>{a.requerimiento || '—'}</td>
+                    <td className="px-4 py-3 text-slate-500 max-w-[160px] truncate" title={a.tipoDeUso}>{a.tipoDeUso || '—'}</td>
                     <td className="px-4 py-3 text-slate-500">
                       <div className="flex items-center gap-1"><Clock className="w-3 h-3 text-slate-400" />{a.horario}</div>
                     </td>
@@ -587,13 +587,14 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                 <table className="min-w-[1800px] w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
-                      {['N° Ticket', 'Campaña', 'Falla', 'Posición', 'Reportado por', 'Fecha realización', 'Fecha cierre', 'Días', 'Estado', 'Notas de cierre'].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {tickets.map((t, i) => {
+                    {['N° Ticket', 'Sala', 'Sede', 'Campaña', 'Falla', 'Posición', 'Reportado por', 'Fecha realización', 'Fecha cierre', 'Días', 'Estado', 'Notas de cierre'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {tickets.map((t, i) => {
+                      const asignacion = t.numeroTicket ? asigByTicket.get(t.numeroTicket.trim()) : undefined;
                       const estadoTicket = t.fechaCierre ? 'CERRADO' : 'ABIERTO';
                       const abierto = estadoTicket === 'ABIERTO';
                       const notaCierre = t.fechaCierre ? (t.respuesta?.trim() || '-') : '-';
@@ -603,6 +604,8 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                           <td className="px-4 py-3">
                             <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg">{t.numeroTicket}</span>
                           </td>
+                          <td className="px-4 py-3 font-semibold text-slate-700 max-w-[180px] truncate" title={asignacion?.sala || '-'}>{asignacion?.sala || '-'}</td>
+                          <td className="px-4 py-3 text-slate-600 max-w-[160px] truncate" title={asignacion?.sede || '-'}>{asignacion?.sede || '-'}</td>
                           <td className="px-4 py-3 font-semibold text-slate-700">{t.campana}</td>
                           <td className="px-4 py-3 text-slate-600 max-w-[220px] truncate" title={t.fallaPuntual}>{t.fallaPuntual}</td>
                           <td className="px-4 py-3 text-slate-500 text-xs">{t.posicion}</td>

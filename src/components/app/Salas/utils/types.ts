@@ -27,7 +27,7 @@ export interface AsignacionRecord {
   estadoAsignacion: string;  // PENDIENTE | APROBADO | RECHAZADO
   ticket: string;            // número de ticket si existe
   estadoTicket: string;      // ABIERTO | CERRADO
-  requerimiento: string;
+  tipoDeUso: string;
 }
 
 // ─── Ticket de asignación ─────────────────────────────────────────────────────

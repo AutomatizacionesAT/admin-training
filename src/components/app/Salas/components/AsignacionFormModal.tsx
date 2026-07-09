@@ -80,7 +80,7 @@ function detectarConflictos(
 
 const EMPTY: Omit<AsignacionRecord, 'rowIndex'> = {
   campana: '', req: '', sala: '', sede: '',
-  formador: '', coordinador: '', requerimiento: '', fechaInicial: '', fechaFin: '',
+  formador: '', coordinador: '', tipoDeUso: '', fechaInicial: '', fechaFin: '',
   horario: '', dPersonas: '',
   estadoAsignacion: 'APROBADO', ticket: '', estadoTicket: '',
 };
@@ -264,10 +264,10 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
     setForm(prev => ({ ...prev, sala: salaName, horario: found?.horario || '', fechaInicial: '', fechaFin: '' }));
   };
 
-  const handleRequerimientoChange = (value: string) => {
+  const handleTipoDeUsoChange = (value: string) => {
     setForm(prev => ({
       ...prev,
-      requerimiento: value,
+      tipoDeUso: value,
       req: value === 'Formación inicial' ? prev.req : '',
     }));
   };
@@ -397,18 +397,18 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
             <Field label="N° Personas">
               <input type="number" value={form.dPersonas} onChange={e => set('dPersonas', e.target.value)} min="1" className={inputCls} />
             </Field>
-            <Field label="Requerimiento">
-              <select value={form.requerimiento} onChange={e => handleRequerimientoChange(e.target.value)} className={inputCls}>
-                <option value="">Selecciona...</option>
-                <option value="Formación inicial">Formación inicial</option>
-                <option value="Formación continua">Formación continua</option>
-                <option value="OJT">OJT</option>
-                <option value="Otros">Otros</option>
-              </select>
-            </Field>
-          </div>
+              <Field label="Tipo de uso">
+                <select value={form.tipoDeUso} onChange={e => handleTipoDeUsoChange(e.target.value)} className={inputCls}>
+                  <option value="">Selecciona...</option>
+                  <option value="Formación inicial">Formación inicial</option>
+                  <option value="Formación continua">Formación continua</option>
+                  <option value="OJT">OJT</option>
+                  <option value="Otros">Otros</option>
+                </select>
+              </Field>
+            </div>
 
-          {form.requerimiento === 'Formación inicial' && (
+          {form.tipoDeUso === 'Formación inicial' && (
             <Field label="REQ.">
               <input type="text" value={form.req} onChange={e => set('req', e.target.value)} placeholder="Número del requerimiento" className={inputCls} />
             </Field>

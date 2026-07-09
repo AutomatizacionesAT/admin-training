@@ -53,7 +53,7 @@ export default function TimelineAssignmentModal({ asignacion, sala, onClose, isN
               {[
                 { icon: Users, label: 'Formador', value: asignacion.formador || '—' },
                 { icon: UserCheck, label: 'Coordinador', value: asignacion.coordinador || '—' },
-                { icon: ClipboardList, label: 'Requerimiento', value: asignacion.requerimiento || '—' },
+                { icon: ClipboardList, label: 'Tipo de uso', value: asignacion.tipoDeUso || '—' },
                 { icon: ClipboardList, label: 'REQ', value: asignacion.req || '—' },
                 { icon: Clock, label: 'Horario', value: asignacion.horario || '—' },
                 { icon: Users, label: 'Personas', value: asignacion.dPersonas || '—' },
