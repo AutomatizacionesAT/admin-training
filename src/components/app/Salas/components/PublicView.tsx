@@ -912,14 +912,14 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
                 return (
                   <Fragment key={sede}>
                     <div className={`grid border-b ${isNight ? 'bg-slate-900/70' : 'bg-white'}`} style={{ gridTemplateColumns: `300px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}>
-                      <div className={`sticky left-0 z-40 px-4 py-2.5 border-r border-slate-200 shadow-[0_1px_0_rgba(148,163,184,0.12)] ${isNight ? 'bg-slate-900/85' : 'bg-slate-200/95'}`} style={{ gridColumn: '1 / 2', top: `${timelineGroupTop}px` }}>
+                      <div className={`sticky left-0 z-40 px-4 py-2.5 border-r border-slate-200 shadow-[0_1px_0_rgba(148,163,184,0.12)] ${ isNight ? 'bg-slate-200' : 'bg-slate-900'}`} style={{ gridColumn: '1 / 2', top: `${timelineGroupTop}px` }}>
                         <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className={`flex items-center gap-2 min-w-0`}>
                             <span className={`w-2.5 h-2.5 rounded-full ${color.bar}`} />
-                            <span className={`text-[10px] font-bold uppercase tracking-widest ${subColor}`}>Sede</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest ${isNight ? 'text-slate-900' : 'text-slate-200'}`}>Sede</span>
                           </div>
                           <div className="flex items-center justify-between gap-3">
-                            <span className={`text-sm font-extrabold ${titleColor}`}>{sede}</span>
+                            <span className={`text-sm font-extrabold ${isNight ? 'text-slate-900' : 'text-slate-200'}`}>{sede}</span>
                             <span className={`text-xs ${subColor}`}>{rooms.length} sala{rooms.length !== 1 ? 's' : ''}</span>
                           </div>
                         </div>
