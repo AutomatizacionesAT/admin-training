@@ -28,7 +28,7 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '1013675280', nombre: 'MICHAEL DANIEL RENDON MORATO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1012385857', nombre: 'WALTHER DUVAN GOMEZ OSORIO', cargo: 'Lider de Formación', rol: 'COORDINADOR' },
     { documento: '1022390304', nombre: 'KAROL EITYSAN FERREIRA QUEVEDO', cargo: 'Prof. Gestión de Procesos', rol: 'COORDINADOR' },
-    { documento: '1075303121', nombre: 'JHON FREDY GONZALEZ ALVAREZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1018475580', nombre: 'FERNANDO ANDRES CHONA GIRALDO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1088309969', nombre: 'JOHAN SEBASTIAN QUINCHIA VARGAS', cargo: 'Agile Training', rol: 'COORDINADOR' },
     { documento: '1088351617', nombre: 'VANESSA AGUDELO GARCIA', cargo: 'Agile Training', rol: 'COORDINADOR' },
     { documento: '1030550388', nombre: 'SINDY JULIETH ROJAS OROZCO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
