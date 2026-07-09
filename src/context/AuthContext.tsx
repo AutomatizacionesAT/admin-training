@@ -18,20 +18,20 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '79616534', nombre: 'CARLOS DASTE', cargo: 'Gerente de Negocios', rol: 'SUPER_ADMIN' },
     // ── Coordinadores ─────────────────────────────────────────────────────────
     { documento: '52508133', nombre: 'GLADYS LILIANA HERRERA OLAYA', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
-    { documento: '1012421029', nombre: 'CRISTIAM CAMILO LOPEZ CONTRERAS', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
-    { documento: '1019604075', nombre: 'JHONNY ALEXANDER VARELA RUSINQUE', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
-    { documento: '1070808647', nombre: 'JENNY CAROLINA PINZON FERNANDEZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
-    { documento: '1032465563', nombre: 'JEIMMY LORENA MUÑOZ DIAZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
-    { documento: '1001514968', nombre: 'OLGA LUCIA BRAVO NUNEZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
-    { documento: '1068312274', nombre: 'JHON EYDER RAMIREZ CORREA', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1016048741', nombre: 'CRISTIAM CAMILO LOPEZ CONTRERAS', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1019047075', nombre: 'JHONNY ALEXANDER VARELA RUSINQUE', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1020808847', nombre: 'JENNY CAROLINA PINZON FERNANDEZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1032485963', nombre: 'JEIMMY LORENA MUÑOZ DIAZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1081514968', nombre: 'OLGA LUCIA BRAVO NUNEZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1088312274', nombre: 'JHON EYDER RAMIREZ CORREA', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1113789102', nombre: 'YENNY VANESSA RUIZ VALLEJO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
-    { documento: '1068343279', nombre: 'KENNY ARCE RODRIGUEZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1013675280', nombre: 'MICHAEL DANIEL RENDON MORATO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1012385857', nombre: 'WALTHER DUVAN GOMEZ OSORIO', cargo: 'Lider de Formación', rol: 'COORDINADOR' },
     { documento: '1022390304', nombre: 'KAROL EITYSAN FERREIRA QUEVEDO', cargo: 'Prof. Gestión de Procesos', rol: 'COORDINADOR' },
     { documento: '1075303121', nombre: 'JHON FREDY GONZALEZ ALVAREZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1088309969', nombre: 'JOHAN SEBASTIAN QUINCHIA VARGAS', cargo: 'Agile Training', rol: 'COORDINADOR' },
     { documento: '1088351617', nombre: 'VANESSA AGUDELO GARCIA', cargo: 'Agile Training', rol: 'COORDINADOR' },
+    { documento: '1030550388', nombre: 'SINDY JULIETH ROJAS OROZCO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
 ];
 
 const ADMIN_PASSWORD = 'desarrollo2026';
