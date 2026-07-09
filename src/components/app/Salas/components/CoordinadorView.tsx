@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
   Calendar, Clock, Users, MapPin, Info,
-  Plus, Ticket, CheckCircle, XCircle, Clock3, MessageSquare, ArrowLeft
+  Plus, Ticket, CheckCircle, XCircle, Clock3, ArrowLeft
 } from 'lucide-react';
 import type { AsignacionRecord, SalaRecord, SalasUser, TicketRecord } from '../utils/types';
 import AsignacionFormModal from './AsignacionFormModal';
 import TicketFormModal from './TicketFormModal';
-import { createAsignacion, createTicket, fetchTickets } from '../utils/fetchData';
+import TicketCloseModal from './TicketCloseModal';
+import { createAsignacion, createTicket, closeTicket, fetchTickets } from '../utils/fetchData';
 import { formatAsignacionRango } from '../utils/asignacionUtils';
 
 interface Props {
@@ -44,25 +45,25 @@ const ESTADO_CONFIG = {
 
 type EstadoKey = keyof typeof ESTADO_CONFIG;
 
-function resolveTicketEstado(ticket: TicketRecord | undefined, fallback = ''): 'ABIERTO' | 'RESPONDIDO' | 'CERRADO' {
-  if (ticket?.fechaCierre) return 'CERRADO';
-  if (ticket?.respuesta?.trim()) return 'RESPONDIDO';
-  if (fallback === 'CERRADO' || fallback === 'RESPONDIDO') return fallback as 'CERRADO' | 'RESPONDIDO';
+function resolveTicketEstado(ticket: TicketRecord | undefined, fallback = ''): 'ABIERTO' | 'CERRADO' {
+  if (ticket?.fechaCierre || fallback === 'CERRADO') return 'CERRADO';
   return 'ABIERTO';
 }
 
 const TICKET_ESTADO_CONFIG = {
-  ABIERTO:     { label: 'Abierto',                    cls: 'bg-orange-100 text-orange-600' },
-  RESPONDIDO:  { label: 'Abierto · Respuesta admin',  cls: 'bg-blue-100 text-blue-700' },
-  CERRADO:     { label: 'Cerrado',                    cls: 'bg-slate-100 text-slate-500' },
+  ABIERTO:  { label: 'Abierto', cls: 'bg-orange-100 text-orange-600' },
+  CERRADO:  { label: 'Cerrado', cls: 'bg-slate-100 text-slate-500' },
 } as const;
 
 export default function CoordinadorView({ user, salas, asignaciones, onRefresh, onBackToGeneral, timelinePreset }: Props) {
   const [showSolicitud, setShowSolicitud] = useState(false);
   const [requestPreset, setRequestPreset] = useState<Props['timelinePreset']>(null);
   const [ticketTarget, setTicketTarget] = useState<AsignacionRecord | null>(null);
+  const [closeTarget, setCloseTarget] = useState<{ ticket: TicketRecord; asignacion: AsignacionRecord } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
   const [tickets, setTickets] = useState<TicketRecord[]>([]);
+  const [closing, setClosing] = useState(false);
 
   useEffect(() => {
     fetchTickets().then(setTickets).catch(() => setTickets([]));
@@ -110,6 +111,22 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
     onRefresh();
   };
 
+  const handleCloseTicket = async (respuesta: string) => {
+    if (!closeTarget) return;
+    setClosing(true);
+    setCloseError(null);
+    try {
+      await closeTicket(closeTarget.ticket.rowIndex, respuesta, closeTarget.asignacion.rowIndex);
+      setCloseTarget(null);
+      onRefresh();
+      fetchTickets().then(setTickets).catch(() => setTickets([]));
+    } catch {
+      setCloseError('No se pudo cerrar el ticket. Intenta de nuevo.');
+    } finally {
+      setClosing(false);
+    }
+  };
+
   const estadoBadge = (estado: string) => {
     const key = (estado || 'APROBADO') as EstadoKey;
     const cfg = ESTADO_CONFIG[key] ?? ESTADO_CONFIG.APROBADO;
@@ -131,12 +148,10 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
       : undefined;
     const ticketEstado = resolveTicketEstado(ticketInfo, a.estadoTicket);
     const ticketCfg = TICKET_ESTADO_CONFIG[ticketEstado];
+    const canCloseTicket = tieneTicket && ticketEstado !== 'CERRADO';
 
     return (
-      <div className={`bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all p-5 space-y-4 ${estado === 'PENDIENTE' ? 'border-amber-200 bg-amber-50/40' :
-        estado === 'RECHAZADO' ? 'border-red-200 bg-red-50/30 opacity-70' :
-          'border-slate-100'
-        }`}>
+      <div className={`bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all p-5 space-y-4 ${ticketEstado === 'ABIERTO' ? 'border-orange-200 bg-orange-50/50' : estado === 'PENDIENTE' ? 'border-amber-200 bg-amber-50/40' : estado === 'RECHAZADO' ? 'border-red-200 bg-red-50/30 opacity-70' : 'border-slate-100'}`}>
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -187,14 +202,14 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
                     {ticketCfg.label}
                   </span>
                 </div>
-                {ticketInfo?.respuesta?.trim() && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 mb-1">
-                      <MessageSquare className="w-3 h-3" />
-                      Respuesta del administrador
-                    </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">{ticketInfo.respuesta}</p>
-                  </div>
+                {canCloseTicket && ticketInfo && (
+                  <button
+                    onClick={() => setCloseTarget({ ticket: ticketInfo, asignacion: a })}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-bold transition-all"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Cerrar ticket
+                  </button>
                 )}
               </>
             ) : (
@@ -329,6 +344,18 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
           userName={user.nombre}
           onSave={handleCreateTicket}
           onClose={() => setTicketTarget(null)}
+        />
+      )}
+      {closeTarget && (
+        <TicketCloseModal
+          ticket={closeTarget.ticket}
+          title="Cerrar ticket"
+          subtitle="El ticket quedará como CERRADO"
+          actionLabel="Cerrar ticket"
+          onSubmit={handleCloseTicket}
+          onClose={() => { setCloseTarget(null); setCloseError(null); }}
+          saving={closing}
+          error={closeError}
         />
       )}
 

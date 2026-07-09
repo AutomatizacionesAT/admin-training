@@ -250,6 +250,6 @@ export async function respondTicket(ticket: TicketRecord, respuesta: string): Pr
   await gasPost({ action: 'updateTicket', rowIndex: ticket.rowIndex, numeroTicket: ticket.numeroTicket, data });
 }
 /** Cierra definitivamente el ticket (lo ejecuta otra área externa) */
-export async function closeTicket(rowIndex: number, respuesta: string): Promise<void> {
-  await gasPost({ action: 'closeTicket', rowIndex, respuesta });
+export async function closeTicket(rowIndex: number, respuesta: string, rowIndexAsignacion?: number): Promise<void> {
+  await gasPost({ action: 'closeTicket', rowIndex, respuesta, rowIndexAsignacion });
 }

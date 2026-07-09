@@ -7,13 +7,15 @@ import {
 import type { SalaRecord, AsignacionRecord, TicketRecord, SalasUser } from '../utils/types';
 import SalaFormModal from './SalaFormModal';
 import AsignacionFormModal from './AsignacionFormModal';
+import TicketFormModal from './TicketFormModal';
+import TicketCloseModal from './TicketCloseModal';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import TicketAnalyticsDashboard from './TicketAnalyticsDashboard';
 import CalendarioAsignaciones from './CalendarioAsignaciones';
 import {
   createSala, updateSala, deleteSala,
-  createAsignacion, updateAsignacion, deleteAsignacion,
-  updateEstadoAsignacion, respondTicket, fetchTickets
+  createAsignacion, createTicket, updateAsignacion, deleteAsignacion,
+  updateEstadoAsignacion, closeTicket, fetchTickets
 } from '../utils/fetchData';
 import { formatAsignacionRango, parseAsignacionDate } from '../utils/asignacionUtils';
 
@@ -36,12 +38,22 @@ const ESTADO_COLORS: Record<string, string> = {
   RECHAZADO: 'bg-red-100 text-red-600 border-red-200',
 };
 
+function diffDays(start: string, end: string): number {
+  const s = parseAsignacionDate(start);
+  const e = parseAsignacionDate(end);
+  if (!s || !e) return 0;
+  const ms = e.getTime() - s.getTime();
+  return Math.max(Math.round(ms / (24 * 60 * 60 * 1000)), 0);
+}
+
 export default function SuperAdminView({ user, salas, asignaciones, onRefresh, onBackToGeneral, timelinePreset }: Props) {
   const [tab, setTab] = useState<ActiveTab>('solicitudes');
   const [search, setSearch] = useState('');
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showTicketAnalytics, setShowTicketAnalytics] = useState(false);
   const [requestPreset, setRequestPreset] = useState<Props['timelinePreset']>(null);
+  const [ticketCreateTarget, setTicketCreateTarget] = useState<AsignacionRecord | null>(null);
+  const [closeTarget, setCloseTarget] = useState<{ ticket: TicketRecord; asignacion: AsignacionRecord } | null>(null);
 
   // Sala CRUD state
   const [showSalaForm, setShowSalaForm] = useState(false);
@@ -65,8 +77,6 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
   const [tickets, setTickets] = useState<TicketRecord[]>([]);
   const [ticketsLoaded, setTicketsLoaded] = useState(false);
   const [ticketProcessing, setTicketProcessing] = useState<number | null>(null);
-  const [respuestaModal, setRespuestaModal] = useState<{ ticket: TicketRecord } | null>(null);
-  const [respuestaText, setRespuestaText] = useState('');
   const [ticketError, setTicketError] = useState<string | null>(null);
 
   // ── Computed ───────────────────────────────────────────────────────────────
@@ -114,6 +124,13 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
     }
     return result;
   }, [aprobadas, q, calFilter, calSedeFilter]);
+  const asigByTicket = useMemo(() => {
+    const map = new Map<string, AsignacionRecord>();
+    asignaciones.forEach((a) => {
+      if (a.ticket) map.set(a.ticket.trim(), a);
+    });
+    return map;
+  }, [asignaciones]);
   useEffect(() => {
     if (!timelinePreset) return;
     setRequestPreset(timelinePreset);
@@ -184,20 +201,23 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
     if (t === 'tickets' && !ticketsLoaded) loadTickets();
   };
 
-  const handleRespondTicket = async () => {
-    if (!respuestaModal || !respuestaText.trim()) return;
-    setTicketProcessing(respuestaModal.ticket.rowIndex);
+  const handleCreateTicket = async (ticketData: Omit<TicketRecord, 'rowIndex'>, rowIndexAsignacion: number) => {
+    await createTicket({ ...ticketData, rowIndexAsignacion } as Omit<TicketRecord, 'rowIndex'> & { rowIndexAsignacion: number });
+    setTicketCreateTarget(null);
+    onRefresh();
+  };
+
+  const handleCloseTicket = async (respuesta: string) => {
+    if (!closeTarget || !respuesta.trim()) return;
+    setTicketProcessing(closeTarget.ticket.rowIndex);
     setTicketError(null);
     try {
-      await respondTicket(respuestaModal.ticket, respuestaText.trim());
-      // Pequeña pausa para que el sheet refleje el cambio antes de recargar
-      await new Promise(r => setTimeout(r, 1200));
-      setRespuestaModal(null);
-      setRespuestaText('');
+      await closeTicket(closeTarget.ticket.rowIndex, respuesta.trim(), closeTarget.asignacion.rowIndex);
+      setCloseTarget(null);
       await loadTickets();
       onRefresh();
     } catch {
-      setTicketError('No se pudo guardar la respuesta. Verifica que el Apps Script esté desplegado.');
+      setTicketError('No se pudo cerrar el ticket. Verifica que el Apps Script esté desplegado.');
     } finally {
       setTicketProcessing(null);
     }
@@ -498,16 +518,26 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                             {a.ticket}
                           </span>
                           <span className={`text-[9px] font-bold px-1.5 py-px rounded w-fit ${a.estadoTicket === 'CERRADO' ? 'bg-slate-100 text-slate-500' :
-                              a.estadoTicket === 'RESPONDIDO' ? 'bg-blue-100 text-blue-600' :
-                                'bg-orange-100 text-orange-500'
+                              'bg-orange-100 text-orange-500'
                             }`}>
-                            {a.estadoTicket || 'ABIERTO'}
+                            {a.estadoTicket === 'CERRADO' ? 'CERRADO' : 'ABIERTO'}
                           </span>
                         </div>
                       ) : <span className="text-slate-300 text-xs">—</span>}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            if (a.ticket) return;
+                            setTicketCreateTarget(a);
+                          }}
+                          disabled={Boolean(a.ticket)}
+                          className="p-1.5 rounded-lg hover:bg-orange-50 text-orange-500 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                          title={a.ticket ? 'Ticket existente' : 'Crear ticket'}
+                        >
+                          <Ticket className="w-3.5 h-3.5" />
+                        </button>
                         <button onClick={() => { setEditingAsig(a); setShowAsigForm(true); setRequestPreset(null); }} className="p-1.5 rounded-lg hover:bg-violet-50 text-violet-500 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -553,70 +583,77 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
             </div>
           ) : (
             <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100">
-                    {['N° Ticket', 'Campaña', 'Falla', 'Posición', 'Reportado por', 'Fecha', 'Estado', 'Acciones'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {tickets.map((t, i) => {
-                    const estadoTicket = t.fechaCierre ? 'CERRADO' : t.respuesta ? 'RESPONDIDO' : 'ABIERTO';
-                    const abierto = estadoTicket === 'ABIERTO';
-                    return (
-                      <tr key={i} className={`transition-colors ${estadoTicket === 'CERRADO' ? 'opacity-50' : abierto ? 'hover:bg-orange-50/30' : 'hover:bg-blue-50/20'}`}>
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg">{t.numeroTicket}</span>
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-slate-700">{t.campana}</td>
-                        <td className="px-4 py-3 text-slate-600 max-w-[160px] truncate" title={t.fallaPuntual}>{t.fallaPuntual}</td>
-                        <td className="px-4 py-3 text-slate-500 text-xs">{t.posicion}</td>
-                        <td className="px-4 py-3 text-slate-600 max-w-[140px] truncate" title={t.personaReporta}>
-                          <div className="flex items-center gap-1"><Users className="w-3 h-3 text-slate-400 shrink-0" />{t.personaReporta}</div>
-                        </td>
-                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                          <div className="flex items-center gap-1"><Calendar className="w-3 h-3 text-slate-400" />{t.fechaRealizacion}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {estadoTicket === 'ABIERTO' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border bg-orange-100 text-orange-600 border-orange-200">
-                              <Clock3 className="w-3 h-3" /> Abierto
-                            </span>
-                          )}
-                          {estadoTicket === 'RESPONDIDO' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border bg-blue-100 text-blue-700 border-blue-200">
-                              <CheckCircle className="w-3 h-3" /> Respondido
-                            </span>
-                          )}
-                          {estadoTicket === 'CERRADO' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border bg-slate-100 text-slate-500 border-slate-200">
-                              <XCircle className="w-3 h-3" /> Cerrado
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {abierto && (
-                            <button
-                              disabled={ticketProcessing === t.rowIndex}
-                              onClick={() => { setRespuestaModal({ ticket: t }); setRespuestaText(''); setTicketError(null); }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold transition-all disabled:opacity-50"
-                            >
-                              <CheckCircle className="w-3 h-3" /> Responder
-                            </button>
-                          )}
-                          {!abierto && t.respuesta && (
-                            <span className="text-xs text-slate-500 italic max-w-[140px] truncate block" title={t.respuesta}>
-                              {t.respuesta}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="min-w-[1800px] w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      {['N° Ticket', 'Campaña', 'Falla', 'Posición', 'Reportado por', 'Fecha realización', 'Fecha cierre', 'Días', 'Estado', 'Notas de cierre'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {tickets.map((t, i) => {
+                      const estadoTicket = t.fechaCierre ? 'CERRADO' : 'ABIERTO';
+                      const abierto = estadoTicket === 'ABIERTO';
+                      const notaCierre = t.fechaCierre ? (t.respuesta?.trim() || '-') : '-';
+                      const dias = t.fechaCierre ? diffDays(t.fechaRealizacion, t.fechaCierre) : null;
+                      return (
+                        <tr key={i} className={`transition-colors ${estadoTicket === 'ABIERTO' ? 'bg-orange-50/70 hover:bg-orange-100/70' : 'hover:bg-slate-50/60'}`}>
+                          <td className="px-4 py-3">
+                            <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg">{t.numeroTicket}</span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-slate-700">{t.campana}</td>
+                          <td className="px-4 py-3 text-slate-600 max-w-[220px] truncate" title={t.fallaPuntual}>{t.fallaPuntual}</td>
+                          <td className="px-4 py-3 text-slate-500 text-xs">{t.posicion}</td>
+                          <td className="px-4 py-3 text-slate-600 max-w-[160px] truncate" title={t.personaReporta}>
+                            <div className="flex items-center gap-1"><Users className="w-3 h-3 text-slate-400 shrink-0" />{t.personaReporta}</div>
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                            <div className="flex items-center gap-1"><Calendar className="w-3 h-3 text-slate-400" />{t.fechaRealizacion || '-'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                            <div className="flex items-center gap-1"><Calendar className="w-3 h-3 text-slate-400" />{t.fechaCierre || '-'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 text-center font-bold">{dias ?? '-'}</td>
+                          <td className="px-4 py-3">
+                            {estadoTicket === 'ABIERTO' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border bg-orange-100 text-orange-600 border-orange-200">
+                                <Clock3 className="w-3 h-3" /> Abierto
+                              </span>
+                            )}
+                            {estadoTicket === 'CERRADO' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border bg-slate-100 text-slate-500 border-slate-200">
+                                <XCircle className="w-3 h-3" /> Cerrado
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {abierto && t.numeroTicket && asigByTicket.get(t.numeroTicket) ? (
+                              <button
+                                disabled={ticketProcessing === t.rowIndex}
+                                onClick={() => {
+                                  const asignacion = asigByTicket.get(t.numeroTicket);
+                                  if (!asignacion) return;
+                                  setCloseTarget({ ticket: t, asignacion });
+                                  setTicketError(null);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold transition-all disabled:opacity-50"
+                              >
+                                <CheckCircle className="w-3 h-3" /> Cerrar ticket
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-500 italic max-w-[180px] truncate block" title={notaCierre}>
+                                {notaCierre}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -677,65 +714,26 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
         </div>
       )}
 
-      {/* ── Modal: responder ticket ── */}
-      {respuestaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="bg-linear-to-r from-blue-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white">
-                <Ticket className="w-5 h-5" />
-                <div>
-                  <h3 className="font-bold">Responder ticket {respuestaModal.ticket.numeroTicket}</h3>
-                  <p className="text-blue-200 text-xs mt-0.5">El ticket quedará como RESPONDIDO (no cerrado)</p>
-                </div>
-              </div>
-              <button onClick={() => { setRespuestaModal(null); setTicketError(null); }} className="text-white/70 hover:text-white">
-                <XCircle className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-slate-50 rounded-xl p-3 text-sm text-slate-600 space-y-1">
-                <p><strong>Campaña:</strong> {respuestaModal.ticket.campana}</p>
-                <p><strong>Falla:</strong> {respuestaModal.ticket.fallaPuntual}</p>
-                <p><strong>Posición:</strong> {respuestaModal.ticket.posicion}</p>
-                {respuestaModal.ticket.observaciones && (
-                  <p><strong>Observación:</strong> {respuestaModal.ticket.observaciones}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                  Observación / Respuesta <span className="text-red-400">*</span>
-                </label>
-                <textarea
-                  value={respuestaText}
-                  onChange={e => setRespuestaText(e.target.value)}
-                  rows={3}
-                  placeholder="Describe la observación, seguimiento o acción tomada..."
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
-                />
-              </div>
-              {ticketError && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-red-600 text-xs font-medium">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {ticketError}
-                </div>
-              )}
-              <div className="flex gap-3">
-                <button onClick={() => { setRespuestaModal(null); setTicketError(null); }} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50">
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleRespondTicket}
-                  disabled={!respuestaText.trim() || ticketProcessing === respuestaModal.ticket.rowIndex}
-                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  {ticketProcessing === respuestaModal.ticket.rowIndex ? 'Guardando...' : 'Responder Ticket'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* ── Modals: ticket ── */}
+      {ticketCreateTarget && (
+        <TicketFormModal
+          asignacion={ticketCreateTarget}
+          userName={user.nombre}
+          onSave={handleCreateTicket}
+          onClose={() => setTicketCreateTarget(null)}
+        />
+      )}
+      {closeTarget && (
+        <TicketCloseModal
+          ticket={closeTarget.ticket}
+          title="Cerrar ticket"
+          subtitle="El ticket quedará como CERRADO"
+          actionLabel="Cerrar ticket"
+          onSubmit={handleCloseTicket}
+          onClose={() => { setCloseTarget(null); setTicketError(null); }}
+          saving={ticketProcessing === closeTarget.ticket.rowIndex}
+          error={ticketError}
+        />
       )}
 
       {/* ── Modal: confirmar eliminación ── */}
