@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAuthenticated = isAdmin || !!salasUser;
     const isSuperAdmin = isAdmin || salasUser?.rol === 'SUPER_ADMIN';
     const isCoordinador = salasUser?.rol === 'COORDINADOR';
-    const canAccessUsabilidad = isAdmin || isSuperAdmin;
+    const canAccessUsabilidad = isAdmin || isSuperAdmin || isCoordinador;
     const canAccessBiometrico = isAdmin || isSuperAdmin;
 
     const login = (input: string): boolean => {

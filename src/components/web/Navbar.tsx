@@ -30,8 +30,11 @@ export default function Navbar() {
     if (!isAuthenticated) {
       return link.path === '/' || link.path === '/salas';
     }
-    if (link.path === '/usabilidad-web-training' || link.path === '/informe-biometrico') {
-      return isAdmin || isSuperAdmin || !isCoordinador;
+    if (link.path === '/usabilidad-web-training') {
+      return isAdmin || isSuperAdmin || isCoordinador;
+    }
+    if (link.path === '/informe-biometrico') {
+      return isAdmin || isSuperAdmin;
     }
     return true;
   });
