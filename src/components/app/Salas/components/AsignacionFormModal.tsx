@@ -148,7 +148,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
   );
   const hayConflicto = conflictos.length > 0;
   const shouldUseAvailabilityCalendar = Boolean(modoSolicitud || useAvailabilityCalendar);
-  const canUseAvailabilityCalendar = Boolean((modoSolicitud || useAvailabilityCalendar) && form.sede && form.sala && form.horario && form.coordinador);
+  const canUseAvailabilityCalendar = Boolean((modoSolicitud || useAvailabilityCalendar) && form.tipoDeUso && form.sede && form.sala && form.horario && form.coordinador);
 
   const occupiedDays = useMemo(() => {
     const set = new Set<string>();
@@ -398,7 +398,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
               <input type="number" value={form.dPersonas} onChange={e => set('dPersonas', e.target.value)} min="1" className={inputCls} />
             </Field>
               <Field label="Tipo de uso">
-                <select value={form.tipoDeUso} onChange={e => handleTipoDeUsoChange(e.target.value)} className={inputCls}>
+                <select value={form.tipoDeUso} onChange={e => handleTipoDeUsoChange(e.target.value)} className={inputCls} required>
                   <option value="">Selecciona...</option>
                   <option value="Formación inicial">Formación inicial</option>
                   <option value="Formación continua">Formación continua</option>
