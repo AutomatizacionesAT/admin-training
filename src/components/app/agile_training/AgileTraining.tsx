@@ -12,6 +12,7 @@ import {
   ListFilter,
   LoaderCircle,
   Maximize2,
+  PauseCircle,
   Target,
   X,
 } from 'lucide-react';
@@ -54,6 +55,12 @@ type DetailSectionProps = {
   items: Array<{ label: string; value: string }>;
 };
 
+type EstadoSummary = {
+  key: string;
+  label: string;
+  rows: AgileTrainingRow[];
+};
+
 function formatPercent(value: number): string {
   return `${Math.round(value)}%`;
 }
@@ -90,7 +97,84 @@ function getEstadoTone(estado: string): 'blue' | 'green' | 'amber' | 'violet' | 
   if (normalized.includes('progreso')) return 'blue';
   if (normalized.includes('paus')) return 'amber';
   if (normalized.includes('novedad')) return 'violet';
+  if (normalized.includes('retiro')) return 'rose';
   return 'slate';
+}
+
+function getEstadoPresentation(estado: string): {
+  icon: typeof Activity;
+  heroClass: string;
+  cardClass: string;
+  labelClass: string;
+} {
+  const normalized = normalizeText(estado);
+  if (normalized.includes('final')) {
+    return {
+      icon: Target,
+      heroClass: 'bg-emerald-500/15 text-emerald-50 ring-1 ring-emerald-200/20 backdrop-blur-sm',
+      cardClass: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+      labelClass: 'text-emerald-600',
+    };
+  }
+  if (normalized.includes('progreso')) {
+    return {
+      icon: Activity,
+      heroClass: 'bg-blue-500/15 text-blue-50 ring-1 ring-blue-200/20 backdrop-blur-sm',
+      cardClass: 'border-blue-200 bg-blue-50 text-blue-900',
+      labelClass: 'text-blue-600',
+    };
+  }
+  if (normalized.includes('novedad')) {
+    return {
+      icon: AlertCircle,
+      heroClass: 'bg-violet-500/15 text-violet-50 ring-1 ring-violet-200/20 backdrop-blur-sm',
+      cardClass: 'border-violet-200 bg-violet-50 text-violet-900',
+      labelClass: 'text-violet-600',
+    };
+  }
+  if (normalized.includes('paus')) {
+    return {
+      icon: PauseCircle,
+      heroClass: 'bg-amber-500/15 text-amber-50 ring-1 ring-amber-200/20 backdrop-blur-sm',
+      cardClass: 'border-amber-200 bg-amber-50 text-amber-900',
+      labelClass: 'text-amber-600',
+    };
+  }
+  if (normalized.includes('retiro')) {
+    return {
+      icon: X,
+      heroClass: 'bg-rose-500/15 text-rose-50 ring-1 ring-rose-200/20 backdrop-blur-sm',
+      cardClass: 'border-rose-200 bg-rose-50 text-rose-900',
+      labelClass: 'text-rose-600',
+    };
+  }
+  return {
+    icon: CalendarRange,
+    heroClass: 'bg-slate-500/20 text-slate-50 ring-1 ring-slate-200/20 backdrop-blur-sm',
+    cardClass: 'border-slate-200 bg-slate-50 text-slate-900',
+    labelClass: 'text-slate-500',
+  };
+}
+
+function buildEstadoSummary(rows: AgileTrainingRow[]): EstadoSummary[] {
+  const summary = new Map<string, EstadoSummary>();
+
+  rows.forEach((row) => {
+    const label = row.estado.trim();
+    if (!label) return;
+
+    const key = normalizeText(label);
+    const current = summary.get(key);
+    if (current) {
+      current.rows.push(row);
+      return;
+    }
+    summary.set(key, { key, label, rows: [row] });
+  });
+
+  return Array.from(summary.values()).sort(
+    (a, b) => b.rows.length - a.rows.length || a.label.localeCompare(b.label, 'es', { sensitivity: 'base' })
+  );
 }
 
 function getCumplimientoTone(value: number): 'green' | 'amber' | 'rose' {
@@ -128,27 +212,18 @@ function buildKpis(rows: AgileTrainingRow[]): AgileTrainingKpis {
       promedioMeta: 0,
       promedioPiloto: 0,
       promedioCumplimiento: 0,
-      finalizadas: 0,
-      enProgreso: 0,
-      novedad: 0,
-      pausado: 0,
     };
   }
 
   const totals = rows.reduce(
     (acc, row) => {
-      const estado = normalizeText(row.estado);
       acc.avance += row.avancePct;
       acc.meta += row.metaPct;
       acc.piloto += row.pilotoPct;
       acc.cumplimiento += row.cumplimientoPct;
-      if (estado.includes('final')) acc.finalizadas += 1;
-      if (estado.includes('progreso')) acc.enProgreso += 1;
-      if (estado.includes('novedad')) acc.novedad += 1;
-      if (estado.includes('paus')) acc.pausado += 1;
       return acc;
     },
-    { avance: 0, meta: 0, piloto: 0, cumplimiento: 0, finalizadas: 0, enProgreso: 0, novedad: 0, pausado: 0 }
+    { avance: 0, meta: 0, piloto: 0, cumplimiento: 0 }
   );
 
   return {
@@ -157,10 +232,6 @@ function buildKpis(rows: AgileTrainingRow[]): AgileTrainingKpis {
     promedioMeta: totals.meta / rows.length,
     promedioPiloto: totals.piloto / rows.length,
     promedioCumplimiento: totals.cumplimiento / rows.length,
-    finalizadas: totals.finalizadas,
-    enProgreso: totals.enProgreso,
-    novedad: totals.novedad,
-    pausado: totals.pausado,
   };
 }
 
@@ -555,17 +626,9 @@ export default function AgileTraining() {
     [filteredRows, selectedCampaign]
   );
 
-  const globalKpis = useMemo(() => buildKpis(rows), [rows]);
   const filteredKpis = useMemo(() => buildKpis(filteredRows), [filteredRows]);
-
-  const stateSummary = useMemo(() => {
-    const summary = new Map<string, AgileTrainingRow[]>();
-    filteredRows.forEach((row) => {
-      const key = row.estado || 'Sin estado';
-      summary.set(key, [...(summary.get(key) ?? []), row]);
-    });
-    return Array.from(summary.entries()).sort((a, b) => b[1].length - a[1].length);
-  }, [filteredRows]);
+  const globalStateSummary = useMemo(() => buildEstadoSummary(rows), [rows]);
+  const filteredStateSummary = useMemo(() => buildEstadoSummary(filteredRows), [filteredRows]);
 
   const summaryRows = useMemo(() => {
     return [...filteredRows].sort((a, b) => {
@@ -648,12 +711,21 @@ export default function AgileTraining() {
                 </div>
               </div>
 
-              <div className="relative z-10 rounded-3xl bg-white/6 p-3 ring-1 ring-white/10 lg:w-[420px]">
-                <div className="grid gap-3 sm:grid-cols-2">
+              <div className="relative z-10 rounded-3xl bg-white/6 p-3 ring-1 ring-white/10 lg:w-[560px]">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   <StatCard label="Campañas" value={rows.length} icon={BriefcaseBusiness} accentClass="bg-blue-500/15 text-blue-50 ring-1 ring-blue-200/20 backdrop-blur-sm" />
-                  <StatCard label="Finalizadas" value={globalKpis.finalizadas} icon={Target} accentClass="bg-emerald-500/15 text-emerald-50 ring-1 ring-emerald-200/20 backdrop-blur-sm" />
-                  <StatCard label="En progreso" value={globalKpis.enProgreso} icon={Activity} accentClass="bg-amber-500/15 text-amber-50 ring-1 ring-amber-200/20 backdrop-blur-sm" />
-                  <StatCard label="Con novedad" value={globalKpis.novedad} icon={AlertCircle} accentClass="bg-violet-500/15 text-violet-50 ring-1 ring-violet-200/20 backdrop-blur-sm" />
+                  {globalStateSummary.map((estado) => {
+                    const presentation = getEstadoPresentation(estado.label);
+                    return (
+                      <StatCard
+                        key={estado.key}
+                        label={estado.label}
+                        value={estado.rows.length}
+                        icon={presentation.icon}
+                        accentClass={presentation.heroClass}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -763,23 +835,20 @@ export default function AgileTraining() {
               </div>
             ) : activeTab === 'resumen' ? (
               <div className="space-y-6 px-4 py-6 lg:px-6">
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-blue-900">
                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-500">Campañas visibles</p>
                     <p className="mt-3 text-3xl font-black">{filteredRows.length}</p>
                   </div>
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-500">Finalizadas</p>
-                    <p className="mt-3 text-3xl font-black">{filteredKpis.finalizadas}</p>
-                  </div>
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-500">En progreso</p>
-                    <p className="mt-3 text-3xl font-black">{filteredKpis.enProgreso}</p>
-                  </div>
-                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5 text-violet-900">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-500">Con novedad</p>
-                    <p className="mt-3 text-3xl font-black">{filteredKpis.novedad}</p>
-                  </div>
+                  {filteredStateSummary.map((estado) => {
+                    const presentation = getEstadoPresentation(estado.label);
+                    return (
+                      <div key={estado.key} className={`rounded-2xl border p-5 ${presentation.cardClass}`}>
+                        <p className={`text-xs font-bold uppercase tracking-[0.2em] ${presentation.labelClass}`}>{estado.label}</p>
+                        <p className="mt-3 text-3xl font-black">{estado.rows.length}</p>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {multipleCampaigns ? (
@@ -799,18 +868,18 @@ export default function AgileTraining() {
                         <Activity className="h-5 w-5 text-slate-400" />
                       </div>
                     <div className="mt-6 max-h-[520px] space-y-3 overflow-y-auto pr-1">
-                      {stateSummary.map(([estado, estadoRows]) => (
+                      {filteredStateSummary.map((estado) => (
                         <button
-                          key={estado}
+                          key={estado.key}
                           type="button"
-                          onClick={() => setEstadoModal({ estado, rows: estadoRows })}
+                          onClick={() => setEstadoModal({ estado: estado.label, rows: estado.rows })}
                           className="flex w-full cursor-pointer items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
                         >
-                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getBadgeClasses(getEstadoTone(estado))}`}>
-                            {estado}
+                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getBadgeClasses(getEstadoTone(estado.label))}`}>
+                            {estado.label}
                           </span>
                           <span className="flex items-center gap-2 text-lg font-bold text-slate-900">
-                            {estadoRows.length}
+                            {estado.rows.length}
                             <Maximize2 className="h-4 w-4 text-slate-400" />
                           </span>
                         </button>
