@@ -43,6 +43,8 @@ export interface TicketRecord {
   fechaCierre: string;
   observaciones: string;
   respuesta: string;
+  sala: string;
+  sede: string;
 }
 
 // ─── Admin de salas ───────────────────────────────────────────────────────────

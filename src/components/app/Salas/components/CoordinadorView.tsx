@@ -59,7 +59,7 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
   const [showSolicitud, setShowSolicitud] = useState(false);
   const [requestPreset, setRequestPreset] = useState<Props['timelinePreset']>(null);
   const [ticketTarget, setTicketTarget] = useState<AsignacionRecord | null>(null);
-  const [closeTarget, setCloseTarget] = useState<{ ticket: TicketRecord; asignacion: AsignacionRecord } | null>(null);
+  const [closeTarget, setCloseTarget] = useState<TicketRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
   const [tickets, setTickets] = useState<TicketRecord[]>([]);
@@ -88,6 +88,7 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
   const pendientes = mis.filter(a => (a.estadoAsignacion || 'APROBADO') === 'PENDIENTE');
   const aprobadas = mis.filter(a => (a.estadoAsignacion || 'APROBADO') === 'APROBADO');
   const rechazadas = mis.filter(a => (a.estadoAsignacion || 'APROBADO') === 'RECHAZADO');
+  const misTickets = tickets.filter(t => normalize(t.personaReporta) === normalize(user.nombre));
 
   // ── Crear solicitud (PENDIENTE) ────────────────────────────────────────────
   const handleSolicitud = async (data: Omit<AsignacionRecord, 'rowIndex'>) => {
@@ -102,13 +103,10 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
   };
 
   // ── Crear ticket ───────────────────────────────────────────────────────────
-  const handleCreateTicket = async (
-    ticketData: Omit<TicketRecord, 'rowIndex'>,
-    rowIndexAsignacion: number
-  ) => {
-    await createTicket({ ...ticketData, rowIndexAsignacion } as Omit<TicketRecord, 'rowIndex'> & { rowIndexAsignacion: number });
+  const handleCreateTicket = async (ticketData: Omit<TicketRecord, 'rowIndex'>) => {
+    await createTicket(ticketData);
+    setTickets(await fetchTickets());
     setTicketTarget(null);
-    onRefresh();
   };
 
   const handleCloseTicket = async (respuesta: string) => {
@@ -116,10 +114,9 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
     setClosing(true);
     setCloseError(null);
     try {
-      await closeTicket(closeTarget.ticket.rowIndex, respuesta, closeTarget.asignacion.rowIndex);
+      await closeTicket(closeTarget.rowIndex, respuesta);
       setCloseTarget(null);
-      onRefresh();
-      fetchTickets().then(setTickets).catch(() => setTickets([]));
+      setTickets(await fetchTickets());
     } catch {
       setCloseError('No se pudo cerrar el ticket. Intenta de nuevo.');
     } finally {
@@ -142,16 +139,9 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
   const AsigCard = ({ a }: { a: AsignacionRecord }) => {
     const estado = (a.estadoAsignacion || 'APROBADO') as EstadoKey;
     const isAprobada = estado === 'APROBADO';
-    const tieneTicket = !!a.ticket;
-    const ticketInfo = tieneTicket
-      ? tickets.find(t => t.numeroTicket === a.ticket)
-      : undefined;
-    const ticketEstado = resolveTicketEstado(ticketInfo, a.estadoTicket);
-    const ticketCfg = TICKET_ESTADO_CONFIG[ticketEstado];
-    const canCloseTicket = tieneTicket && ticketEstado !== 'CERRADO';
 
     return (
-      <div className={`bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all p-5 space-y-4 ${ticketEstado === 'ABIERTO' ? 'border-orange-200 bg-orange-50/50' : estado === 'PENDIENTE' ? 'border-amber-200 bg-amber-50/40' : estado === 'RECHAZADO' ? 'border-red-200 bg-red-50/30 opacity-70' : 'border-slate-100'}`}>
+      <div className={`bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all p-5 space-y-4 ${estado === 'PENDIENTE' ? 'border-amber-200 bg-amber-50/40' : estado === 'RECHAZADO' ? 'border-red-200 bg-red-50/30 opacity-70' : 'border-slate-100'}`}>
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -193,34 +183,13 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
         {/* Acción: crear ticket (solo si aprobada) */}
         {isAprobada && (
           <div className="pt-2 border-t border-slate-100 space-y-2">
-            {tieneTicket ? (
-              <>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-orange-600 font-semibold">
-                  <Ticket className="w-3.5 h-3.5 shrink-0" />
-                  <span>Ticket: {a.ticket}</span>
-                  <span className={`px-1.5 py-px rounded text-[10px] font-bold ${ticketCfg.cls}`}>
-                    {ticketCfg.label}
-                  </span>
-                </div>
-                {canCloseTicket && ticketInfo && (
-                  <button
-                    onClick={() => setCloseTarget({ ticket: ticketInfo, asignacion: a })}
-                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-bold transition-all"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    Cerrar ticket
-                  </button>
-                )}
-              </>
-            ) : (
-              <button
-                onClick={() => setTicketTarget(a)}
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-orange-200 text-orange-500 hover:bg-orange-50 text-xs font-bold transition-all"
-              >
-                <Ticket className="w-3.5 h-3.5" />
-                Reportar problema / Cerrar sala
-              </button>
-            )}
+            <button
+              onClick={() => setTicketTarget(a)}
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-orange-200 text-orange-500 hover:bg-orange-50 text-xs font-bold transition-all"
+            >
+              <Ticket className="w-3.5 h-3.5" />
+              Reportar problema / Cerrar sala
+            </button>
           </div>
         )}
       </div>
@@ -248,6 +217,10 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
             <p className="text-xl font-black">{aprobadas.length}</p>
             <p className="text-xs text-emerald-100">Aprobadas</p>
           </div>
+          <div className="bg-orange-400/20 rounded-xl px-4 py-2 text-center border border-orange-300/30">
+            <p className="text-xl font-black">{misTickets.length}</p>
+            <p className="text-xs text-orange-100">Mis tickets</p>
+          </div>
         </div>
       </div>
 
@@ -269,6 +242,57 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
             <Plus className="w-4 h-4" /> Solicitar sala
           </button>
         </div>
+      </div>
+
+      {/* Tickets reportados por el coordinador autenticado */}
+      <div>
+        <h3 className="mb-3 flex items-center gap-2 font-bold text-slate-700">
+          <Ticket className="h-4 w-4 text-orange-500" />
+          Mis tickets ({misTickets.length})
+        </h3>
+        {misTickets.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-5 py-8 text-center text-sm text-slate-400">
+            No has reportado tickets.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {misTickets.map(ticket => {
+              const estado = resolveTicketEstado(ticket);
+              const config = TICKET_ESTADO_CONFIG[estado];
+              return (
+                <div key={ticket.rowIndex} className={`rounded-2xl border bg-white p-5 shadow-sm ${estado === 'ABIERTO' ? 'border-orange-200' : 'border-slate-100'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className="rounded-lg bg-orange-50 px-2 py-1 font-mono text-xs font-bold text-orange-600">
+                        {ticket.numeroTicket || `Ticket ${ticket.rowIndex}`}
+                      </span>
+                      <p className="mt-3 text-xs font-bold uppercase tracking-wider text-indigo-500">{ticket.campana || 'Sin campaña'}</p>
+                    </div>
+                    <span className={`rounded-lg px-2 py-1 text-[10px] font-bold ${config.cls}`}>{config.label}</span>
+                  </div>
+                  <div className="mt-4 space-y-2 text-xs text-slate-600">
+                    <p><span className="font-semibold text-slate-700">Sala:</span> {ticket.sala || '—'}</p>
+                    <p><span className="font-semibold text-slate-700">Sede:</span> {ticket.sede || '—'}</p>
+                    <p><span className="font-semibold text-slate-700">Falla:</span> {ticket.fallaPuntual || '—'}</p>
+                    <p><span className="font-semibold text-slate-700">Posición:</span> {ticket.posicion || '—'}</p>
+                    <p><span className="font-semibold text-slate-700">Fecha:</span> {ticket.fechaRealizacion || '—'}</p>
+                    {ticket.fechaCierre && <p><span className="font-semibold text-slate-700">Cierre:</span> {ticket.fechaCierre}</p>}
+                    {ticket.respuesta && <p><span className="font-semibold text-slate-700">Respuesta:</span> {ticket.respuesta}</p>}
+                  </div>
+                  {estado === 'ABIERTO' && (
+                    <button
+                      onClick={() => { setCloseTarget(ticket); setCloseError(null); }}
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-blue-200 py-2 text-xs font-bold text-blue-700 transition-all hover:bg-blue-50"
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      Cerrar ticket
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Sin asignaciones */}
@@ -348,7 +372,7 @@ export default function CoordinadorView({ user, salas, asignaciones, onRefresh, 
       )}
       {closeTarget && (
         <TicketCloseModal
-          ticket={closeTarget.ticket}
+          ticket={closeTarget}
           title="Cerrar ticket"
           subtitle="El ticket quedará como CERRADO"
           actionLabel="Cerrar ticket"

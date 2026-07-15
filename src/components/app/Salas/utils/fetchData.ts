@@ -1,7 +1,7 @@
 import type { SalaRecord, AsignacionRecord, SalasAdminRecord, SalasRole, TicketRecord } from './types';
 
 const SHEET_ID = '1OtFWpA1NnkErvYmgwjqkic48b9UvGshEKAbBvcl-RuA';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbz70FSwtvCEtfRFTAZSKErcCR8gzza-66_WW5Dw8euaXJlZFagQI5klxPCQ8X_7dhaJ/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxvSQfB5Oykl9NqzVYHDk1-9RBWPvvpbZCt8ICrARM9sl4rTvjsKcBIbf_DYWxMcaWS/exec';
 
 interface GvizCell { v: string | number | null; f?: string; }
 interface GvizRow { c: (GvizCell | null)[]; }
@@ -112,7 +112,7 @@ export async function fetchSalasAsignaciones(): Promise<AsignacionRecord[]> {
 // ─── ASIGNACION_TICKET ────────────────────────────────────────────────────────
 // Columnas: CAMPAÑA(0) POSICION(1) FALLA PUNTUAL(2) PERSONA REPORTA(3)
 //           NUMERO TICKET(4) FECHA REALIZACION(5) PERSONA CREA TICKET(6)
-//           FECHA CIERRE(7) OBSERVACIONES(8) RESPUESTA(9)
+//           FECHA CIERRE(7) OBSERVACIONES(8) RESPUESTA(9) SALA(10) SEDE(11)
 export async function fetchTickets(): Promise<TicketRecord[]> {
   const rows = await fetchSheet('ASIGNACION_TICKET');
   const result: TicketRecord[] = [];
@@ -135,6 +135,8 @@ export async function fetchTickets(): Promise<TicketRecord[]> {
       fechaCierre: cell(row, 7),
       observaciones: cell(row, 8),
       respuesta: cell(row, 9),
+      sala: cell(row, 10),
+      sede: cell(row, 11),
     });
   });
   console.log(`🎫 ASIGNACION_TICKET: ${result.length} tickets`);
@@ -245,11 +247,13 @@ export async function respondTicket(ticket: TicketRecord, respuesta: string): Pr
     fechaCierre: ticket.fechaCierre,
     observaciones: ticket.observaciones,
     respuesta,
+    sala: ticket.sala,
+    sede: ticket.sede,
   };
   // updateTicket ya está desplegado; respondTicket puede no estarlo aún
   await gasPost({ action: 'updateTicket', rowIndex: ticket.rowIndex, numeroTicket: ticket.numeroTicket, data });
 }
-/** Cierra definitivamente el ticket (lo ejecuta otra área externa) */
-export async function closeTicket(rowIndex: number, respuesta: string, rowIndexAsignacion?: number): Promise<void> {
-  await gasPost({ action: 'closeTicket', rowIndex, respuesta, rowIndexAsignacion });
+/** Cierra definitivamente un ticket sin modificar la asignación de sala. */
+export async function closeTicket(rowIndex: number, respuesta: string): Promise<void> {
+  await gasPost({ action: 'closeTicket', rowIndex, respuesta });
 }

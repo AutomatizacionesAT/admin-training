@@ -54,6 +54,8 @@ export default function TicketCloseModal({ ticket, title, subtitle, actionLabel,
         <div className="p-6 space-y-4">
           <div className="bg-slate-50 rounded-xl p-3 text-sm text-slate-600 space-y-1">
             <p><strong>Campaña:</strong> {ticket.campana}</p>
+            <p><strong>Sala:</strong> {ticket.sala || '—'}</p>
+            <p><strong>Sede:</strong> {ticket.sede || '—'}</p>
             <p><strong>Falla:</strong> {ticket.fallaPuntual}</p>
             <p><strong>Posición:</strong> {ticket.posicion}</p>
             {ticket.observaciones && <p><strong>Observación:</strong> {ticket.observaciones}</p>}

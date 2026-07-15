@@ -53,7 +53,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
   const [showTicketAnalytics, setShowTicketAnalytics] = useState(false);
   const [requestPreset, setRequestPreset] = useState<Props['timelinePreset']>(null);
   const [ticketCreateTarget, setTicketCreateTarget] = useState<AsignacionRecord | null>(null);
-  const [closeTarget, setCloseTarget] = useState<{ ticket: TicketRecord; asignacion: AsignacionRecord } | null>(null);
+  const [closeTarget, setCloseTarget] = useState<TicketRecord | null>(null);
 
   // Sala CRUD state
   const [showSalaForm, setShowSalaForm] = useState(false);
@@ -124,13 +124,6 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
     }
     return result;
   }, [aprobadas, q, calFilter, calSedeFilter]);
-  const asigByTicket = useMemo(() => {
-    const map = new Map<string, AsignacionRecord>();
-    asignaciones.forEach((a) => {
-      if (a.ticket) map.set(a.ticket.trim(), a);
-    });
-    return map;
-  }, [asignaciones]);
   useEffect(() => {
     if (!timelinePreset) return;
     setRequestPreset(timelinePreset);
@@ -201,21 +194,20 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
     if (t === 'tickets' && !ticketsLoaded) loadTickets();
   };
 
-  const handleCreateTicket = async (ticketData: Omit<TicketRecord, 'rowIndex'>, rowIndexAsignacion: number) => {
-    await createTicket({ ...ticketData, rowIndexAsignacion } as Omit<TicketRecord, 'rowIndex'> & { rowIndexAsignacion: number });
+  const handleCreateTicket = async (ticketData: Omit<TicketRecord, 'rowIndex'>) => {
+    await createTicket(ticketData);
+    await loadTickets();
     setTicketCreateTarget(null);
-    onRefresh();
   };
 
   const handleCloseTicket = async (respuesta: string) => {
     if (!closeTarget || !respuesta.trim()) return;
-    setTicketProcessing(closeTarget.ticket.rowIndex);
+    setTicketProcessing(closeTarget.rowIndex);
     setTicketError(null);
     try {
-      await closeTicket(closeTarget.ticket.rowIndex, respuesta.trim(), closeTarget.asignacion.rowIndex);
+      await closeTicket(closeTarget.rowIndex, respuesta.trim());
       setCloseTarget(null);
       await loadTickets();
-      onRefresh();
     } catch {
       setTicketError('No se pudo cerrar el ticket. Verifica que el Apps Script esté desplegado.');
     } finally {
@@ -306,9 +298,9 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
             className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'tickets' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-500 hover:text-orange-500 hover:bg-orange-50'}`}
           >
             <Ticket className="w-4 h-4" /> Tickets
-            {tickets.filter(t => !t.respuesta).length > 0 && (
+            {tickets.filter(t => !t.fechaCierre).length > 0 && (
               <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
-                {tickets.filter(t => !t.respuesta).length}
+                {tickets.filter(t => !t.fechaCierre).length}
               </span>
             )}
           </button>
@@ -476,14 +468,14 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
               <table className="min-w-[1280px] w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
-                  {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Coordinador', 'Tipo de uso', 'Horario', 'Fechas', 'Personas', 'Estado', 'Ticket', ''].map(h => (
+                  {['Campaña', 'REQ', 'Sala', 'Sede', 'Formador', 'Coordinador', 'Tipo de uso', 'Horario', 'Fechas', 'Personas', 'Estado', ''].map(h => (
                     <th key={h} className="sticky top-0 z-10 bg-slate-50 px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filteredAsigs.length === 0 ? (
-                  <tr><td colSpan={13} className="text-center py-12 text-slate-400">
+                  <tr><td colSpan={12} className="text-center py-12 text-slate-400">
                     {(calFilter || calSedeFilter)
                       ? 'Sin asignaciones con los filtros seleccionados'
                       : 'Sin asignaciones aprobadas'}
@@ -512,29 +504,11 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                     <td className="px-4 py-3 text-slate-600 text-center">{a.dPersonas}</td>
                     <td className="px-4 py-3">{estadoBadge(a.estadoAsignacion || 'APROBADO')}</td>
                     <td className="px-4 py-3">
-                      {a.ticket ? (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded w-fit">
-                            {a.ticket}
-                          </span>
-                          <span className={`text-[9px] font-bold px-1.5 py-px rounded w-fit ${a.estadoTicket === 'CERRADO' ? 'bg-slate-100 text-slate-500' :
-                              'bg-orange-100 text-orange-500'
-                            }`}>
-                            {a.estadoTicket === 'CERRADO' ? 'CERRADO' : 'ABIERTO'}
-                          </span>
-                        </div>
-                      ) : <span className="text-slate-300 text-xs">—</span>}
-                    </td>
-                    <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => {
-                            if (a.ticket) return;
-                            setTicketCreateTarget(a);
-                          }}
-                          disabled={Boolean(a.ticket)}
-                          className="p-1.5 rounded-lg hover:bg-orange-50 text-orange-500 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-                          title={a.ticket ? 'Ticket existente' : 'Crear ticket'}
+                          onClick={() => setTicketCreateTarget(a)}
+                          className="p-1.5 rounded-lg hover:bg-orange-50 text-orange-500 transition-colors"
+                          title="Crear ticket"
                         >
                           <Ticket className="w-3.5 h-3.5" />
                         </button>
@@ -593,19 +567,18 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {tickets.map((t, i) => {
-                      const asignacion = t.numeroTicket ? asigByTicket.get(t.numeroTicket.trim()) : undefined;
+                  {tickets.map((t) => {
                       const estadoTicket = t.fechaCierre ? 'CERRADO' : 'ABIERTO';
                       const abierto = estadoTicket === 'ABIERTO';
                       const notaCierre = t.fechaCierre ? (t.respuesta?.trim() || '-') : '-';
                       const dias = t.fechaCierre ? diffDays(t.fechaRealizacion, t.fechaCierre) : null;
                       return (
-                        <tr key={i} className={`transition-colors ${estadoTicket === 'ABIERTO' ? 'bg-orange-50/70 hover:bg-orange-100/70' : 'hover:bg-slate-50/60'}`}>
+                        <tr key={t.rowIndex} className={`transition-colors ${estadoTicket === 'ABIERTO' ? 'bg-orange-50/70 hover:bg-orange-100/70' : 'hover:bg-slate-50/60'}`}>
                           <td className="px-4 py-3">
                             <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg">{t.numeroTicket}</span>
                           </td>
-                          <td className="px-4 py-3 font-semibold text-slate-700 max-w-[180px] truncate" title={asignacion?.sala || '-'}>{asignacion?.sala || '-'}</td>
-                          <td className="px-4 py-3 text-slate-600 max-w-[160px] truncate" title={asignacion?.sede || '-'}>{asignacion?.sede || '-'}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-700 max-w-[180px] truncate" title={t.sala || '-'}>{t.sala || '-'}</td>
+                          <td className="px-4 py-3 text-slate-600 max-w-[160px] truncate" title={t.sede || '-'}>{t.sede || '-'}</td>
                           <td className="px-4 py-3 font-semibold text-slate-700">{t.campana}</td>
                           <td className="px-4 py-3 text-slate-600 max-w-[220px] truncate" title={t.fallaPuntual}>{t.fallaPuntual}</td>
                           <td className="px-4 py-3 text-slate-500 text-xs">{t.posicion}</td>
@@ -632,13 +605,11 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            {abierto && t.numeroTicket && asigByTicket.get(t.numeroTicket) ? (
+                            {abierto ? (
                               <button
                                 disabled={ticketProcessing === t.rowIndex}
                                 onClick={() => {
-                                  const asignacion = asigByTicket.get(t.numeroTicket);
-                                  if (!asignacion) return;
-                                  setCloseTarget({ ticket: t, asignacion });
+                                  setCloseTarget(t);
                                   setTicketError(null);
                                 }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold transition-all disabled:opacity-50"
@@ -728,13 +699,13 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
       )}
       {closeTarget && (
         <TicketCloseModal
-          ticket={closeTarget.ticket}
+          ticket={closeTarget}
           title="Cerrar ticket"
           subtitle="El ticket quedará como CERRADO"
           actionLabel="Cerrar ticket"
           onSubmit={handleCloseTicket}
           onClose={() => { setCloseTarget(null); setTicketError(null); }}
-          saving={ticketProcessing === closeTarget.ticket.rowIndex}
+          saving={ticketProcessing === closeTarget.rowIndex}
           error={ticketError}
         />
       )}

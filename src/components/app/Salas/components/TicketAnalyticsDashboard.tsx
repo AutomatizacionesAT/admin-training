@@ -198,28 +198,22 @@ function Card({ title, icon, children }: { title: string; icon: React.ReactNode;
   );
 }
 
-export default function TicketAnalyticsDashboard({ asignaciones, tickets, onClose }: Props) {
+export default function TicketAnalyticsDashboard({ tickets, onClose }: Props) {
   const [sede, setSede] = useState<SedeFilter>('ALL');
   const [campana, setCampana] = useState<string>('ALL');
   const [coordinador, setCoordinador] = useState<string>('ALL');
   const [ticketEstado, setTicketEstado] = useState<TicketEstadoFilter>('ALL');
 
   const ticketsEnriquecidos = useMemo(() => {
-    const asigByTicket = new Map<string, AsignacionRecord>();
-    asignaciones.forEach(a => {
-      const num = a.ticket?.trim();
-      if (num) asigByTicket.set(num, a);
-    });
     return tickets.map(t => {
-      const asig = asigByTicket.get(t.numeroTicket?.trim() || '');
       return {
         ...t,
-        sede: asig?.sede?.trim() || 'Sin sede',
-        coordinador: asig?.coordinador?.trim() || 'Sin coordinador',
+        sede: t.sede?.trim() || 'Sin sede',
+        coordinador: t.personaReporta?.trim() || 'Sin coordinador',
         estado: resolveTicketEstado(t),
       } satisfies EnrichedTicket;
     });
-  }, [tickets, asignaciones]);
+  }, [tickets]);
 
   const campanasDisponibles = useMemo(() => {
     const map = new Map<string, number>();

@@ -5,7 +5,7 @@ import type { AsignacionRecord, TicketRecord } from '../utils/types';
 interface Props {
   asignacion: AsignacionRecord;
   userName: string;
-  onSave: (ticket: Omit<TicketRecord, 'rowIndex'>, rowIndexAsignacion: number) => Promise<void>;
+  onSave: (ticket: Omit<TicketRecord, 'rowIndex'>) => Promise<void>;
   onClose: () => void;
 }
 
@@ -34,8 +34,9 @@ export default function TicketFormModal({ asignacion, userName, onSave, onClose 
           fechaCierre:      '',
           observaciones,
           respuesta:        '',
-        },
-        asignacion.rowIndex
+          sala:             asignacion.sala,
+          sede:             asignacion.sede,
+        }
       );
       onClose();
     } finally {

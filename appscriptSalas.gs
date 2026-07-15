@@ -316,7 +316,7 @@ function handleUpdateEstadoAsignacion(doc, payload, debugSheet) {
 // ─── ASIGNACION_TICKET CRUD ───────────────────────────────────────────────────
 // Columnas: CAMPAÑA(1) POSICION(2) FALLA PUNTUAL(3) PERSONA REPORTA(4)
 //           NUMERO TICKET(5) FECHA REALIZACION(6) PERSONA CREA TICKET(7)
-//           FECHA CIERRE(8) OBSERVACIONES(9) RESPUESTA(10)
+//           FECHA CIERRE(8) OBSERVACIONES(9) RESPUESTA(10) SALA(11) SEDE(12)
 function mapTicketToRow(d) {
   return [
     d.campana            || '',
@@ -328,7 +328,9 @@ function mapTicketToRow(d) {
     d.personaCreaTicket  || '',
     d.fechaCierre        || '',
     d.observaciones      || '',
-    d.respuesta          || ''
+    d.respuesta          || '',
+    d.sala               || '',
+    d.sede               || ''
   ];
 }
 
