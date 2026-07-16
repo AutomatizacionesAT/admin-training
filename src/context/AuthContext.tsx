@@ -31,6 +31,9 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '1018475580', nombre: 'FERNANDO ANDRES CHONA GIRALDO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1088309969', nombre: 'JOHAN SEBASTIAN QUINCHIA VARGAS', cargo: 'Agile Training', rol: 'COORDINADOR' },
     { documento: '1030550388', nombre: 'SINDY JULIETH ROJAS OROZCO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1012396310', nombre: 'DEISY CAROLINA PARADA GUERRERO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1032430434', nombre: 'ALVARO JAVIER GARZON ZAMBRANO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1013606798', nombre: 'MARCIA JOHANA MUÑOZ GARAVITO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
 ];
 
 const ADMIN_PASSWORD = 'desarrollo2026';
