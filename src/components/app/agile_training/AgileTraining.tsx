@@ -56,6 +56,7 @@ type DetailSectionProps = {
 };
 
 type FilterKey = 'coordinadores' | 'campanas' | 'industria' | 'estado' | 'insignia' | 'jefesDeNegocio' | 'gerencias';
+type CampaignSortMetric = 'avancePct' | 'pilotoPct';
 
 type EstadoSummary = {
   key: string;
@@ -519,6 +520,8 @@ export default function AgileTraining() {
   const [selectedJefesDeNegocio, setSelectedJefesDeNegocio] = useState<string[]>([]);
   const [selectedGerencias, setSelectedGerencias] = useState<string[]>([]);
   const [summaryOrder, setSummaryOrder] = useState<'asc' | 'desc'>('desc');
+  const [campaignSortMetric, setCampaignSortMetric] = useState<CampaignSortMetric>('avancePct');
+  const [campaignSortOrder, setCampaignSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const [estadoModal, setEstadoModal] = useState<ModalState>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -586,8 +589,13 @@ export default function AgileTraining() {
   }, [selectedCampanas, selectedCoordinadores, selectedEstados, selectedGerencias, selectedIndustrias, selectedInsignias, selectedJefesDeNegocio]);
 
   const filteredRows = useMemo(() => {
-    return rows.filter((row) => applyRowFilters(row)).sort((a, b) => b.avancePct - a.avancePct);
+    return rows.filter((row) => applyRowFilters(row));
   }, [rows, applyRowFilters]);
+
+  const campaignRows = useMemo(() => {
+    const direction = campaignSortOrder === 'asc' ? 1 : -1;
+    return [...filteredRows].sort((a, b) => (a[campaignSortMetric] - b[campaignSortMetric]) * direction);
+  }, [filteredRows, campaignSortMetric, campaignSortOrder]);
 
   const availableCoordinadores = useMemo(() => {
     return Array.from(new Set(rows.filter((row) => applyRowFilters(row, ['coordinadores'])).map((row) => row.coordinador).filter(Boolean))).sort();
@@ -667,18 +675,18 @@ export default function AgileTraining() {
   }, [availableGerencias]);
 
   useEffect(() => {
-    if (filteredRows.length === 0) {
+    if (campaignRows.length === 0) {
       setSelectedCampaign('');
       return;
     }
 
-    const exists = filteredRows.some((row) => row.campana === selectedCampaign);
-    if (!exists) setSelectedCampaign(filteredRows[0].campana);
-  }, [filteredRows, selectedCampaign]);
+    const exists = campaignRows.some((row) => row.campana === selectedCampaign);
+    if (!exists) setSelectedCampaign(campaignRows[0].campana);
+  }, [campaignRows, selectedCampaign]);
 
   const selectedRow = useMemo(
-    () => filteredRows.find((row) => row.campana === selectedCampaign) ?? filteredRows[0] ?? null,
-    [filteredRows, selectedCampaign]
+    () => campaignRows.find((row) => row.campana === selectedCampaign) ?? campaignRows[0] ?? null,
+    [campaignRows, selectedCampaign]
   );
 
   const filteredKpis = useMemo(() => buildKpis(filteredRows), [filteredRows]);
@@ -1019,21 +1027,35 @@ export default function AgileTraining() {
 
                 <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                  <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h2 className="text-xl font-bold text-slate-900">Vista por campaña</h2>
-                      <p className="mt-1 text-xs font-medium text-slate-400">Ordenadas por avance, de mayor a menor</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-slate-500" aria-label="Leyenda del mapa de calor">
-                      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-rose-400" />Menos de 30%</span>
-                      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />30% a 79%</span>
-                      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />80% o más</span>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <label className="sr-only" htmlFor="campaign-sort-metric">Ordenar campañas por fase</label>
+                      <select
+                        id="campaign-sort-metric"
+                        value={campaignSortMetric}
+                        onChange={(event) => setCampaignSortMetric(event.target.value as CampaignSortMetric)}
+                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 hover:cursor-pointer hover:border-slate-300"
+                      >
+                        <option value="avancePct">Fase de implementación</option>
+                        <option value="pilotoPct">Fase de lanzamiento</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setCampaignSortOrder((current) => (current === 'asc' ? 'desc' : 'asc'))}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:cursor-pointer hover:border-slate-300 hover:bg-slate-50"
+                      >
+                        {campaignSortOrder === 'desc' ? <ArrowDownWideNarrow className="h-4 w-4" /> : <ArrowUpNarrowWide className="h-4 w-4" />}
+                        {campaignSortOrder === 'desc' ? 'Mayor a menor' : 'Menor a mayor'}
+                      </button>
                     </div>
                   </div>
 
                   <div className="max-h-[520px] overflow-auto">
                     <table className="min-w-[980px] divide-y divide-slate-100 text-left text-sm">
-                      <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-[0_1px_0_0_rgba(226,232,240,1)]">
+                      <thead className="sticky top-0 z-20 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-[0_1px_0_0_rgba(226,232,240,1)]">
                         <tr>
                           <th rowSpan={2} scope="col" className="px-4 py-3 align-middle">Campaña</th>
                           <th rowSpan={2} scope="col" className="px-4 py-3 align-middle">Coordinador</th>
@@ -1050,7 +1072,7 @@ export default function AgileTraining() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
-                        {filteredRows.map((row) => {
+                        {campaignRows.map((row) => {
                           const active = selectedRow?.campana === row.campana;
                           return (
                             <tr key={row.campana} className={`cursor-pointer transition ${active ? 'bg-blue-100' : 'hover:bg-slate-50'}`} onClick={() => setSelectedCampaign(row.campana)}>
