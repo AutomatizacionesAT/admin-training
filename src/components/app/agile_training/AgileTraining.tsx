@@ -990,7 +990,13 @@ export default function AgileTraining() {
                 </div>
               </div>
             ) : (
-              <div className="grid gap-6 px-4 py-6 xl:grid-cols-[1.2fr_0.8fr] lg:px-6">
+              <div className="space-y-6 px-4 py-6 lg:px-6">
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <ProgressMetric label="Promedio avance" value={filteredKpis.promedioAvance} tone="green" />
+                  <ProgressMetric label="Promedio piloto" value={filteredKpis.promedioPiloto} tone="violet" />
+                </div>
+
+                <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                   <div className="flex flex-col gap-4 border-b border-slate-100 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
@@ -1183,6 +1189,7 @@ export default function AgileTraining() {
                     </>
                   ) : null}
                 </aside>
+                </div>
               </div>
             )}
           </section>
