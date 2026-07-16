@@ -3,7 +3,7 @@ import type { AgileTrainingRow } from './types';
 
 const SHEET_ID = '1dPufFMja1m37XDxl0NI51k69jleJ1J6s6pQR2Eja3Y4';
 const SHEET_NAME = 'dataagile';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzQWg-rrHClJ49zbJHhIwXG48fDsHjwarXgwuE1CkQVJCj0Y84U-z19WuQskLjk7iPR/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz9LqN-SSRxNM-GotJ6lUwANQKbylr97rBE_AzM4fWjSBTFblT6M39lZXTZrFhN0_sc/exec';
 
 interface GvizCell {
   v: string | number | null;
@@ -117,6 +117,8 @@ function mapRow(row: GvizRow): AgileTrainingRow[] {
     insignia: getCellText(row.c[26]),
     estado: getCellText(row.c[27]),
     notas: getCellText(row.c[28]),
+    jefeDeNegocio: getCellText(row.c[29]),
+    gerencia: getCellText(row.c[30]),
     especializacionFormadoresPct: parsePercent(row.c[3]),
     redefinicionMallaFormacionPct: parsePercent(row.c[7]),
     desarrolloDigitalPct: parsePercent(row.c[13]),
@@ -133,7 +135,7 @@ function mapRow(row: GvizRow): AgileTrainingRow[] {
 function mapValuesToRows(values: Array<Array<string | number | null>>): AgileTrainingRow[] {
   return values.flatMap((valuesRow) => {
     const row: GvizRow = {
-      c: Array.from({ length: 29 }, (_, index) => toCell(getValueAt(valuesRow, index))),
+      c: Array.from({ length: 31 }, (_, index) => toCell(getValueAt(valuesRow, index))),
     };
 
     return mapRow(row);

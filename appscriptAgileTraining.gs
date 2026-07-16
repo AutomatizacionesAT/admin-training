@@ -210,7 +210,9 @@ function mapRecordToRow(record) {
     record.cumplimiento || "",
     record.insignia || "",
     record.estado || "",
-    record.notas || ""
+    record.notas || "",
+    record.jefeDeNegocio || "",
+    record.gerencia || ""
   ];
 }
 

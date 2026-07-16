@@ -28,6 +28,8 @@ export interface AgileTrainingRow {
   insignia: string;
   estado: string;
   notas: string;
+  jefeDeNegocio: string;
+  gerencia: string;
   especializacionFormadoresPct: number;
   redefinicionMallaFormacionPct: number;
   desarrolloDigitalPct: number;

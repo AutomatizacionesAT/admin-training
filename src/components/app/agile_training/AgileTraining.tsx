@@ -55,6 +55,8 @@ type DetailSectionProps = {
   items: Array<{ label: string; value: string }>;
 };
 
+type FilterKey = 'coordinadores' | 'campanas' | 'industria' | 'estado' | 'insignia' | 'jefesDeNegocio' | 'gerencias';
+
 type EstadoSummary = {
   key: string;
   label: string;
@@ -491,6 +493,8 @@ export default function AgileTraining() {
   const [selectedIndustrias, setSelectedIndustrias] = useState<string[]>([]);
   const [selectedEstados, setSelectedEstados] = useState<string[]>([]);
   const [selectedInsignias, setSelectedInsignias] = useState<string[]>([]);
+  const [selectedJefesDeNegocio, setSelectedJefesDeNegocio] = useState<string[]>([]);
+  const [selectedGerencias, setSelectedGerencias] = useState<string[]>([]);
   const [sortField, setSortField] = useState<AgileSortField>('avancePct');
   const [sortOrder, setSortOrder] = useState<AgileSortOrder>('desc');
   const [summaryOrder, setSummaryOrder] = useState<'asc' | 'desc'>('desc');
@@ -528,7 +532,7 @@ export default function AgileTraining() {
     left.length === right.length && left.every((value, index) => value === right[index])
   );
 
-  const applyRowFilters = useCallback((row: AgileTrainingRow, skip: Array<'coordinadores' | 'campanas' | 'industria' | 'estado' | 'insignia'> = []) => {
+  const applyRowFilters = useCallback((row: AgileTrainingRow, skip: FilterKey[] = []) => {
     if (!skip.includes('coordinadores') && selectedCoordinadores.length > 0 && !selectedCoordinadores.includes(row.coordinador)) {
       return false;
     }
@@ -549,8 +553,16 @@ export default function AgileTraining() {
       return false;
     }
 
+    if (!skip.includes('jefesDeNegocio') && selectedJefesDeNegocio.length > 0 && !selectedJefesDeNegocio.includes(row.jefeDeNegocio)) {
+      return false;
+    }
+
+    if (!skip.includes('gerencias') && selectedGerencias.length > 0 && !selectedGerencias.includes(row.gerencia)) {
+      return false;
+    }
+
     return true;
-  }, [selectedCampanas, selectedCoordinadores, selectedEstados, selectedIndustrias, selectedInsignias]);
+  }, [selectedCampanas, selectedCoordinadores, selectedEstados, selectedGerencias, selectedIndustrias, selectedInsignias, selectedJefesDeNegocio]);
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => applyRowFilters(row)).sort((a, b) => compareRows(a, b, sortField, sortOrder));
@@ -574,6 +586,14 @@ export default function AgileTraining() {
 
   const availableInsignias = useMemo(() => {
     return Array.from(new Set(rows.filter((row) => applyRowFilters(row, ['insignia'])).map((row) => row.insignia).filter(Boolean))).sort();
+  }, [rows, applyRowFilters]);
+
+  const availableJefesDeNegocio = useMemo(() => {
+    return Array.from(new Set(rows.filter((row) => applyRowFilters(row, ['jefesDeNegocio'])).map((row) => row.jefeDeNegocio).filter(Boolean))).sort();
+  }, [rows, applyRowFilters]);
+
+  const availableGerencias = useMemo(() => {
+    return Array.from(new Set(rows.filter((row) => applyRowFilters(row, ['gerencias'])).map((row) => row.gerencia).filter(Boolean))).sort();
   }, [rows, applyRowFilters]);
 
   useEffect(() => {
@@ -612,6 +632,20 @@ export default function AgileTraining() {
   }, [availableInsignias]);
 
   useEffect(() => {
+    setSelectedJefesDeNegocio((current) => {
+      const next = current.filter((value) => availableJefesDeNegocio.includes(value));
+      return sameArray(current, next) ? current : next;
+    });
+  }, [availableJefesDeNegocio]);
+
+  useEffect(() => {
+    setSelectedGerencias((current) => {
+      const next = current.filter((value) => availableGerencias.includes(value));
+      return sameArray(current, next) ? current : next;
+    });
+  }, [availableGerencias]);
+
+  useEffect(() => {
     if (filteredRows.length === 0) {
       setSelectedCampaign('');
       return;
@@ -643,6 +677,8 @@ export default function AgileTraining() {
     setSelectedIndustrias([]);
     setSelectedEstados([]);
     setSelectedInsignias([]);
+    setSelectedJefesDeNegocio([]);
+    setSelectedGerencias([]);
   };
 
   const selectedLaunchItems = selectedRow
@@ -679,7 +715,7 @@ export default function AgileTraining() {
     : [];
 
   const multipleCampaigns = filteredRows.length > 1;
-  const hasActiveFilters = selectedCoordinadores.length > 0 || selectedCampanas.length > 0 || selectedIndustrias.length > 0 || selectedEstados.length > 0 || selectedInsignias.length > 0;
+  const hasActiveFilters = selectedCoordinadores.length > 0 || selectedCampanas.length > 0 || selectedIndustrias.length > 0 || selectedEstados.length > 0 || selectedInsignias.length > 0 || selectedJefesDeNegocio.length > 0 || selectedGerencias.length > 0;
 
   const handleSelectCampaignFromModal = useCallback((campana: string) => {
     setSelectedCampaign(campana);
@@ -769,7 +805,7 @@ export default function AgileTraining() {
             </div>
 
             <div className="border-b border-slate-100 px-4 py-4 lg:px-6">
-              <div className="grid gap-4 xl:grid-cols-[1.2fr_1.2fr_repeat(3,minmax(0,0.9fr))]">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <MultiSelectFilter
                   label="Coordinador"
                   placeholder="Escribe o selecciona"
@@ -786,6 +822,24 @@ export default function AgileTraining() {
                   selected={selectedCampanas}
                   onToggle={(value) => setSelectedCampanas((current) => toggleMultiValue(current, value))}
                   onClear={() => setSelectedCampanas([])}
+                />
+
+                <MultiSelectFilter
+                  label="Gerencia"
+                  placeholder="Filtra por gerencia"
+                  options={availableGerencias}
+                  selected={selectedGerencias}
+                  onToggle={(value) => setSelectedGerencias((current) => toggleMultiValue(current, value))}
+                  onClear={() => setSelectedGerencias([])}
+                />
+
+                <MultiSelectFilter
+                  label="Jefe de negocio"
+                  placeholder="Filtra por jefe"
+                  options={availableJefesDeNegocio}
+                  selected={selectedJefesDeNegocio}
+                  onToggle={(value) => setSelectedJefesDeNegocio((current) => toggleMultiValue(current, value))}
+                  onClear={() => setSelectedJefesDeNegocio([])}
                 />
 
                 <FilterSelect label="Industria" options={availableIndustrias} selected={selectedIndustrias} onToggle={(value) => setSelectedIndustrias((current) => toggleMultiValue(current, value))} onClear={() => setSelectedIndustrias([])} />
@@ -998,11 +1052,28 @@ export default function AgileTraining() {
                     <>
                       <section className="">
 
-                        <div className="flex items-start justify-between gap-4 border-b border-slate-300 bg-white px-6 py-5">
-                          <div>
+                        <div className="flex flex-col items-start justify-between gap-4 border-b border-slate-300 bg-white px-6 py-5 sm:flex-row">
+                          <div className="min-w-0 flex-1">
                             <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Detalle de campaña</p>
                             <h2 className="mt-2 text-2xl font-bold text-slate-900">{selectedRow.campana}</h2>
-                            <p className="mt-2 text-sm text-slate-500">{selectedRow.coordinador || 'Sin coordinador'} · {selectedRow.industria || 'Sin industria'}</p>
+                            <p className="mt-2 text-sm font-medium text-slate-500">{selectedRow.coordinador || 'Sin coordinador'}</p>
+                            <p className="mt-1 text-xs text-slate-400">{selectedRow.industria || 'Sin industria'}</p>
+                            {(selectedRow.gerencia || selectedRow.jefeDeNegocio) ? (
+                              <div className="mt-4 flex flex-row flex-wrap items-start gap-2">
+                                {selectedRow.gerencia ? (
+                                  <div className="max-w-full rounded-xl bg-emerald-50 px-3 py-2 text-emerald-900 ring-1 ring-emerald-200">
+                                    <p className="text-[16px] font-bold uppercase tracking-[0.16em] text-emerald-600">Gerencia</p>
+                                    <p className="mt-0.5 break-words text-sm font-bold">{selectedRow.gerencia}</p>
+                                  </div>
+                                ) : null}
+                                {selectedRow.jefeDeNegocio ? (
+                                  <div className="max-w-full rounded-xl bg-amber-50 px-3 py-2 text-amber-900 ring-1 ring-amber-200">
+                                    <p className="text-[16px] font-bold uppercase tracking-[0.16em] text-amber-600">Jefe de negocio</p>
+                                    <p className="mt-0.5 break-words text-sm font-bold">{selectedRow.jefeDeNegocio}</p>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
                           </div>
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getBadgeClasses(getInsigniaTone(selectedRow.insignia))}`}>
                             <Award className="mr-1 h-3.5 w-3.5" />
