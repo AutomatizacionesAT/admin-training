@@ -643,7 +643,7 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
               </ul>
               {modoSolicitud && (
                 <p className="text-xs text-red-500 pl-6">
-                  Cambia la sala, el horario o las fechas para evitar el conflicto.
+                  Completa los Campos y cambia la fecha o sala en el horario para evitar el conflicto ya que puede tener una solicitud pendiente.
                 </p>
               )}
             </div>
