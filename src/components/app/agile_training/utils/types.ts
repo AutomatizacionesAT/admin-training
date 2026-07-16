@@ -49,6 +49,3 @@ export interface AgileTrainingKpis {
   promedioPiloto: number;
   promedioCumplimiento: number;
 }
-
-export type AgileSortField = 'campana' | 'coordinador' | 'industria' | 'avancePct' | 'pilotoPct' | 'cumplimientoPct' | 'fechaFinISO';
-export type AgileSortOrder = 'asc' | 'desc';

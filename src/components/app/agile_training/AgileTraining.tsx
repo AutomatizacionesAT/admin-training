@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 import { fetchAgileTrainingData } from './utils/fetchData';
-import type { AgileSortField, AgileSortOrder, AgileTrainingKpis, AgileTrainingRow } from './utils/types';
+import type { AgileTrainingKpis, AgileTrainingRow } from './utils/types';
 
 const AGILE_TRAINING_IMAGE = `${import.meta.env.BASE_URL}agile-training/agileTraining.png`;
 
@@ -192,18 +192,18 @@ function getCumplimientoTextClass(value: number): string {
   return 'text-rose-600';
 }
 
-function compareRows(a: AgileTrainingRow, b: AgileTrainingRow, field: AgileSortField, order: AgileSortOrder): number {
-  const direction = order === 'asc' ? 1 : -1;
+function getProgressTrackClass(value: number): string {
+  const tone = getCumplimientoTone(value);
+  if (tone === 'green') return 'bg-emerald-100 ring-emerald-200';
+  if (tone === 'amber') return 'bg-amber-100 ring-amber-200';
+  return 'bg-rose-100 ring-rose-200';
+}
 
-  if (field === 'avancePct' || field === 'pilotoPct' || field === 'cumplimientoPct') {
-    return (a[field] - b[field]) * direction;
-  }
-
-  if (field === 'fechaFinISO') {
-    return a.fechaFinISO.localeCompare(b.fechaFinISO) * direction;
-  }
-
-  return a[field].localeCompare(b[field], 'es', { sensitivity: 'base' }) * direction;
+function getProgressBarClass(value: number): string {
+  const tone = getCumplimientoTone(value);
+  if (tone === 'green') return 'bg-emerald-500';
+  if (tone === 'amber') return 'bg-amber-500';
+  return 'bg-rose-500';
 }
 
 function buildKpis(rows: AgileTrainingRow[]): AgileTrainingKpis {
@@ -268,6 +268,29 @@ function StatCard({ label, value, icon: Icon, accentClass }: StatTileProps) {
         <Icon className="h-5 w-5" />
       </div>
     </div>
+  );
+}
+
+function PhaseProgressBarCell({ label, rawValue, value }: { label: string; rawValue: string; value: number }) {
+  const hasValue = Boolean(rawValue.trim());
+  const displayValue = hasValue ? formatPercent(value) : '—';
+  const visualValue = Math.max(0, Math.min(100, value));
+  return (
+    <td colSpan={3} className="border-l border-slate-100 px-4 py-3 align-middle">
+      <div
+        className={`relative flex h-10 min-w-[280px] items-center justify-center overflow-hidden rounded-xl ring-1 ${hasValue ? getProgressTrackClass(value) : 'bg-slate-100 ring-slate-200'}`}
+        role="progressbar"
+        aria-label={`${label}: ${hasValue ? displayValue : 'sin dato'}`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={hasValue ? visualValue : undefined}
+      >
+        {hasValue ? <div className={`absolute inset-y-0 left-0 ${getProgressBarClass(value)}`} style={{ width: `${visualValue}%` }} /> : null}
+        <span className={`relative z-10 rounded-full bg-white/90 px-2.5 py-1 text-sm font-black shadow-sm ${hasValue ? getCumplimientoTextClass(value) : 'text-slate-400'}`}>
+          {displayValue}
+        </span>
+      </div>
+    </td>
   );
 }
 
@@ -495,8 +518,6 @@ export default function AgileTraining() {
   const [selectedInsignias, setSelectedInsignias] = useState<string[]>([]);
   const [selectedJefesDeNegocio, setSelectedJefesDeNegocio] = useState<string[]>([]);
   const [selectedGerencias, setSelectedGerencias] = useState<string[]>([]);
-  const [sortField, setSortField] = useState<AgileSortField>('avancePct');
-  const [sortOrder, setSortOrder] = useState<AgileSortOrder>('desc');
   const [summaryOrder, setSummaryOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const [estadoModal, setEstadoModal] = useState<ModalState>(null);
@@ -565,8 +586,8 @@ export default function AgileTraining() {
   }, [selectedCampanas, selectedCoordinadores, selectedEstados, selectedGerencias, selectedIndustrias, selectedInsignias, selectedJefesDeNegocio]);
 
   const filteredRows = useMemo(() => {
-    return rows.filter((row) => applyRowFilters(row)).sort((a, b) => compareRows(a, b, sortField, sortOrder));
-  }, [rows, applyRowFilters, sortField, sortOrder]);
+    return rows.filter((row) => applyRowFilters(row)).sort((a, b) => b.avancePct - a.avancePct);
+  }, [rows, applyRowFilters]);
 
   const availableCoordinadores = useMemo(() => {
     return Array.from(new Set(rows.filter((row) => applyRowFilters(row, ['coordinadores'])).map((row) => row.coordinador).filter(Boolean))).sort();
@@ -998,35 +1019,34 @@ export default function AgileTraining() {
 
                 <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                  <div className="flex flex-col gap-4 border-b border-slate-100 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <h2 className="text-xl font-bold text-slate-900">Vista por campaña</h2>
+                      <p className="mt-1 text-xs font-medium text-slate-400">Ordenadas por avance, de mayor a menor</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <select value={sortField} onChange={(event) => setSortField(event.target.value as AgileSortField)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 hover:cursor-pointer hover:border-slate-300">
-                        <option value="avancePct">Avance</option>
-                        <option value="cumplimientoPct">Cumplimiento</option>
-                        <option value="campana">Campaña</option>
-                        <option value="coordinador">Coordinador</option>
-                        <option value="pilotoPct">Piloto</option>
-                      </select>
-                      <button type="button" onClick={() => setSortOrder((current) => (current === 'asc' ? 'desc' : 'asc'))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:cursor-pointer hover:border-slate-300">
-                        {sortOrder === 'desc' ? <ArrowDownWideNarrow className="h-4 w-4" /> : <ArrowUpNarrowWide className="h-4 w-4" />}
-                        {sortOrder === 'desc' ? 'Mayor a menor' : 'Menor a mayor'}
-                      </button>
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-slate-500" aria-label="Leyenda del mapa de calor">
+                      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-rose-400" />Menos de 30%</span>
+                      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />30% a 79%</span>
+                      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />80% o más</span>
                     </div>
                   </div>
 
                   <div className="max-h-[520px] overflow-auto">
-                    <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
+                    <table className="min-w-[980px] divide-y divide-slate-100 text-left text-sm">
                       <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-[0_1px_0_0_rgba(226,232,240,1)]">
                         <tr>
-                          <th className="px-4 py-3">Campaña</th>
-                          <th className="px-4 py-3">Coordinador</th>
-                          <th className="px-4 py-3">Avance</th>
-                          <th className="px-4 py-3">Meta</th>
-                          <th className="px-4 py-3">Cumplimiento</th>
-                          <th className="px-4 py-3">Piloto</th>
+                          <th rowSpan={2} scope="col" className="px-4 py-3 align-middle">Campaña</th>
+                          <th rowSpan={2} scope="col" className="px-4 py-3 align-middle">Coordinador</th>
+                          <th colSpan={3} scope="colgroup" className="border-l border-slate-200 bg-emerald-50/70 px-3 py-2 text-center text-emerald-700">Fase de implementación</th>
+                          <th colSpan={3} scope="colgroup" className="border-l border-slate-200 bg-violet-50/70 px-3 py-2 text-center text-violet-700">Fase de lanzamiento</th>
+                        </tr>
+                        <tr>
+                          <th scope="col" className="border-l border-t border-slate-200 bg-emerald-50/70 px-3 py-2 text-center"><abbr title="Especialización de Formadores" className="no-underline">FSI1</abbr></th>
+                          <th scope="col" className="border-t border-slate-200 bg-emerald-50/70 px-3 py-2 text-center"><abbr title="Redefinición de Malla de Formación" className="no-underline">FSI2</abbr></th>
+                          <th scope="col" className="border-t border-slate-200 bg-emerald-50/70 px-3 py-2 text-center"><abbr title="Desarrollo Digital" className="no-underline">FSI3</abbr></th>
+                          <th scope="col" className="border-l border-t border-slate-200 bg-violet-50/70 px-3 py-2 text-center"><abbr title="PPT Lanzamiento" className="no-underline">FSL1</abbr></th>
+                          <th scope="col" className="border-t border-slate-200 bg-violet-50/70 px-3 py-2 text-center"><abbr title="Graduación OJT" className="no-underline">FSL2</abbr></th>
+                          <th scope="col" className="border-t border-slate-200 bg-violet-50/70 px-3 py-2 text-center"><abbr title="Resultados" className="no-underline">FSL3</abbr></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
@@ -1041,10 +1061,8 @@ export default function AgileTraining() {
                                 </div>
                               </td>
                               <td className="px-4 py-4 align-top text-slate-700">{row.coordinador || 'Sin coordinador'}</td>
-                              <td className={`px-4 py-4 align-top text-lg font-black ${getCumplimientoTextClass(row.avancePct)}`}>{formatPercent(row.avancePct)}</td>
-                              <td className="px-4 py-4 align-top font-semibold text-slate-700">{formatPercent(row.metaPct)}</td>
-                              <td className="px-4 py-4 align-top font-semibold text-slate-700">{formatPercent(row.cumplimientoPct)}</td>
-                              <td className="px-4 py-4 align-top font-semibold text-slate-700">{formatPercent(row.pilotoPct)}</td>
+                              <PhaseProgressBarCell label="Fase de implementación" rawValue={row.avance} value={row.avancePct} />
+                              <PhaseProgressBarCell label="Fase de lanzamiento" rawValue={row.piloto} value={row.pilotoPct} />
                             </tr>
                           );
                         })}
@@ -1089,9 +1107,17 @@ export default function AgileTraining() {
 
                         <div className="max-h-[450px] overflow-y-auto space-y-5">
 
-                          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Avance</p>
-                            <p className={`mt-2 text-4xl font-black ${getCumplimientoTextClass(selectedRow.avancePct)}`}>{formatPercent(selectedRow.avancePct)}</p>
+                          <div className="mt-6 flex flex-row flex-wrap gap-3">
+                            {[
+                              { label: 'Avance', value: selectedRow.avancePct },
+                              { label: 'Meta', value: selectedRow.metaPct },
+                              { label: 'Cumplimiento', value: selectedRow.cumplimientoPct },
+                            ].map((metric) => (
+                              <div key={metric.label} className="min-w-[140px] flex-1 rounded-2xl border border-slate-200 bg-white p-4">
+                                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{metric.label}</p>
+                                <p className={`mt-2 text-3xl font-black ${getCumplimientoTextClass(metric.value)}`}>{formatPercent(metric.value)}</p>
+                              </div>
+                            ))}
                           </div>
 
                           <div className="mt-5 grid gap-3 rounded-2xl border border-slate-200 bg-white  p-4 text-sm text-slate-600">
