@@ -34,7 +34,7 @@ export default function GlobalLoginModal({ onLogin, onClose }: Props) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
 
         {/* Header */}
-        <div className="bg-linear-to-br from-slate-800 to-indigo-900 p-6 relative">
+        <div className="bg-gradient-to-br from-[#005082] to-[#003a61] p-6 relative">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
@@ -58,7 +58,7 @@ export default function GlobalLoginModal({ onLogin, onClose }: Props) {
           <div>
             <label className="flex text-sm font-semibold text-slate-700 mb-1.5 items-center gap-1.5">
               {isNumeric && value.length > 0
-                ? <><IdCard className="w-4 h-4 text-indigo-500" /> Cédula detectada</>
+                ? <><IdCard className="w-4 h-4 text-[#F37021]" /> Cédula detectada</>
                 : <><Lock className="w-4 h-4 text-slate-400" /> Cédula o contraseña</>
               }
             </label>
@@ -68,7 +68,7 @@ export default function GlobalLoginModal({ onLogin, onClose }: Props) {
               onChange={e => { setValue(e.target.value); setError(null); }}
               placeholder="Ingresa tu cédula o contraseña"
               autoFocus
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-base focus:outline-none focus:ring-2 focus:ring-[#005082] focus:border-transparent transition-all"
             />
             <p className="text-xs text-slate-400 mt-1.5">
               Coordinadores y admins ingresan con su cédula. Administradores con contraseña.
@@ -85,7 +85,7 @@ export default function GlobalLoginModal({ onLogin, onClose }: Props) {
           <button
             type="submit"
             disabled={loading || !value.trim()}
-            className="w-full bg-linear-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20"
+            className="w-full bg-[#F37021] hover:bg-[#d95f10] disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-orange-500/20"
           >
             <LogIn className="w-4 h-4" />
             Ingresar

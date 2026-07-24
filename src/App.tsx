@@ -29,18 +29,20 @@ function AppContent() {
   const { canAccessBiometrico, canAccessUsabilidad } = useAuth();
 
   return (
-    <div>
+    <div className="h-screen flex flex-col overflow-hidden">
       <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/simulator" element={<RequireAuth><Simulator /></RequireAuth>} />
-        <Route path="/web-training" element={<RequireAuth><WebTraining /></RequireAuth>} />
-        <Route path="/usabilidad-web-training" element={<RequireAccess allow={canAccessUsabilidad}><UsabilidadWebTraining /></RequireAccess>} />
-        <Route path="/informe-biometrico" element={<RequireAccess allow={canAccessBiometrico}><InformeBiometrico /></RequireAccess>} />
-        <Route path="/salas" element={<Salas />} />
-        <Route path="/agile-training" element={<RequireAuth><AgileTraining /></RequireAuth>} />
-        <Route path="/academy" element={<RequireAuth><Academy /></RequireAuth>} />
-      </Routes>
+      <div className="flex-1 overflow-y-auto">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/simulator" element={<RequireAuth><Simulator /></RequireAuth>} />
+          <Route path="/web-training" element={<RequireAuth><WebTraining /></RequireAuth>} />
+          <Route path="/usabilidad-web-training" element={<RequireAccess allow={canAccessUsabilidad}><UsabilidadWebTraining /></RequireAccess>} />
+          <Route path="/informe-biometrico" element={<RequireAccess allow={canAccessBiometrico}><InformeBiometrico /></RequireAccess>} />
+          <Route path="/salas" element={<Salas />} />
+          <Route path="/agile-training" element={<RequireAuth><AgileTraining /></RequireAuth>} />
+          <Route path="/academy" element={<RequireAuth><Academy /></RequireAuth>} />
+        </Routes>
+      </div>
     </div>
   );
 }

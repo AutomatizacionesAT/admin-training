@@ -5,6 +5,7 @@ import {
   CheckCircle, Percent,
 } from 'lucide-react';
 import type { SalaRecord, AsignacionRecord, TicketRecord } from '../utils/types';
+import { parseAsignacionDate } from '../utils/asignacionUtils';
 
 interface Props {
   salas: SalaRecord[];
@@ -154,6 +155,30 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
   const [turno, setTurno] = useState<TurnoFilter>('ALL');
   const [estado, setEstado] = useState<EstadoFilter>('ALL');
   const [coordinador, setCoordinador] = useState<string>('ALL');
+  // Filtro por rango de meses (formato YYYY-MM)
+  const [mesDesde, setMesDesde] = useState<string>('');
+  const [mesHasta, setMesHasta] = useState<string>('');
+
+  const hayFiltroFecha = !!(mesDesde || mesHasta);
+
+  function clearFechas() {
+    setMesDesde('');
+    setMesHasta('');
+  }
+
+  // Meses con datos (para mostrar sugerencias o validar — no se usa en select, se usa info)
+  const mesesDisponibles = useMemo(() => {
+    const set = new Set<string>();
+    asignaciones.forEach(a => {
+      const d = parseAsignacionDate(a.fechaInicial);
+      if (!d) return;
+      set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    });
+    return [...set].sort();
+  }, [asignaciones]);
+
+  const mesMin = mesesDisponibles[0] ?? '';
+  const mesMax = mesesDisponibles[mesesDisponibles.length - 1] ?? '';
 
   // Salas únicas (sin duplicar AM/PM del catálogo)
   const salasUnicas = useMemo(
@@ -177,8 +202,24 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
     if (turno === 'PM' && isTurnoAM(a.horario)) return false;
     if (estado !== 'ALL' && a.estadoAsignacion !== estado) return false;
     if (coordinador !== 'ALL' && a.coordinador?.trim() !== coordinador) return false;
+
+    // Filtro por rango de meses: solapamiento entre [ini,fin] y [mesDesde,mesHasta]
+    if (mesDesde || mesHasta) {
+      const ini = parseAsignacionDate(a.fechaInicial);
+      const fin = parseAsignacionDate(a.fechaFin);
+      if (mesDesde) {
+        const [y, m] = mesDesde.split('-').map(Number);
+        const rangoStart = new Date(y, m - 1, 1);
+        if (fin && fin < rangoStart) return false;
+      }
+      if (mesHasta) {
+        const [y, m] = mesHasta.split('-').map(Number);
+        const rangoEnd = new Date(y, m, 0, 23, 59, 59);
+        if (ini && ini > rangoEnd) return false;
+      }
+    }
     return true;
-  }), [asignaciones, sede, turno, estado, coordinador]);
+  }), [asignaciones, sede, turno, estado, coordinador, mesDesde, mesHasta]);
 
   const aprobadas = useMemo(() => asigsFiltradas.filter(a => (a.estadoAsignacion || 'APROBADO') === 'APROBADO'), [asigsFiltradas]);
   const pendientes = useMemo(() => asigsFiltradas.filter(a => a.estadoAsignacion === 'PENDIENTE'), [asigsFiltradas]);
@@ -262,101 +303,128 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
   const maxTopSala = Math.max(...topSalas.map(([, v]) => v), 1);
 
   const totalCapacidad = salasUnicas.reduce((s, sala) => s + (parseInt(sala.capacidad) || 0), 0);
-  const ocupPct = totalCapacidad > 0 ? Math.round((totalPersonas / totalCapacidad) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col overflow-hidden">
 
       {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="bg-white border-b border-slate-200 shadow-sm shrink-0">
-        <div className="max-w-screen-2xl mx-auto px-6 py-4">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="max-w-screen-2xl mx-auto px-6 pt-4 pb-3 space-y-3">
 
-            {/* Title */}
-            <div className="flex items-center gap-3 mr-auto">
-              <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center shadow-sm">
-                <BarChart3 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-base font-extrabold text-slate-800">Data Analytics · Salas</h1>
-                <p className="text-xs text-slate-400">
-                  {asigsFiltradas.length} asignaciones filtradas · {salasUnicas.length} salas · {tickets.length} tickets
-                  {coordinador !== 'ALL' && (
-                    <> · Coordinador: <span className="font-semibold text-amber-600">{coordinador}</span></>
-                  )}
-                </p>
-              </div>
+          {/* ── Fila 1: título + close ── */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-violet-600 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+              <BarChart3 className="w-4 h-4 text-white" />
             </div>
+            <div className="mr-auto">
+              <h1 className="text-sm font-extrabold text-slate-800 leading-tight">Data Analytics · Salas</h1>
+              <p className="text-[11px] text-slate-400 leading-tight">
+                <span className="font-semibold text-violet-600">{asigsFiltradas.length}</span> asignaciones filtradas
+                · {salasUnicas.length} salas · {tickets.length} tickets
+                {coordinador !== 'ALL' && <> · <span className="font-semibold text-amber-600">{coordinador}</span></>}
+                {hayFiltroFecha && (
+                  <> · <span className="font-semibold text-violet-600">
+                    {mesDesde ? mesDesde : '…'} → {mesHasta ? mesHasta : '…'}
+                  </span></>
+                )}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-500 flex items-center justify-center transition-all shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-            {/* Filtro sede */}
-            <div className="flex items-center gap-0.5 bg-slate-100 rounded-xl p-1">
+          {/* ── Fila 2: todos los filtros ── */}
+          <div className="flex flex-wrap items-center gap-2">
+
+            {/* Sede */}
+            <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
               {(['ALL', 'TELARES', 'ROYAL', 'ELEMENTO'] as SedeFilter[]).map(s => (
-                <button
-                  key={s}
-                  onClick={() => setSede(s)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${sede === s
-                    ? 'bg-white shadow text-slate-800'
-                    : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                >
-                  {s === 'ALL' ? 'Todas las sedes' : s}
+                <button key={s} onClick={() => setSede(s)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${sede === s ? 'bg-white shadow text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}>
+                  {s === 'ALL' ? 'Todas sedes' : s}
                 </button>
               ))}
             </div>
 
-            {/* Filtro turno */}
-            <div className="flex items-center gap-0.5 bg-slate-100 rounded-xl p-1">
-              <button onClick={() => setTurno('ALL')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${turno === 'ALL' ? 'bg-white shadow text-slate-800' : 'text-slate-400'}`}>Todos</button>
-              <button onClick={() => setTurno('AM')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${turno === 'AM' ? 'bg-amber-400 text-amber-900 shadow' : 'text-slate-400'}`}><Sun className="w-3 h-3" />AM</button>
-              <button onClick={() => setTurno('PM')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${turno === 'PM' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}><Moon className="w-3 h-3" />PM</button>
+            <div className="w-px h-5 bg-slate-200 shrink-0" />
+
+            {/* Turno */}
+            <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+              <button onClick={() => setTurno('ALL')} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${turno === 'ALL' ? 'bg-white shadow text-slate-800' : 'text-slate-400'}`}>Todos</button>
+              <button onClick={() => setTurno('AM')} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${turno === 'AM' ? 'bg-amber-400 text-amber-900 shadow' : 'text-slate-400'}`}><Sun className="w-3 h-3" />AM</button>
+              <button onClick={() => setTurno('PM')} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${turno === 'PM' ? 'bg-indigo-500 text-white shadow' : 'text-slate-400'}`}><Moon className="w-3 h-3" />PM</button>
             </div>
 
-            {/* Filtro estado */}
-            <div className="flex items-center gap-0.5 bg-slate-100 rounded-xl p-1">
+            <div className="w-px h-5 bg-slate-200 shrink-0" />
+
+            {/* Estado */}
+            <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
               {(['ALL', 'APROBADO', 'PENDIENTE', 'RECHAZADO'] as EstadoFilter[]).map(e => {
                 const active = estado === e;
-                const activeClass =
-                  e === 'APROBADO' ? 'bg-emerald-500 text-white shadow' :
-                    e === 'PENDIENTE' ? 'bg-amber-400 text-amber-900 shadow' :
-                      e === 'RECHAZADO' ? 'bg-red-500 text-white shadow' :
-                        'bg-white shadow text-slate-800';
+                const cls = active
+                  ? e === 'APROBADO' ? 'bg-emerald-500 text-white shadow'
+                  : e === 'PENDIENTE' ? 'bg-amber-400 text-amber-900 shadow'
+                  : e === 'RECHAZADO' ? 'bg-red-500 text-white shadow'
+                  : 'bg-white shadow text-slate-800'
+                  : 'text-slate-400 hover:text-slate-600';
                 return (
-                  <button
-                    key={e}
-                    onClick={() => setEstado(e)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${active ? activeClass : 'text-slate-400 hover:text-slate-600'}`}
-                  >
+                  <button key={e} onClick={() => setEstado(e)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${cls}`}>
                     {e === 'ALL' ? 'Todos' : e}
                   </button>
                 );
               })}
             </div>
 
-            {/* Filtro coordinador */}
-            <div className="flex items-center gap-2 bg-slate-100 rounded-xl pl-3 pr-2 py-1.5 max-w-[240px]">
-              <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <select
-                value={coordinador}
-                onChange={e => setCoordinador(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-700 outline-none w-full truncate cursor-pointer"
-                title={coordinador === 'ALL' ? 'Todos los coordinadores' : coordinador}
-              >
+            <div className="w-px h-5 bg-slate-200 shrink-0" />
+
+            {/* Coordinador */}
+            <div className="flex items-center gap-1.5 bg-slate-100 rounded-lg pl-2.5 pr-1.5 py-1 max-w-[220px]">
+              <Award className="w-3 h-3 text-amber-500 shrink-0" />
+              <select value={coordinador} onChange={e => setCoordinador(e.target.value)}
+                className="bg-transparent text-[11px] font-bold text-slate-700 outline-none w-full truncate cursor-pointer">
                 <option value="ALL">Todos los coordinadores</option>
-                {coordinadoresDisponibles.map(([nombre, count]) => (
-                  <option key={nombre} value={nombre}>
-                    {nombre} ({count})
-                  </option>
-                ))}
+                {coordinadoresDisponibles.map(([n, c]) => <option key={n} value={n}>{n} ({c})</option>)}
               </select>
             </div>
 
-            {/* Close */}
-            <button
-              onClick={onClose}
-              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-500 flex items-center justify-center transition-all"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="w-px h-5 bg-slate-200 shrink-0" />
+
+            {/* ── Filtro de período (month pickers) ── */}
+            <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-all ${hayFiltroFecha ? 'bg-violet-50 border-violet-300' : 'bg-slate-100 border-transparent'}`}>
+              <span className="text-[11px] font-bold text-slate-400 shrink-0">Período</span>
+              <input
+                type="month"
+                value={mesDesde}
+                min={mesMin}
+                max={mesHasta || mesMax}
+                onChange={e => setMesDesde(e.target.value)}
+                className={`text-[11px] font-semibold outline-none cursor-pointer rounded bg-transparent w-[120px] ${hayFiltroFecha ? 'text-violet-700' : 'text-slate-600'}`}
+                title="Desde (mes)"
+              />
+              <span className={`text-[11px] font-bold shrink-0 ${hayFiltroFecha ? 'text-violet-400' : 'text-slate-300'}`}>→</span>
+              <input
+                type="month"
+                value={mesHasta}
+                min={mesDesde || mesMin}
+                max={mesMax}
+                onChange={e => setMesHasta(e.target.value)}
+                className={`text-[11px] font-semibold outline-none cursor-pointer rounded bg-transparent w-[120px] ${hayFiltroFecha ? 'text-violet-700' : 'text-slate-600'}`}
+                title="Hasta (mes)"
+              />
+              {hayFiltroFecha && (
+                <button onClick={clearFechas}
+                  className="w-5 h-5 rounded-md bg-violet-100 hover:bg-red-100 text-violet-400 hover:text-red-500 flex items-center justify-center transition-all shrink-0"
+                  title="Limpiar período">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
@@ -382,9 +450,9 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
               icon={<Building2 className="w-5 h-5 text-blue-400" />}
             />
             <KPI
-              label="Personas formación"
+              label="Personas ingresadas"
               value={totalPersonas}
-              sub={`${ocupPct}% de capacidad total`}
+              sub="total personas ingresadas"
               color="text-emerald-600"
               icon={<Users className="w-5 h-5 text-emerald-400" />}
             />

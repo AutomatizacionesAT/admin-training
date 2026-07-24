@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Building2, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
+import { Building2, RefreshCw, AlertCircle, Loader2, Download } from 'lucide-react';
 import type { SalaRecord, AsignacionRecord } from './utils/types';
 import { fetchSalasCatalogo, fetchSalasAsignaciones } from './utils/fetchData';
+import { exportToExcel } from './utils/exportExcel';
 import { useAuth } from '@/context/AuthContext';
 import PublicView from './components/PublicView';
 import CoordinadorView from './components/CoordinadorView';
@@ -23,6 +24,7 @@ export default function Salas() {
   const [asignaciones, setAsignaciones] = useState<AsignacionRecord[]>([]);
   const [loading, setLoading] = useState(true);      // solo carga inicial
   const [refreshing, setRefreshing] = useState(false); // refresh silencioso
+  const [isExporting, setIsExporting] = useState(false); // estado exportación Excel
   const [error, setError] = useState<string | null>(null);
 
   // ─── Roles ─────────────────────────────────────────────────────────────────
@@ -62,6 +64,17 @@ export default function Salas() {
     }
   }, []);
 
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    try {
+      await exportToExcel(salas, asignaciones);
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // onRefresh silencioso: no desmonta las vistas
   const onRefresh = useCallback(() => loadData(true), [loadData]);
 
@@ -94,9 +107,19 @@ export default function Salas() {
           </div>
 
           <div className="flex items-center gap-2">
+            {isSuperAdmin && (
+              <button
+                onClick={handleExportExcel}
+                disabled={loading || refreshing || isExporting}
+                className="flex items-center gap-2 bg-[#F37021] hover:bg-[#d95f10] text-white text-sm font-medium px-4 py-2 rounded-xl transition-all disabled:opacity-50 shadow-md"
+              >
+                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Descargar Formato Seguridad
+              </button>
+            )}
             <button
               onClick={() => loadData(false)}
-              disabled={loading || refreshing}
+              disabled={loading || refreshing || isExporting}
               className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${(loading || refreshing) ? 'animate-spin' : ''}`} />
