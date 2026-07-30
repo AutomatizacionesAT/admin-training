@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void;
 }
 
-type SedeFilter = 'ALL' | 'TELARES' | 'ROYAL' | 'ELEMENTO';
+type SedeFilter = string;   // dinámico — derivado de las sedes en el catálogo
 type TurnoFilter = 'ALL' | 'AM' | 'PM';
 type EstadoFilter = 'ALL' | 'APROBADO' | 'PENDIENTE' | 'RECHAZADO';
 
@@ -180,11 +180,19 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
   const mesMin = mesesDisponibles[0] ?? '';
   const mesMax = mesesDisponibles[mesesDisponibles.length - 1] ?? '';
 
-  // Salas únicas (sin duplicar AM/PM del catálogo)
   const salasUnicas = useMemo(
     () => salas.filter((s, idx, arr) => arr.findIndex(x => x.sala === s.sala) === idx),
     [salas],
   );
+
+  // Sedes dinámicas en orden de primera aparición en el catálogo
+  const sedesDisponibles = useMemo(() => {
+    const seen: string[] = [];
+    salasUnicas.forEach(s => {
+      if (s.sede && !seen.includes(s.sede)) seen.push(s.sede);
+    });
+    return seen;
+  }, [salasUnicas]);
 
   const coordinadoresDisponibles = useMemo(() => {
     const map = new Map<string, number>();
@@ -197,7 +205,7 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
 
   // Asignaciones filtradas por los controles
   const asigsFiltradas = useMemo(() => asignaciones.filter(a => {
-    if (sede !== 'ALL' && !a.sede.toUpperCase().includes(sede)) return false;
+    if (sede !== 'ALL' && a.sede !== sede) return false;
     if (turno === 'AM' && !isTurnoAM(a.horario)) return false;
     if (turno === 'PM' && isTurnoAM(a.horario)) return false;
     if (estado !== 'ALL' && a.estadoAsignacion !== estado) return false;
@@ -342,7 +350,7 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
 
             {/* Sede */}
             <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
-              {(['ALL', 'TELARES', 'ROYAL', 'ELEMENTO'] as SedeFilter[]).map(s => (
+              {(['ALL', ...sedesDisponibles]).map(s => (
                 <button key={s} onClick={() => setSede(s)}
                   className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${sede === s ? 'bg-white shadow text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}>
                   {s === 'ALL' ? 'Todas sedes' : s}

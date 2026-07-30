@@ -62,7 +62,41 @@ Copia las imágenes, nómbralas como abajo, y ejecuta **`npm run salas:media`** 
 
 ---
 
-## Después de copiar las fotos
+## NEVADOS(PEREIRA) → `public/salas/pereira/`
+
+| Nombre en el catálogo | Archivos (1, 2, 3) |
+|----------------------|---------------------|
+| LABORATORIO 1 CLARO | `Nevados Sala Laboratorio 1 Claro.jpg`, `Nevados Sala Laboratorio 1 Claro 2.jpg`, `Nevados Sala Laboratorio 1 Claro 3.jpg` |
+| LABORATORIO 2 CLARO | `Nevados Sala Laboratorio 2 Claro.jpg`, `Nevados Sala Laboratorio 2 Claro 2.jpg`, `Nevados Sala Laboratorio 2 Claro 3.jpg` |
+| NEVADO DEL RUIZ | `Nevados Sala Nevado Del Ruiz.jpg`, `Nevados Sala Nevado Del Ruiz 2.jpg`, `Nevados Sala Nevado Del Ruiz 3.jpg` |
+| OTUN | `Nevados Sala Otun.jpg`, `Nevados Sala Otun 2.jpg`, `Nevados Sala Otun 3.jpg` |
+| SIMULATOR 1 | `Nevados Sala Simulator 1.jpg`, `Nevados Sala Simulator 1 2.jpg`, `Nevados Sala Simulator 1 3.jpg` |
+| SIMULATOR 2 | `Nevados Sala SimulatorDos.jpg`, `Nevados Sala SimulatorDos 2.jpg`, `Nevados Sala SimulatorDos 3.jpg` |
+| TERMALES | `Nevados Sala Termales.jpg`, `Nevados Sala Termales 2.jpg`, `Nevados Sala Termales 3.jpg` |
+| TEST ROOM CLARO | `Nevados Sala Test Room Claro.jpg`, `Nevados Sala Test Room Claro 2.jpg`, `Nevados Sala Test Room Claro 3.jpg` |
+
+> **Simulator 2:** usa `SimulatorDos` (sin espacio ni número) para evitar ambigüedad con el índice de galería.
+
+---
+
+## PARQUE OLAYA (PEREIRA) → `public/salas/olaya/`
+
+| Nombre en el catálogo | Archivos (1, 2, 3) |
+|----------------------|---------------------|
+| BELALCAZAR | `Olaya Sala Belalcazar.jpg`, `Olaya Sala Belalcazar 2.jpg`, `Olaya Sala Belalcazar 3.jpg` |
+| MARSELLA PEREIRA | `Olaya Sala Marsella Pereira.jpg`, `Olaya Sala Marsella Pereira 2.jpg`, `Olaya Sala Marsella Pereira 3.jpg` |
+| OTUN PEREIRA | `Olaya Sala Otun Pereira.jpg`, `Olaya Sala Otun Pereira 2.jpg`, `Olaya Sala Otun Pereira 3.jpg` |
+| QUIMBAYA | `Olaya Sala Quimbaya.jpg`, `Olaya Sala Quimbaya 2.jpg`, `Olaya Sala Quimbaya 3.jpg` |
+
+---
+
+## MEDELLÍN INDUSTRIALES → `public/salas/medellin/`
+
+| Nombre en el catálogo | Archivos (1, 2, 3) |
+|----------------------|---------------------|
+| FORMACION PISO 4 | `Medellin Sala Formacion Piso 4.jpg`, `Medellin Sala Formacion Piso 4 2.jpg`, `Medellin Sala Formacion Piso 4 3.jpg` |
+
+
 
 ```bash
 npm run salas:media

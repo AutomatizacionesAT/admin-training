@@ -31,8 +31,8 @@ function getSedeHex(sede: string) {
 }
 
 export default function SalaDetailModal({ sala, sede, allSalas, asignaciones, isNight, onClose }: Props) {
-  const fotos = getSalaPhotos(sala.sala);
-  const descripcion = getSalaDescripcion(sala.sala);
+  const fotos = getSalaPhotos(sala.sala, sede);
+  const descripcion = getSalaDescripcion(sala.sala, sede);
   const turnos = getSalaTurnos(sala.sala, allSalas);
   const [fotoIdx, setFotoIdx] = useState(0);
 

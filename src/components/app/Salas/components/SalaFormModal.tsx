@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
 import type { SalaRecord } from '../utils/types';
 
 interface Props {
   initial?: SalaRecord | null;
+  salas: SalaRecord[];
   onSave: (sala: Omit<SalaRecord, 'rowIndex'>) => Promise<void>;
   onClose: () => void;
 }
 
-const SEDES  = ['TELARES', 'ROYAL', 'ELEMENTO'];
 const TIPOS  = ['EXCLUSIVA', 'ROTATIVA'];
 const SI_NO  = ['SI', 'NO'];
 const HORARIOS = ['06:00 A 14:00', '14:00 A 22:00'];
@@ -30,9 +30,18 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls = 'border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white';
 
-export default function SalaFormModal({ initial, onSave, onClose }: Props) {
+export default function SalaFormModal({ initial, salas, onSave, onClose }: Props) {
   const [form, setForm] = useState<Omit<SalaRecord, 'rowIndex'>>(EMPTY);
   const [saving, setSaving] = useState(false);
+
+  // Sedes únicas en orden de primera aparición en el catálogo
+  const sedes = useMemo(() => {
+    const seen: string[] = [];
+    salas.forEach(s => {
+      if (s.sede && !seen.includes(s.sede)) seen.push(s.sede);
+    });
+    return seen;
+  }, [salas]);
 
   useEffect(() => {
     if (initial) {
@@ -74,7 +83,7 @@ export default function SalaFormModal({ initial, onSave, onClose }: Props) {
             <Field label="Sede">
               <select value={form.sede} onChange={e => set('sede', e.target.value)} className={inputCls} required>
                 <option value="">Selecciona...</option>
-                {SEDES.map(s => <option key={s}>{s}</option>)}
+                {sedes.map(s => <option key={s}>{s}</option>)}
               </select>
             </Field>
             <Field label="Tipo">

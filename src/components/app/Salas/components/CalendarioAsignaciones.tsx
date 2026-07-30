@@ -2,13 +2,14 @@ import { useState, useMemo } from 'react';
 import {
   ChevronLeft, ChevronRight, Sun, Moon, LayoutGrid, Calendar, MapPin,
 } from 'lucide-react';
-import type { AsignacionRecord } from '../utils/types';
+import type { SalaRecord, AsignacionRecord } from '../utils/types';
 
 type Turno = 'GENERAL' | 'MAÑANA' | 'TARDE';
 
 const HEADER_SEDES = new Set(['SEDE', 'SALA', 'TIPO']);
 
 interface Props {
+  salas: SalaRecord[];
   asignaciones: AsignacionRecord[];
   /** Día seleccionado controlado desde el padre */
   selectedDay: number | null;
@@ -44,7 +45,7 @@ const MONTH_NAMES = [
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function CalendarioAsignaciones({ asignaciones, selectedDay, selectedSede, onDaySelect, onSedeSelect }: Props) {
+export default function CalendarioAsignaciones({ salas, asignaciones, selectedDay, selectedSede, onDaySelect, onSedeSelect }: Props) {
   const today      = new Date();
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -63,15 +64,17 @@ export default function CalendarioAsignaciones({ asignaciones, selectedDay, sele
     onDaySelect(null, nm, ny);
   };
 
-  // ── Sedes activas (con asignaciones) ─────────────────────────────────────────
-  const sedesActivas = useMemo(() =>
-    [...new Set(
-      asignaciones
-        .map(a => a.sede.trim())
-        .filter(s => s && !HEADER_SEDES.has(s.toUpperCase()))
-    )].sort(),
-    [asignaciones]
-  );
+  // ── Sedes desde el catálogo (orden de primera aparición) ────────────────────
+  // Usando salas en lugar de asignaciones para mostrar todas las sedes
+  // aunque aún no tengan asignaciones aprobadas.
+  const sedesActivas = useMemo(() => {
+    const seen: string[] = [];
+    salas.forEach(s => {
+      if (s.sede && !HEADER_SEDES.has(s.sede.toUpperCase()) && !seen.includes(s.sede))
+        seen.push(s.sede);
+    });
+    return seen;
+  }, [salas]);
 
   // ── Filtrar por turno + sede ─────────────────────────────────────────────────
   const filtradas = useMemo(() =>

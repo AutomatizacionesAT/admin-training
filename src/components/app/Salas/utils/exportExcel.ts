@@ -131,28 +131,39 @@ export async function exportToExcel(salas: SalaRecord[], asignaciones: Asignacio
   // ─── Data Rows ──────────────────────────────────────────────────────────────
   let currentRow = 5;
 
-  // Group salas by sede
-  const salasBySede: Record<string, SalaRecord[]> = {};
+  // Agrupar salas por sede usando Map para preservar el orden de inserción del catálogo
+  const salasBySede = new Map<string, SalaRecord[]>();
   salas.forEach(s => {
-    if (!salasBySede[s.sede]) salasBySede[s.sede] = [];
-    salasBySede[s.sede].push(s);
+    const sede = s.sede || 'SIN SEDE';
+    if (!salasBySede.has(sede)) salasBySede.set(sede, []);
+    salasBySede.get(sede)!.push(s);
   });
 
-  Object.entries(salasBySede).forEach(([sede, sedesalas]) => {
+  salasBySede.forEach((sedesalas, sede) => {
     const startRowSede = currentRow;
-    // El catálogo original tiene 2 filas por sala (AM y PM). Deduplicamos por nombre de sala
-    // ya que el Excel generará ambas filas por cada sala única.
-    const salasSede = Array.from(new Map(sedesalas.map(s => [s.sala.trim().toUpperCase(), s])).values());
+    // Deduplicar por nombre de sala preservando el orden original del catálogo
+    // (primera aparición gana — que es la fila AM)
+    const seen = new Set<string>();
+    const salasSede: SalaRecord[] = [];
+    sedesalas.forEach(s => {
+      const key = s.sala.trim().toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        salasSede.push(s);
+      }
+    });
 
     salasSede.forEach(sala => {
-      // Create two rows per sala: AM and PM
+      // ── Altura fija para ambas filas (AM y PM) ──────────────────────────────
+      sheet.getRow(currentRow).height = 18;
+      sheet.getRow(currentRow + 1).height = 18;
 
       // SALA
       sheet.mergeCells(currentRow, 3, currentRow + 1, 3);
       const cSala = sheet.getCell(currentRow, 3);
       cSala.value = sala.sala.toUpperCase();
       cSala.font = { name: 'Arial', size: 8, bold: true };
-      cSala.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cSala.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
       cSala.border = getBorder();
 
       // TIPO
@@ -160,7 +171,7 @@ export async function exportToExcel(salas: SalaRecord[], asignaciones: Asignacio
       const cTipo = sheet.getCell(currentRow, 4);
       cTipo.value = sala.tipo.toUpperCase();
       cTipo.font = { name: 'Arial', size: 8 };
-      cTipo.alignment = { vertical: 'middle', horizontal: 'center' };
+      cTipo.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
       cTipo.border = getBorder();
 
       // CAPACIDAD
@@ -169,14 +180,14 @@ export async function exportToExcel(salas: SalaRecord[], asignaciones: Asignacio
       capAm.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.capacidadBg } };
       capAm.border = getBorder();
       capAm.font = { size: 9, bold: true };
-      capAm.alignment = { horizontal: 'center' };
+      capAm.alignment = { horizontal: 'center', vertical: 'middle' };
 
       const capPm = sheet.getCell(currentRow + 1, 5);
       capPm.value = sala.capacidad;
       capPm.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '8EAADB' } };
       capPm.border = getBorder();
       capPm.font = { size: 9, bold: true };
-      capPm.alignment = { horizontal: 'center' };
+      capPm.alignment = { horizontal: 'center', vertical: 'middle' };
 
       // EQUIPOS
       const eqAm = sheet.getCell(currentRow, 6);
@@ -184,14 +195,14 @@ export async function exportToExcel(salas: SalaRecord[], asignaciones: Asignacio
       eqAm.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.equiposBg } };
       eqAm.border = getBorder();
       eqAm.font = { size: 9, bold: true };
-      eqAm.alignment = { horizontal: 'center' };
+      eqAm.alignment = { horizontal: 'center', vertical: 'middle' };
 
       const eqPm = sheet.getCell(currentRow + 1, 6);
       eqPm.value = sala.equipos;
       eqPm.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '8EAADB' } };
       eqPm.border = getBorder();
       eqPm.font = { size: 9, bold: true };
-      eqPm.alignment = { horizontal: 'center' };
+      eqPm.alignment = { horizontal: 'center', vertical: 'middle' };
 
       // HORARIO
       const hAm = sheet.getCell(currentRow, 7);
@@ -199,25 +210,30 @@ export async function exportToExcel(salas: SalaRecord[], asignaciones: Asignacio
       hAm.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.horarioBg } };
       hAm.border = getBorder();
       hAm.font = { size: 8, bold: true };
-      hAm.alignment = { horizontal: 'center' };
+      hAm.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
 
       const hPm = sheet.getCell(currentRow + 1, 7);
       hPm.value = '14:00 A 22:00';
       hPm.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '8EAADB' } };
       hPm.border = getBorder();
       hPm.font = { size: 8, bold: true };
-      hPm.alignment = { horizontal: 'center' };
+      hPm.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
 
-      // Fill background for timeline to ensure grid lines
+      // Grid lines para timeline (todas las celdas sin wrap)
       days.forEach((_, i) => {
         const dAm = sheet.getCell(currentRow, i + 8);
         dAm.border = getBorder();
+        dAm.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
         const dPm = sheet.getCell(currentRow + 1, i + 8);
         dPm.border = getBorder();
+        dPm.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
       });
 
-      // ─── Asignaciones Mapping ────────────────────────────────────────────────
-      const asigsSala = asignaciones.filter(a => a.sala === sala.sala && (a.estadoAsignacion === 'APROBADA' || a.estadoAsignacion === 'APROBADO' || a.estadoAsignacion === 'CONFIRMADO'));
+      // ─── Asignaciones Mapping ──────────────────────────────────────────────
+      const asigsSala = asignaciones.filter(a =>
+        a.sala === sala.sala &&
+        (a.estadoAsignacion === 'APROBADA' || a.estadoAsignacion === 'APROBADO' || a.estadoAsignacion === 'CONFIRMADO')
+      );
 
       asigsSala.forEach(asig => {
         try {
@@ -230,45 +246,77 @@ export async function exportToExcel(salas: SalaRecord[], asignaciones: Asignacio
           let colEnd = -1;
 
           for (let i = 0; i < days.length; i++) {
-            try {
-              const dStr = format(days[i], 'yyyy-MM-dd');
-              const startStr = format(asigStart, 'yyyy-MM-dd');
-              const endStr = format(asigEnd, 'yyyy-MM-dd');
+            const dStr = format(days[i], 'yyyy-MM-dd');
+            const startStr = format(asigStart, 'yyyy-MM-dd');
+            const endStr = format(asigEnd, 'yyyy-MM-dd');
 
-              if (colStart === -1 && dStr >= startStr && dStr <= endStr) {
-                colStart = i + 8;
-              }
-              if (colStart !== -1 && dStr >= startStr && dStr <= endStr) {
-                colEnd = i + 8;
-              }
-            } catch (e) {
-              // Si falla el format por alguna razón, ignorar este día
-            }
+            if (colStart === -1 && dStr >= startStr && dStr <= endStr) colStart = i + 8;
+            if (colStart !== -1 && dStr >= startStr && dStr <= endStr) colEnd = i + 8;
           }
 
-          if (colStart !== -1 && colEnd !== -1) {
-            const isPM = (asig.horario || '').includes('14:00');
-            const targetRow = isPM ? currentRow + 1 : currentRow;
-            const fgColor = isPM ? COLORS.assignmentBlue : COLORS.assignmentOrange;
+          if (colStart === -1 || colEnd === -1) return;
 
-            // Prevent merge errors if overlapping
-            if (!sheet.getCell(targetRow, colStart).isMerged) {
-              if (colStart !== colEnd) {
-                try {
-                  sheet.mergeCells(targetRow, colStart, targetRow, colEnd);
-                } catch (e) {
-                  // Already merged, ignore
+          const h = (asig.horario || '').trim();
+          const isPM = h.startsWith('14') || h.startsWith('15') || h.startsWith('16') || /^1[456]:/.test(h);
+          const targetRow = isPM ? currentRow + 1 : currentRow;
+          const fgColor = isPM ? COLORS.assignmentBlue : COLORS.assignmentOrange;
+
+          // Texto compacto: campaña | coordinador | horario
+          const label = `${asig.campana || ''} | ${asig.coordinador || ''} | ${asig.horario || ''}`;
+
+          // Merge siempre (incluso celda única) para que nunca haga wrap
+          try {
+            if (colStart === colEnd) {
+              // celda individual — solo pintamos sin merge
+              const c = sheet.getCell(targetRow, colStart);
+              if (!c.isMerged) {
+                c.value = label;
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fgColor } };
+                c.font = { name: 'Arial', size: 7, bold: true, color: { argb: 'FFFFFF' } };
+                c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false, shrinkToFit: true };
+              }
+            } else {
+              // Rango: intentar merge; si hay conflicto de celdas ya mergeadas dividimos el bloque
+              let rangeStart = colStart;
+              for (let col = colStart; col <= colEnd; col++) {
+                const c = sheet.getCell(targetRow, col);
+                const isLast = col === colEnd;
+                if (c.isMerged || isLast) {
+                  const mergeEnd = c.isMerged ? col - 1 : col;
+                  if (rangeStart <= mergeEnd) {
+                    try {
+                      if (rangeStart < mergeEnd) {
+                        sheet.mergeCells(targetRow, rangeStart, targetRow, mergeEnd);
+                      }
+                      const blockCell = sheet.getCell(targetRow, rangeStart);
+                      blockCell.value = label;
+                      blockCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fgColor } };
+                      blockCell.font = { name: 'Arial', size: 7, bold: true, color: { argb: 'FFFFFF' } };
+                      blockCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false, shrinkToFit: true };
+                    } catch { /* ignorar conflicto */ }
+                  }
+                  rangeStart = col + 1;
                 }
               }
-              const blockCell = sheet.getCell(targetRow, colStart);
-              blockCell.value = `${asig.campana} | ${asig.coordinador} | ${asig.horario}`;
-              blockCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fgColor } };
-              blockCell.font = { name: 'Arial', size: 7, bold: true, color: { argb: 'FFFFFF' } };
-              blockCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            }
+          } catch (e) {
+            // fallback: pintar celda a celda sin merge
+            for (let col = colStart; col <= colEnd; col++) {
+              try {
+                const c = sheet.getCell(targetRow, col);
+                if (!c.isMerged) {
+                  c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fgColor } };
+                  if (col === colStart) {
+                    c.value = label;
+                    c.font = { name: 'Arial', size: 7, bold: true, color: { argb: 'FFFFFF' } };
+                    c.alignment = { vertical: 'middle', horizontal: 'left', wrapText: false, shrinkToFit: true };
+                  }
+                }
+              } catch { /* ignorar */ }
             }
           }
         } catch (e) {
-          console.error("Error exporting asignacion:", e, asig);
+          console.error('Error exporting asignacion:', e, asig);
         }
       });
 

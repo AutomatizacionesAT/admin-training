@@ -23,37 +23,53 @@ function normalizeKey(text) {
 }
 
 /**
- * Separa clave de sala vs. índice de galería (foto 2, 3…).
- * "Sala Paris 2"           → PARIS, order 2
- * "Sala Training Room 2"   → TRAINING ROOM 2, order 1  (el 2 es parte del nombre)
- * "Sala Training Room 1 2" → TRAINING ROOM 1, order 2
+ * Separa sede + clave de sala + índice de galería.
+ * Formato esperado: "[Sede] Sala [Nombre] [Orden?]"
+ * Ejemplos:
+ *   "Telares Sala Marsella.jpg"        → sede=TELARES, key=MARSELLA, order=1
+ *   "Telares Sala Marsella 2.jpg"      → sede=TELARES, key=MARSELLA, order=2
+ *   "Royal Sala 201.jpg"               → sede=ROYAL,   key=201,      order=1
+ *   "Elemento Sala Training Room 1.jpg"→ sede=ELEMENTO, key=TRAINING ROOM 1, order=1
+ *   "Elemento Sala Training Room 1 2.jpg"→ sede=ELEMENTO, key=TRAINING ROOM 1, order=2
  */
 function parseFilename(filename) {
   const base = path.basename(filename, path.extname(filename));
-  const name = base.replace(/^sala\s+/i, '').trim();
-  const numbers = name.match(/\d+/g) || [];
 
-  const gallery = name.match(/^(.+?)\s+([2-9]\d*)$/);
-  if (gallery && numbers.length >= 2) {
-    return {
-      key: normalizeKey(gallery[1]),
-      order: Number(gallery[2]),
-    };
+  // Extraer sede (primera palabra) y el resto tras "Sala "
+  const m = base.match(/^(\S+)\s+Sala\s+(.+)$/i);
+  if (!m) {
+    // Fallback: sin sede — usar solo nombre
+    const name = base.replace(/^sala\s+/i, '').trim();
+    const gallery = name.match(/^(.+?)\s+([2-9]\d*)$/);
+    if (gallery) return { key: normalizeKey(gallery[1]), order: Number(gallery[2]) };
+    return { key: normalizeKey(name), order: 1 };
   }
 
-  if (gallery && numbers.length === 1) {
-    const candidate = gallery[1].trim();
-    const order = Number(gallery[2]);
-    const lower = name.toLowerCase();
-    // El número final es identificador de sala, no galería
-    if (/training room\s+\d/i.test(lower) || /laboratorio\s+\d/i.test(lower)) {
-      return { key: normalizeKey(name), order: 1 };
+  const sede = normalizeKey(m[1]);   // "TELARES", "ROYAL", "ELEMENTO"
+  const rest = m[2].trim();          // "Marsella 2", "Training Room 1 2", "201"
+
+  const numbers = rest.match(/\d+/g) || [];
+
+  // Detectar si el último número es índice de galería (2,3,4…) o parte del nombre
+  const galleryM = rest.match(/^(.+?)\s+([2-9]\d*)$/);
+  if (galleryM && numbers.length >= 2) {
+    // "Training Room 1 2" → nombre=Training Room 1, order=2
+    return { key: `${sede} ${normalizeKey(galleryM[1])}`, order: Number(galleryM[2]) };
+  }
+  if (galleryM && numbers.length === 1) {
+    const candidate = galleryM[1].trim();
+    const lower = rest.toLowerCase();
+    // Si el nombre contiene "training room N", "laboratorio N", "simulator N", etc., el número es parte del nombre.
+    // Para "Simulator N" y "Test Room N": usamos la presencia de >=2 números totales (foto 2,3)
+    // o bien la convención "Simulator 2 1.jpg" (N + orden=1 explícito) para la primera foto.
+    const hasMultipleNumbers = numbers.length >= 2;
+    if (/training room\s+\d/i.test(lower) || /laboratorio\s+\d/i.test(lower) || /piso\s+\d/i.test(lower) || /ala\s+[ab]/i.test(lower) || (hasMultipleNumbers && (/simulator\s+\d/i.test(lower) || /test room\s+\d/i.test(lower)))) {
+      return { key: `${sede} ${normalizeKey(rest)}`, order: 1 };
     }
-    // "Paris 2", "Colombia 2" → foto 2 de la galería
-    return { key: normalizeKey(candidate), order };
+    return { key: `${sede} ${normalizeKey(candidate)}`, order: Number(galleryM[2]) };
   }
 
-  return { key: normalizeKey(name), order: 1 };
+  return { key: `${sede} ${normalizeKey(rest)}`, order: 1 };
 }
 
 function walkImages(dir, acc = []) {

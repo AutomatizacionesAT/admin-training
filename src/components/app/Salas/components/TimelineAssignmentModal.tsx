@@ -17,7 +17,7 @@ function getTurnoLabel(horario: string): 'AM' | 'PM' {
 }
 
 export default function TimelineAssignmentModal({ asignacion, sala, onClose, isNight }: Props) {
-  const photos = getSalaPhotos(sala.sala);
+  const photos = getSalaPhotos(sala.sala, sala.sede);
   const [photoIdx, setPhotoIdx] = useState(0);
   const start = parseAsignacionDate(asignacion.fechaInicial);
   const end = parseAsignacionDate(asignacion.fechaFin);

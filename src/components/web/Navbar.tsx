@@ -128,7 +128,7 @@ export default function Navbar() {
               >
                 <UserCircle className="h-4 w-4 shrink-0 text-[#F37021]" />
                 <span className="hidden sm:inline font-medium max-w-[120px] truncate">
-                  {isAdmin ? "Admin Mode" : salasUser?.nombre.split(" ")[0]}
+                  {salasUser && salasUser.documento !== 'admin' ? salasUser.nombre.split(" ")[0] : "Admin Mode"}
                 </span>
                 <LogOut className="h-3.5 w-3.5 shrink-0 opacity-80" />
               </Button>

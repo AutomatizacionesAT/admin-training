@@ -224,7 +224,7 @@ interface SalaCardProps {
 function SalaCard({ sala, sede, isNight, allSalas, onSelect }: SalaCardProps) {
   const color = getSedeColor(sede, isNight);
   const cardBg = isNight ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100';
-  const fotos = getSalaPhotos(sala.sala);
+  const fotos = getSalaPhotos(sala.sala, sede);
   const preview = fotos[0];
   const turnos = getSalaTurnos(sala.sala, allSalas);
 
@@ -381,12 +381,19 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
   });
   const timelineRooms = useMemo(() => {
     const unique = salasFiltradas.filter((s, idx, arr) => arr.findIndex(x => x.sala === s.sala) === idx);
-    return filterBySearch(unique, timelineSearch).sort(
-      (a, b) => a.sede.localeCompare(b.sede) || a.sala.localeCompare(b.sala),
-    );
+    // Preservar el orden del catálogo (orden del sheet), solo filtrar por búsqueda
+    return filterBySearch(unique, timelineSearch);
   }, [salasFiltradas, timelineSearch]);
   const groupedTimeline = useMemo(() => groupBySede(timelineRooms), [timelineRooms]);
-  const timelineSedes = useMemo(() => Object.keys(groupedTimeline).filter(s => s !== 'SIN SEDE').sort((a, b) => a.localeCompare(b)), [groupedTimeline]);
+  // Orden de sedes según primera aparición en el catálogo (no alfabético)
+  const timelineSedes = useMemo(() => {
+    const seen: string[] = [];
+    timelineRooms.forEach(r => {
+      const s = r.sede || 'SIN SEDE';
+      if (s !== 'SIN SEDE' && !seen.includes(s)) seen.push(s);
+    });
+    return seen;
+  }, [timelineRooms]);
   const approvedAsigs = useMemo(() => asigFiltradas.filter(a => (a.estadoAsignacion || 'APROBADO') === 'APROBADO'), [asigFiltradas]);
   const monthStart = useMemo(() => new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), 1), [timelineMonth]);
   const monthEnd = useMemo(() => new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + 1, 0), [timelineMonth]);
@@ -578,15 +585,33 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
   const totalAsig = asigFiltradas.length;
   const coordinadores = new Set(asigFiltradas.map(a => a.coordinador).filter(Boolean)).size;
   const sedesActivas = Object.keys(groupedGlobal).filter(s => s !== 'SIN SEDE').length;
-  const sedeEntries = [...Object.entries(groupedGlobal)].sort((a, b) => b[1].length - a[1].length);
+  // Orden de sedes según primera aparición en el array `salas` (orden del catálogo/sheet)
+  const sedeOrderFromCatalog = useMemo(() => {
+    const seen: string[] = [];
+    salasUnicas.forEach(s => {
+      const sede = s.sede || 'SIN SEDE';
+      if (sede !== 'SIN SEDE' && !seen.includes(sede)) seen.push(sede);
+    });
+    return seen;
+  }, [salasUnicas]);
+
+  const sortByCatalogOrder = (list: string[]) =>
+    [...list].sort((a, b) => {
+      const ia = sedeOrderFromCatalog.indexOf(a);
+      const ib = sedeOrderFromCatalog.indexOf(b);
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+
+  const sedeEntries = sortByCatalogOrder(
+    Object.keys(groupedGlobal).filter(s => s !== 'SIN SEDE')
+  ).map(s => [s, groupedGlobal[s]] as [string, SalaRecord[]]);
   const sedesEnTurno = Object.keys(grouped).filter(s => s !== 'SIN SEDE');
-  const sedesEnTurnoSorted = [...sedesEnTurno].sort(
-    (a, b) => (grouped[b]?.length ?? 0) - (grouped[a]?.length ?? 0),
-  );
+  const sedesEnTurnoSorted = sortByCatalogOrder(sedesEnTurno);
   const catalogoSedes = Object.keys(groupedCatalogo).filter(s => s !== 'SIN SEDE');
-  const catalogoSedesSorted = [...catalogoSedes].sort(
-    (a, b) => (groupedCatalogo[b]?.length ?? 0) - (groupedCatalogo[a]?.length ?? 0),
-  );
+  const catalogoSedesSorted = sortByCatalogOrder(catalogoSedes);
 
   const countSalasUnicas = (list: SalaRecord[]) =>
     list.filter((s, idx, arr) => arr.findIndex(x => x.sala === s.sala) === idx).length;

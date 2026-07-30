@@ -530,6 +530,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
           {/* Calendario lateral */}
           <div className="w-96 shrink-0">
             <CalendarioAsignaciones
+              salas={salas}
               asignaciones={aprobadas}
               selectedDay={calFilter?.day ?? null}
               selectedSede={calSedeFilter}
@@ -770,6 +771,7 @@ export default function SuperAdminView({ user, salas, asignaciones, onRefresh, o
       {showSalaForm && (
         <SalaFormModal
           initial={editingSala}
+          salas={salas}
           onSave={handleSaveSala}
           onClose={() => { setShowSalaForm(false); setEditingSala(null); }}
         />

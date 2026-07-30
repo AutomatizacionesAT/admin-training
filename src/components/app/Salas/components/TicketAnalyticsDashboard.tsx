@@ -11,7 +11,7 @@ interface Props {
   onClose: () => void;
 }
 
-type SedeFilter = 'ALL' | 'TELARES' | 'ROYAL' | 'ELEMENTO';
+type SedeFilter = string;   // dinámico — derivado de las asignaciones recibidas
 type TicketEstadoFilter = 'ALL' | 'ABIERTO' | 'RESPONDIDO' | 'CERRADO';
 type TicketEstado = 'ABIERTO' | 'RESPONDIDO' | 'CERRADO';
 
@@ -215,6 +215,15 @@ export default function TicketAnalyticsDashboard({ tickets, onClose }: Props) {
     });
   }, [tickets]);
 
+  // Sedes únicas en orden de primera aparición en los tickets
+  const sedesDisponibles = useMemo(() => {
+    const seen: string[] = [];
+    ticketsEnriquecidos.forEach(t => {
+      if (t.sede && t.sede !== 'Sin sede' && !seen.includes(t.sede)) seen.push(t.sede);
+    });
+    return seen;
+  }, [ticketsEnriquecidos]);
+
   const campanasDisponibles = useMemo(() => {
     const map = new Map<string, number>();
     ticketsEnriquecidos.forEach(t => {
@@ -234,7 +243,7 @@ export default function TicketAnalyticsDashboard({ tickets, onClose }: Props) {
   }, [ticketsEnriquecidos]);
 
   const ticketsFiltrados = useMemo(() => ticketsEnriquecidos.filter(t => {
-    if (sede !== 'ALL' && !t.sede.toUpperCase().includes(sede)) return false;
+    if (sede !== 'ALL' && t.sede !== sede) return false;
     if (campana !== 'ALL' && t.campana !== campana) return false;
     if (coordinador !== 'ALL' && t.coordinador !== coordinador) return false;
     if (ticketEstado !== 'ALL' && t.estado !== ticketEstado) return false;
@@ -359,7 +368,7 @@ export default function TicketAnalyticsDashboard({ tickets, onClose }: Props) {
 
             {/* Filtro sede */}
             <div className="flex items-center gap-0.5 bg-slate-100 rounded-xl p-1">
-              {(['ALL', 'TELARES', 'ROYAL', 'ELEMENTO'] as SedeFilter[]).map(s => (
+              {(['ALL', ...sedesDisponibles]).map(s => (
                 <button
                   key={s}
                   onClick={() => setSede(s)}

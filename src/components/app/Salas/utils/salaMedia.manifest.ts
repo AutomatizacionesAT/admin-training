@@ -3,184 +3,279 @@
 // Guía de nombres: public/salas/README.md
 
 export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
-  "201": {
+  "ELEMENTO KAIZEN": {
     fotos: [
-      "/salas/royal/Sala 201.jpg",
-      "/salas/royal/Sala 201 2.jpg",
-      "/salas/royal/Sala 201 3.jpg",
+      "/salas/elemento/Elemento Sala Kaizen.jpg",
+      "/salas/elemento/Elemento Sala Kaizen 2.jpg",
+      "/salas/elemento/Elemento Sala Kaizen 3.jpg",
     ],
   },
-  "501": {
+  "ELEMENTO PISO 4 ALA A": {
     fotos: [
-      "/salas/royal/Sala 501.jpg",
-      "/salas/royal/Sala 501 2.jpg",
-      "/salas/royal/Sala 501 3.jpg",
+      "/salas/elemento/Elemento Sala Piso 4 Ala A.jpg",
     ],
   },
-  "502": {
+  "ELEMENTO PISO 4 ALA B": {
     fotos: [
-      "/salas/royal/Sala 502.jpg",
-      "/salas/royal/Sala 502 2.jpg",
-      "/salas/royal/Sala 502 3.jpg",
+      "/salas/elemento/Elemento Sala Piso 4 Ala B.jpg",
+      "/salas/elemento/Elemento Sala Piso 4 Ala B 2.jpg",
+      "/salas/elemento/Elemento Sala Piso 4 Ala B 3.jpg",
     ],
   },
-  "ARLES": {
+  "ELEMENTO PISO 6 ALA B": {
     fotos: [
-      "/salas/telares/Sala Arles.jpg",
-      "/salas/telares/Sala Arles 2.jpg",
-      "/salas/telares/Sala Arles 3.jpg",
+      "/salas/elemento/Elemento Sala Piso 6 Ala B.jpg",
+      "/salas/elemento/Elemento Sala Piso 6 Ala B 2.jpg",
+      "/salas/elemento/Elemento Sala Piso 6 Ala B 3.jpg",
     ],
   },
-  "CAFE": {
+  "ELEMENTO TRAINING ROOM 1": {
     fotos: [
-      "/salas/telares/Sala Cafe.jpg",
-      "/salas/telares/Sala Cafe 2.jpg",
-      "/salas/telares/Sala Cafe 3.jpg",
+      "/salas/elemento/Elemento Sala Training Room 1.jpg",
+      "/salas/elemento/Elemento Sala Training Room 1 2.jpg",
     ],
   },
-  "COLOMBIA": {
+  "ELEMENTO TRAINING ROOM 2": {
     fotos: [
-      "/salas/royal/Sala Colombia.jpg",
-      "/salas/royal/Sala Colombia 2.jpg",
+      "/salas/elemento/Elemento Sala Training Room 2.jpg",
+      "/salas/elemento/Elemento Sala Training Room 2 2.jpg",
     ],
   },
-  "DIJON": {
+  "MEDELLIN FORMACION PISO 4": {
     fotos: [
-      "/salas/telares/Sala Dijon.jpg",
-      "/salas/telares/Sala Dijon 2.jpg",
-      "/salas/telares/Sala Dijon 3.jpg",
+      "/salas/medellin/Medellin Sala Formacion Piso 4.jpg",
+      "/salas/medellin/Medellin Sala Formacion Piso 4 2.jpg",
+      "/salas/medellin/Medellin Sala Formacion Piso 4 3.jpg",
     ],
   },
-  "KAIZEN": {
+  "NEVADOS LABORATORIO 1 CLARO": {
     fotos: [
-      "/salas/elemento/Sala Kaizen.jpg",
-      "/salas/elemento/Sala Kaizen 2.jpg",
-      "/salas/elemento/Sala Kaizen 3.jpg",
+      "/salas/pereira/Nevados Sala Laboratorio 1 Claro.jpg",
+      "/salas/pereira/Nevados Sala Laboratorio 1 Claro 2.jpg",
+      "/salas/pereira/Nevados Sala Laboratorio 1 Claro 3.jpg",
     ],
   },
-  "LABORATORIO 1": {
+  "NEVADOS LABORATORIO 2 CLARO": {
     fotos: [
-      "/salas/telares/Sala Laboratorio 1.jpg",
-      "/salas/telares/Sala Laboratorio 1 2.jpg",
-      "/salas/telares/Sala Laboratorio 1 3.jpg",
+      "/salas/pereira/Nevados Sala Laboratorio 2 Claro.jpg",
+      "/salas/pereira/Nevados Sala Laboratorio 2 Claro 2.jpg",
+      "/salas/pereira/Nevados Sala Laboratorio 2 Claro 3.jpg",
     ],
   },
-  "LABORATORIO 2": {
+  "NEVADOS NEVADO DEL RUIZ": {
     fotos: [
-      "/salas/telares/Sala Laboratorio 2.jpg",
-      "/salas/telares/Sala Laboratorio 2 2.jpg",
-      "/salas/telares/Sala Laboratorio 2 3.jpg",
+      "/salas/pereira/Nevados Sala Nevado Del Ruiz.jpg",
+      "/salas/pereira/Nevados Sala Nevado Del Ruiz 2.jpg",
+      "/salas/pereira/Nevados Sala Nevado Del Ruiz 3.jpg",
     ],
   },
-  "LOURDES": {
+  "NEVADOS OTUN": {
     fotos: [
-      "/salas/telares/Sala Lourdes.jpg",
-      "/salas/telares/Sala Lourdes 2.jpg",
-      "/salas/telares/Sala Lourdes 3.jpg",
+      "/salas/pereira/Nevados Sala Otun.jpg",
+      "/salas/pereira/Nevados Sala Otun 2.jpg",
+      "/salas/pereira/Nevados Sala Otun 3.jpg",
     ],
   },
-  "MARSELLA": {
+  "NEVADOS SIMULATOR": {
     fotos: [
-      "/salas/telares/Sala Marsella.jpg",
-      "/salas/telares/Sala Marsella 2.jpg",
-      "/salas/telares/Sala Marsella 3.jpg",
+      "/salas/pereira/Nevados Sala Simulator 2.jpg",
     ],
   },
-  "MILAN": {
+  "NEVADOS SIMULATOR 1": {
     fotos: [
-      "/salas/telares/Sala Milan.jpg",
-      "/salas/telares/Sala Milan 2.jpg",
-      "/salas/telares/Sala Milan 3.jpg",
+      "/salas/pereira/Nevados Sala Simulator 1.jpg",
+      "/salas/pereira/Nevados Sala Simulator 1 2.jpg",
+      "/salas/pereira/Nevados Sala Simulator 1 3.jpg",
     ],
   },
-  "MONTPELLIER": {
+  "NEVADOS SIMULATOR 2": {
     fotos: [
-      "/salas/telares/Sala Montpellier.jpg",
-      "/salas/telares/Sala Montpellier 2.jpg",
-      "/salas/telares/Sala Montpellier 3.jpg",
+      "/salas/pereira/Nevados Sala Simulator 2 2.jpg",
+      "/salas/pereira/Nevados Sala Simulator 2 3.jpg",
     ],
   },
-  "NEVERS": {
+  "NEVADOS TERMALES": {
     fotos: [
-      "/salas/telares/Sala Nevers.jpg",
-      "/salas/telares/Sala Nevers 2.jpg",
-      "/salas/telares/Sala Nevers 3.jpg",
+      "/salas/pereira/Nevados Sala Termales.jpg",
+      "/salas/pereira/Nevados Sala Termales 2.jpg",
+      "/salas/pereira/Nevados Sala Termales 3.jpg",
     ],
   },
-  "ORANGE": {
+  "NEVADOS TEST ROOM CLARO": {
     fotos: [
-      "/salas/telares/Sala Orange.jpg",
-      "/salas/telares/Sala Orange 2.jpg",
-      "/salas/telares/Sala Orange 3.jpg",
+      "/salas/pereira/Nevados Sala Test Room Claro.jpg",
+      "/salas/pereira/Nevados Sala Test Room Claro 2.jpg",
+      "/salas/pereira/Nevados Sala Test Room Claro 3.jpg",
     ],
   },
-  "PARIS": {
+  "OLAYA BELALCAZAR": {
     fotos: [
-      "/salas/telares/Sala Paris.jpg",
-      "/salas/telares/Sala Paris 2.jpg",
-      "/salas/telares/Sala Paris 3.jpg",
+      "/salas/olaya/Olaya Sala Belalcazar.jpg",
+      "/salas/olaya/Olaya Sala Belalcazar 2.jpg",
+      "/salas/olaya/Olaya Sala Belalcazar 3.jpg",
     ],
   },
-  "PISO 3 01": {
+  "OLAYA MARSELLA PEREIRA": {
     fotos: [
-      "/salas/royal/Sala Piso 3 01 2.jpeg",
-      "/salas/royal/Sala Piso 3 01 3.jpeg",
+      "/salas/olaya/Olaya Sala Marsella Pereira.jpg",
+      "/salas/olaya/Olaya Sala Marsella Pereira 2.jpg",
+      "/salas/olaya/Olaya Sala Marsella Pereira 3.jpg",
     ],
   },
-  "PISO 3 01.": {
+  "OLAYA OTUN PEREIRA": {
     fotos: [
-      "/salas/royal/Sala Piso 3 01..jpeg",
+      "/salas/olaya/Olaya Sala Otun Pereira.jpg",
+      "/salas/olaya/Olaya Sala Otun Pereira 2.jpg",
+      "/salas/olaya/Olaya Sala Otun Pereira 3.jpg",
     ],
   },
-  "PISO 4 ALA A": {
+  "OLAYA QUIMBAYA": {
     fotos: [
-      "/salas/elemento/Sala Piso 4 Ala A.jpg",
+      "/salas/olaya/Olaya Sala Quimbaya.jpg",
+      "/salas/olaya/Olaya Sala Quimbaya 2.jpg",
+      "/salas/olaya/Olaya Sala Quimbaya 3.jpg",
     ],
   },
-  "PISO 4 ALA B": {
+  "ROYAL 201": {
     fotos: [
-      "/salas/elemento/Sala Piso 4 Ala B.jpg",
-      "/salas/elemento/Sala Piso 4 Ala B 2.jpg",
-      "/salas/elemento/Sala Piso 4 Ala B 3.jpg",
+      "/salas/royal/Royal Sala 201.jpg",
+      "/salas/royal/Royal Sala 201 2.jpg",
+      "/salas/royal/Royal Sala 201 3.jpg",
     ],
   },
-  "PISO 6 ALA B": {
+  "ROYAL 501": {
     fotos: [
-      "/salas/elemento/Sala Piso 6 Ala B.jpg",
-      "/salas/elemento/Sala Piso 6 Ala B 2.jpg",
-      "/salas/elemento/Sala Piso 6 Ala B 3.jpg",
+      "/salas/royal/Royal Sala 501.jpg",
+      "/salas/royal/Royal Sala 501 2.jpg",
+      "/salas/royal/Royal Sala 501 3.jpg",
     ],
   },
-  "SIMULATOR": {
+  "ROYAL 502": {
     fotos: [
-      "/salas/telares/Sala Simulator.jpg",
-      "/salas/telares/Sala Simulator 2.jpg",
-      "/salas/telares/Sala Simulator 3.jpg",
+      "/salas/royal/Royal Sala 502.jpg",
+      "/salas/royal/Royal Sala 502 2.jpg",
+      "/salas/royal/Royal Sala 502 3.jpg",
     ],
   },
-  "TRAINING ROOM 1": {
+  "ROYAL COLOMBIA": {
     fotos: [
-      "/salas/elemento/Sala Training Room 1.jpg",
-      "/salas/elemento/Sala Training Room 1 2.jpg",
+      "/salas/royal/Royal Sala Colombia.jpg",
+      "/salas/royal/Royal Sala Colombia 2.jpg",
     ],
   },
-  "TRAINING ROOM 2": {
+  "ROYAL PISO 3 01": {
     fotos: [
-      "/salas/elemento/Sala Training Room 2.jpg",
-      "/salas/elemento/Sala Training Room 2 2.jpg",
+      "/salas/royal/Royal Sala Piso 3 01 2.jpeg",
+      "/salas/royal/Royal Sala Piso 3 01 3.jpeg",
     ],
   },
-  "VENEZUELA": {
+  "ROYAL PISO 3 01.": {
     fotos: [
-      "/salas/royal/Sala Venezuela.jpg",
-      "/salas/royal/Sala Venezuela 2.jpg",
-      "/salas/royal/Sala Venezuela 3.jpg",
+      "/salas/royal/Royal Sala Piso 3 01..jpeg",
     ],
   },
-  "VERSALLES": {
+  "ROYAL VENEZUELA": {
     fotos: [
-      "/salas/telares/Sala Versalles.jpg",
-      "/salas/telares/Sala Versalles 2.jpg",
+      "/salas/royal/Royal Sala Venezuela.jpg",
+      "/salas/royal/Royal Sala Venezuela 2.jpg",
+      "/salas/royal/Royal Sala Venezuela 3.jpg",
+    ],
+  },
+  "TELARES ARLES": {
+    fotos: [
+      "/salas/telares/Telares Sala Arles.jpg",
+      "/salas/telares/Telares Sala Arles 2.jpg",
+      "/salas/telares/Telares Sala Arles 3.jpg",
+    ],
+  },
+  "TELARES CAFE": {
+    fotos: [
+      "/salas/telares/Telares Sala Cafe.jpg",
+      "/salas/telares/Telares Sala Cafe 2.jpg",
+      "/salas/telares/Telares Sala Cafe 3.jpg",
+    ],
+  },
+  "TELARES DIJON": {
+    fotos: [
+      "/salas/telares/Telares Sala Dijon.jpg",
+      "/salas/telares/Telares Sala Dijon 2.jpg",
+      "/salas/telares/Telares Sala Dijon 3.jpg",
+    ],
+  },
+  "TELARES LABORATORIO 1": {
+    fotos: [
+      "/salas/telares/Telares Sala Laboratorio 1.jpg",
+      "/salas/telares/Telares Sala Laboratorio 1 2.jpg",
+      "/salas/telares/Telares Sala Laboratorio 1 3.jpg",
+    ],
+  },
+  "TELARES LABORATORIO 2": {
+    fotos: [
+      "/salas/telares/Telares Sala Laboratorio 2.jpg",
+      "/salas/telares/Telares Sala Laboratorio 2 2.jpg",
+      "/salas/telares/Telares Sala Laboratorio 2 3.jpg",
+    ],
+  },
+  "TELARES LOURDES": {
+    fotos: [
+      "/salas/telares/Telares Sala Lourdes.jpg",
+      "/salas/telares/Telares Sala Lourdes 2.jpg",
+      "/salas/telares/Telares Sala Lourdes 3.jpg",
+    ],
+  },
+  "TELARES MARSELLA": {
+    fotos: [
+      "/salas/telares/Telares Sala Marsella.jpg",
+      "/salas/telares/Telares Sala Marsella 2.jpg",
+      "/salas/telares/Telares Sala Marsella 3.jpg",
+    ],
+  },
+  "TELARES MILAN": {
+    fotos: [
+      "/salas/telares/Telares Sala Milan.jpg",
+      "/salas/telares/Telares Sala Milan 2.jpg",
+      "/salas/telares/Telares Sala Milan 3.jpg",
+    ],
+  },
+  "TELARES MONTPELLIER": {
+    fotos: [
+      "/salas/telares/Telares Sala Montpellier.jpg",
+      "/salas/telares/Telares Sala Montpellier 2.jpg",
+      "/salas/telares/Telares Sala Montpellier 3.jpg",
+    ],
+  },
+  "TELARES NEVERS": {
+    fotos: [
+      "/salas/telares/Telares Sala Nevers.jpg",
+      "/salas/telares/Telares Sala Nevers 2.jpg",
+      "/salas/telares/Telares Sala Nevers 3.jpg",
+    ],
+  },
+  "TELARES ORANGE": {
+    fotos: [
+      "/salas/telares/Telares Sala Orange.jpg",
+      "/salas/telares/Telares Sala Orange 2.jpg",
+      "/salas/telares/Telares Sala Orange 3.jpg",
+    ],
+  },
+  "TELARES PARIS": {
+    fotos: [
+      "/salas/telares/Telares Sala Paris.jpg",
+      "/salas/telares/Telares Sala Paris 2.jpg",
+      "/salas/telares/Telares Sala Paris 3.jpg",
+    ],
+  },
+  "TELARES SIMULATOR": {
+    fotos: [
+      "/salas/telares/Telares Sala Simulator.jpg",
+      "/salas/telares/Telares Sala Simulator 2.jpg",
+      "/salas/telares/Telares Sala Simulator 3.jpg",
+    ],
+  },
+  "TELARES VERSALLES": {
+    fotos: [
+      "/salas/telares/Telares Sala Versalles.jpg",
+      "/salas/telares/Telares Sala Versalles 2.jpg",
     ],
   },
 };
