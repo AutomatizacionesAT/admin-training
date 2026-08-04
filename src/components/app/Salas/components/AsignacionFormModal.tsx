@@ -6,6 +6,7 @@ import {
   toInputDateValue,
   formatAsignacionRango,
 } from '../utils/asignacionUtils';
+import { SALAS_USERS } from '../../../../context/AuthContext';
 
 interface Props {
   initial?: AsignacionRecord | null;
@@ -465,14 +466,32 @@ export default function AsignacionFormModal({ initial, salas = [], asignaciones 
               />
             </Field>
             <Field label="Coordinador">
-              <input
-                type="text"
-                value={form.coordinador}
-                onChange={e => set('coordinador', e.target.value)}
-                placeholder="Nombre del coordinador"
-                className={inputCls}
-                readOnly={Boolean(modoSolicitud)}
-              />
+              {modoSolicitud ? (
+                <input
+                  type="text"
+                  value={form.coordinador}
+                  placeholder="Nombre del coordinador"
+                  className={inputCls}
+                  readOnly
+                />
+              ) : (
+                <select
+                  value={form.coordinador}
+                  onChange={e => set('coordinador', e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">Seleccione un coordinador...</option>
+                  {SALAS_USERS
+                    .filter(u => u.rol === 'COORDINADOR')
+                    .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                    .map(u => (
+                      <option key={u.documento} value={u.nombre}>
+                        {u.nombre}
+                      </option>
+                    ))
+                  }
+                </select>
+              )}
             </Field>
           </div>
 

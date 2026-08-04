@@ -62,18 +62,18 @@ export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
       "/salas/pereira/Nevados Sala Laboratorio 2 Claro 3.jpg",
     ],
   },
-  "NEVADOS NEVADO DEL RUIZ": {
-    fotos: [
-      "/salas/pereira/Nevados Sala Nevado Del Ruiz.jpg",
-      "/salas/pereira/Nevados Sala Nevado Del Ruiz 2.jpg",
-      "/salas/pereira/Nevados Sala Nevado Del Ruiz 3.jpg",
-    ],
-  },
   "NEVADOS OTUN": {
     fotos: [
       "/salas/pereira/Nevados Sala Otun.jpg",
       "/salas/pereira/Nevados Sala Otun 2.jpg",
       "/salas/pereira/Nevados Sala Otun 3.jpg",
+    ],
+  },
+  "NEVADOS SALA DE FORMADORES": {
+    fotos: [
+      "/salas/pereira/Nevados Sala Sala De Formadores.jpg",
+      "/salas/pereira/Nevados Sala Sala De Formadores 2.jpg",
+      "/salas/pereira/Nevados Sala Sala De Formadores 3.jpg",
     ],
   },
   "NEVADOS SIMULATOR": {

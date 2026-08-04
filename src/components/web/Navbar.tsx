@@ -78,6 +78,9 @@ export default function Navbar() {
                 <span className="text-sm font-medium text-white/85 leading-tight mt-0.5">
                   Training
                 </span>
+                <span className="text-[9px] font-semibold text-white/30 tracking-widest uppercase mt-0.5 leading-none">
+                  v 1.5.0
+                </span>
               </div>
             </Link>
           </div>

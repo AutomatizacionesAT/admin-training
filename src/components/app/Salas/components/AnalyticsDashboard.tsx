@@ -298,8 +298,15 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
   // Ocupación de salas por sede
   const ocupacion = useMemo(() =>
     bySedeSalas.map(([s, total]) => {
+      // Salas del catálogo para esta sede (sin duplicados AM/PM)
+      const salasEnCatalogo = new Set(
+        salasUnicas.filter(x => x.sede === s).map(x => x.sala),
+      );
+      // Solo contar salas que estén en el catálogo de esa sede
       const enUso = new Set(
-        aprobadas.filter(a => a.sede.toUpperCase().includes(s.toUpperCase())).map(a => a.sala),
+        aprobadas
+          .filter(a => a.sede === s && salasEnCatalogo.has(a.sala))
+          .map(a => a.sala),
       ).size;
       return { sede: s, total, enUso };
     }),
@@ -617,12 +624,12 @@ export default function AnalyticsDashboard({ salas, asignaciones, tickets, onClo
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {bySedeSalas.map(([s, totalSalas]) => {
                 const color = getSedeHex(s);
-                const exclS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tipo === 'EXCLUSIVA').length;
-                const rotaS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tipo === 'ROTATIVA').length;
-                const capS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase())).reduce((sum, x) => sum + (parseInt(x.capacidad) || 0), 0);
-                const equipS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase())).reduce((sum, x) => sum + (parseInt(x.equipos) || 0), 0);
-                const tableroS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tablero === 'SI').length;
-                const tvS = salasUnicas.filter(x => x.sede.toUpperCase().includes(s.toUpperCase()) && x.tv === 'SI').length;
+                const exclS = salasUnicas.filter(x => x.sede === s && x.tipo === 'EXCLUSIVA').length;
+                const rotaS = salasUnicas.filter(x => x.sede === s && x.tipo === 'ROTATIVA').length;
+                const capS = salasUnicas.filter(x => x.sede === s).reduce((sum, x) => sum + (parseInt(x.capacidad) || 0), 0);
+                const equipS = salasUnicas.filter(x => x.sede === s).reduce((sum, x) => sum + (parseInt(x.equipos) || 0), 0);
+                const tableroS = salasUnicas.filter(x => x.sede === s && x.tablero === 'SI').length;
+                const tvS = salasUnicas.filter(x => x.sede === s && x.tv === 'SI').length;
                 return (
                   <div key={s} className="rounded-2xl border border-slate-100 p-4 space-y-3">
                     <div className="flex items-center gap-2">
