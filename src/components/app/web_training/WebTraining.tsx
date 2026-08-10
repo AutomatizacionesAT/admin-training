@@ -160,9 +160,12 @@ export default function WebTraining() {
     setSelectedMonth,
     selectedDireccion,
     setSelectedDireccion,
+    selectedCampana,
+    setSelectedCampana,
     availableYears,
     availableDirecciones,
-    dateFilteredData,
+    availableCampanas,
+    filteredData,
   } = useWTReportData(data);
 
   return (
@@ -229,15 +232,18 @@ export default function WebTraining() {
               reportData={reportData}
               selectedCoordinador={selectedCoordinador}
               onSelectCoordinador={setSelectedCoordinador}
-              data={dateFilteredData}
+              data={filteredData}
               selectedYear={selectedYear}
               setSelectedYear={setSelectedYear}
               selectedMonth={selectedMonth}
               setSelectedMonth={setSelectedMonth}
               selectedDireccion={selectedDireccion}
               setSelectedDireccion={setSelectedDireccion}
+              selectedCampana={selectedCampana}
+              setSelectedCampana={setSelectedCampana}
               availableYears={availableYears}
               availableDirecciones={availableDirecciones}
+              availableCampanas={availableCampanas}
             />
           )}
         </>

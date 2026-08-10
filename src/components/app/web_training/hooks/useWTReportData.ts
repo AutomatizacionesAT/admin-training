@@ -32,23 +32,37 @@ interface UseWTReportData {
   setSelectedMonth: React.Dispatch<React.SetStateAction<number | null>>;
   selectedDireccion: string | null;
   setSelectedDireccion: React.Dispatch<React.SetStateAction<string | null>>;
+  selectedCampana: string | null;
+  setSelectedCampana: React.Dispatch<React.SetStateAction<string | null>>;
   availableYears: number[];
   availableDirecciones: string[];
+  availableCampanas: string[];
   dateFilteredData: TrainingRecord[];
+  filteredData: TrainingRecord[];
 }
 
-function classifyEstado(estado: string | null): "finalizado" | "enProceso" | "proyectado" {
+function classifyEstado(
+  estado: string | null,
+): "finalizado" | "enProceso" | "proyectado" {
   const s = estado?.trim().toUpperCase() ?? "";
-  if (s === "FINALIZADA" || s === "COMPLETADO" || s === "FINALIZADO") return "finalizado";
+  if (s === "FINALIZADA" || s === "COMPLETADO" || s === "FINALIZADO" || s === "ENTREGADO")
+    return "finalizado";
   if (s === "EN PROCESO" || s === "EN CURSO") return "enProceso";
   return "proyectado"; // SIN INICIAR, PENDIENTE, etc.
 }
 
 export function useWTReportData(data: TrainingRecord[]): UseWTReportData {
-  const [selectedCoordinador, setSelectedCoordinador] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedCoordinador, setSelectedCoordinador] = useState<string | null>(
+    null,
+  );
+  const [selectedYear, setSelectedYear] = useState<number>(
+    new Date().getFullYear(),
+  );
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
-  const [selectedDireccion, setSelectedDireccion] = useState<string | null>(null);
+  const [selectedDireccion, setSelectedDireccion] = useState<string | null>(
+    null,
+  );
+  const [selectedCampana, setSelectedCampana] = useState<string | null>(null);
 
   // Parsear fechas: los datos de WT vienen como DD/MM/YYYY tras normalizeGvizDate
   const recordsWithDate = data.map((record) => ({
@@ -73,6 +87,16 @@ export function useWTReportData(data: TrainingRecord[]): UseWTReportData {
   });
   const availableDirecciones = Array.from(availableDireccionesSet).sort();
 
+  // Campañas disponibles
+  const availableCampanasSet = new Set<string>();
+  const normalizeFilterValue = (value?: string | null) => value?.trim().toUpperCase() ?? "";
+
+  recordsWithDate.forEach((r) => {
+    const campana = r.campana?.trim();
+    if (campana) availableCampanasSet.add(campana);
+  });
+  const availableCampanas = Array.from(availableCampanasSet).sort();
+
   // Filtro por año, mes y dirección
   const dateFilteredData = recordsWithDate.filter((record) => {
     if (!record.parsedDate || isNaN(record.parsedDate.getTime())) return false;
@@ -82,7 +106,11 @@ export function useWTReportData(data: TrainingRecord[]): UseWTReportData {
 
     if (year !== selectedYear) return false;
     if (selectedMonth !== null && month !== selectedMonth) return false;
-    if (selectedDireccion !== null && record.direccion !== selectedDireccion) return false;
+    if (
+      selectedDireccion !== null &&
+      normalizeFilterValue(record.direccion) !== normalizeFilterValue(selectedDireccion)
+    )
+      return false;
 
     return true;
   });
@@ -97,12 +125,18 @@ export function useWTReportData(data: TrainingRecord[]): UseWTReportData {
     .map(([nombre, count]) => ({ nombre, count }))
     .sort((a, b) => b.count - a.count);
 
-  // Filtro adicional por coordinador seleccionado
-  const filteredData = selectedCoordinador
-    ? dateFilteredData.filter(
-        (record) => (record.coordinador || "Sin Asignar") === selectedCoordinador
-      )
-    : dateFilteredData;
+  // Filtro adicional por coordinador y campaña seleccionados
+  const filteredData = dateFilteredData.filter((record) => {
+    const matchesCoordinador = selectedCoordinador
+      ? (record.coordinador || "Sin Asignar") === selectedCoordinador
+      : true;
+
+    const matchesCampana = selectedCampana
+      ? normalizeFilterValue(record.campana) === normalizeFilterValue(selectedCampana)
+      : true;
+
+    return matchesCoordinador && matchesCampana;
+  });
 
   const totalEntrenamientos = filteredData.length;
 
@@ -150,8 +184,12 @@ export function useWTReportData(data: TrainingRecord[]): UseWTReportData {
     setSelectedMonth,
     selectedDireccion,
     setSelectedDireccion,
+    selectedCampana,
+    setSelectedCampana,
     availableYears,
     availableDirecciones,
+    availableCampanas,
     dateFilteredData,
+    filteredData,
   };
 }
