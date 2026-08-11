@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import type { WTReportData } from "../hooks/useWTReportData";
 import type { TrainingRecord } from "../utils/utils";
 import SearchableSelect from "../utils/SearchableSelect.tsx";
-import { WTCoordinatorDetailTable } from "./WTCoordinatorDetailTable";
+import { WTCoordinatorDetailTable } from "./DetallesTabla/WTCoordinatorDetailTable.tsx";
+import { WTCoordinatorDetailDialog } from "./DetallesTabla/Wtcoordinatordetaildialog";
+import type { EstadoKind } from "./DetallesTabla/WTcoordinatordetailshared";
 import {
   SlidersHorizontal,
   CalendarDays,
@@ -148,6 +151,16 @@ export function WTReportTab({
   availableDirecciones,
   availableCampanas,
 }: WTReportTabProps) {
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [dialogIndustria, setDialogIndustria] = useState<string | null>(null)
+  const [dialogEstadoFilters, setDialogEstadoFilters] = useState<EstadoKind[]>([])
+
+  const statusLabelToKind: Record<string, EstadoKind> = {
+    Entregados: "final",
+    "En proceso": "proceso",
+    Proyectados: "proyectado",
+  }
+
   const statusValues = [
     reportData.finalizados,
     reportData.enProceso,
@@ -441,9 +454,15 @@ export function WTReportTab({
             }}
           >
             {reportData.industrias.map((ind, idx) => (
-              <div
+              <button
                 key={ind.nombre}
-                className={`group relative flex flex-col justify-between overflow-hidden rounded-lg border border-gray-200 bg-linear-to-b from-white to-slate-50/60 p-3 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${DIR_HOVER_CLASSES[idx % DIR_HOVER_CLASSES.length]}`}
+                type="button"
+                onClick={() => {
+                  setDialogIndustria(ind.nombre)
+                  setDialogEstadoFilters([])
+                  setIsDetailDialogOpen(true)
+                }}
+                className={`group relative flex flex-col justify-between overflow-hidden rounded-lg border border-gray-200 bg-linear-to-b from-white to-slate-50/60 p-3 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${DIR_HOVER_CLASSES[idx % DIR_HOVER_CLASSES.length]} cursor-pointer text-left`}
               >
                 <div className="mb-2 flex items-start justify-between">
                   <div
@@ -472,7 +491,7 @@ export function WTReportTab({
                     />
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
             {reportData.industrias.length === 0 && (
               <div className="col-span-full flex min-h-[130px] items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-5 text-center text-xs text-gray-400">
@@ -619,9 +638,16 @@ export function WTReportTab({
             const total = reportData.totalEntrenamientos || 1;
             const pct = Math.round((statusValues[idx] / total) * 100);
             return (
-              <div
+              <button
                 key={card.label}
-                className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl p-4 ring-1 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${meta.bg} ${meta.ring}`}
+                type="button"
+                onClick={() => {
+                  const kind = statusLabelToKind[card.label]
+                  setDialogIndustria(null)
+                  setDialogEstadoFilters([kind])
+                  setIsDetailDialogOpen(true)
+                }}
+                className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl p-4 ring-1 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${meta.bg} ${meta.ring} cursor-pointer text-left`}
               >
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -672,7 +698,7 @@ export function WTReportTab({
                 <p className="mt-2 text-[11px] leading-snug text-gray-500">
                   {meta.desc}
                 </p>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -689,6 +715,19 @@ export function WTReportTab({
           selectedCampana={selectedCampana ?? undefined}
         />
       )}
+
+      <WTCoordinatorDetailDialog
+        open={isDetailDialogOpen}
+        onClose={() => setIsDetailDialogOpen(false)}
+        data={data}
+        selectedCoordinador={selectedCoordinador ?? undefined}
+        selectedYear={selectedYear}
+        selectedMonth={selectedMonth}
+        selectedDireccion={selectedDireccion ?? undefined}
+        selectedCampana={selectedCampana ?? undefined}
+        selectedIndustria={dialogIndustria}
+        initialEstadoFilters={dialogEstadoFilters}
+      />
     </div>
   );
 }

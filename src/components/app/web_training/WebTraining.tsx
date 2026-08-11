@@ -176,7 +176,7 @@ export default function WebTraining() {
           <button
             onClick={() => setActiveTab("calendar")}
             className={`${activeTab === "calendar"
-              ? "bg-linear-to-r from-blue-500 to-indigo-600 text-white shadow-lg"
+              ? "bg-linear-to-r from-[#1b355b] to-[#13253f] text-white shadow-lg"
               : "text-gray-600 hover:bg-gray-100"
               } flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-105`}
           >
@@ -185,7 +185,7 @@ export default function WebTraining() {
           <button
             onClick={() => setActiveTab("report")}
             className={`${activeTab === "report"
-              ? "bg-linear-to-r from-blue-500 to-indigo-600 text-white shadow-lg"
+              ? "bg-linear-to-r from-[#1b355b] to-[#13253f] text-white shadow-lg"
               : "text-gray-600 hover:bg-gray-100"
               } flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-105`}
           >

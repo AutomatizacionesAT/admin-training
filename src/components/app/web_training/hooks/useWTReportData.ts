@@ -147,8 +147,8 @@ export function useWTReportData(data: TrainingRecord[]): UseWTReportData {
   let proyectados = 0;
 
   filteredData.forEach((record) => {
-    const ind = record.industria || "Sin Asignar";
-    industriasMap.set(ind, (industriasMap.get(ind) || 0) + 1);
+    const industria = record.industria?.trim() || "Sin Asignar";
+    industriasMap.set(industria, (industriasMap.get(industria) || 0) + 1);
 
     const clase = classifyEstado(record.estado);
     if (clase === "finalizado") finalizados++;

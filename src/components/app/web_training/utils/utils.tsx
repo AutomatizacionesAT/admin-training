@@ -120,7 +120,6 @@ export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
 
     if (jsonString && jsonString[1]) {
       const data: SheetData = JSON.parse(jsonString[1]);
-      console.log(jsonString[1]);
       // Extraer las filas y columnas
       const rows = data.table.rows;
 
@@ -151,9 +150,6 @@ export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
           };
         });
 
-      console.log("📊 Datos de Google Sheets:");
-      console.log("Total de filas:", formattedData.length);
-      console.table(formattedData);
 
       return formattedData;
     }
@@ -161,9 +157,6 @@ export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
     return [];
   } catch (error) {
     console.error("Error al cargar datos de Google Sheets:", error);
-    console.log(
-      "Asegúrate de que la hoja esté compartida públicamente (cualquier persona con el enlace puede ver)"
-    );
     return [];
   }
 };
@@ -224,7 +217,6 @@ export const fetchMasterData = async (): Promise<MasterData> => {
         if (row.c[12] && row.c[12].v) estados.add(String(row.c[12].v));
       });
 
-      console.log("📊 Datos Maestros cargados");
 
       return {
         festivos,
@@ -256,7 +248,6 @@ export const fetchSheetNovedades = async (): Promise<NovedadesRecord[]> => {
 
     if (jsonString && jsonString[1]) {
       const data: SheetData = JSON.parse(jsonString[1]);
-      console.log(jsonString[1]);
       // Extraer las filas y columnas
       const rows = data.table.rows;
 
@@ -272,9 +263,6 @@ export const fetchSheetNovedades = async (): Promise<NovedadesRecord[]> => {
           };
         });
 
-      console.log("📊 Datos de Google Sheets:");
-      console.log("Total de filas:", formattedData.length);
-      console.table(formattedData);
 
       return formattedData;
     }
@@ -331,7 +319,6 @@ export const submitTrainingData = async (data: TrainingRecord[] | any): Promise<
       },
       body: JSON.stringify(payload),
     });
-    console.log("Datos enviados a Google Sheets (modo no-cors)", payload);
     return true;
   } catch (error) {
     console.error("Error al enviar datos a Google Sheets:", error);
