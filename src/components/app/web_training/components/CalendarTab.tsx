@@ -34,7 +34,7 @@ export default function CalendarTab({
 
   return (
     <>
-      <div className="flex-1 bg-white rounded-xl shadow-xl p-8 overflow-hidden h-dvh border border-gray-100">
+      <div className="flex-1 px-8 py-2 overflow-hidden">
         <Calendar
           data={data}
           festivos={festivos}
