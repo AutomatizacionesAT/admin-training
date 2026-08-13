@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,6 +11,7 @@ import type {
   FestivoRecord,
   NovedadesRecord,
 } from "../utils/utils";
+import TrainingDetailModal from "./TrainingDetailModal";
 
 export interface CalendarProps {
   data: TrainingRecord[];
@@ -53,17 +54,13 @@ export interface GroupedEvent {
   }>;
 }
 
-// Ancho fijo de cada columna de día (px). Al ser fijo (no 1fr) el timeline
-// obliga a scroll horizontal en vez de comprimir todos los días del mes.
+// Ancho fijo de cada columna de día (px). Al ser fijo (no 1fr) el timeline - obliga a scroll horizontal en vez de comprimir todos los días del mes.
 const DAY_COLUMN_WIDTH = 96;
 const LEFT_COLUMN_WIDTH = 280;
 // Cuántos días de "aire" queremos ver alrededor del día actual al abrir el mes.
-const VISIBLE_DAYS_AROUND_TODAY = 10;
+const VISIBLE_DAYS_AROUND_TODAY = 8;
 
-// Utilidad para parsear string de fecha a Date local.
-// La API entrega fechas como "D/M/YYYY" (ej: "23/7/2026", "31/3/2026"),
-// por lo que NO se puede delegar en `new Date(str)` (ambiguo/rompe con
-// formato día/mes). También soporta "YYYY-MM-DD" por si acaso llega así.
+// La API entrega fechas como "D/M/YYYY" por eso parseamos a date local,
 function parseLocalDate(dateStr: string | null): Date | null {
   if (!dateStr) return null;
   const trimmed = dateStr.trim();
@@ -138,11 +135,9 @@ export default function Calendar({
   novedades,
   currentMonth,
   setCurrentMonth,
-  onEdit,
-  estados = [],
 }: CalendarProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRecord, setSelectedRecord] = useState<TrainingRecord | null>(
+  const [detailRecords, setDetailRecords] = useState<TrainingRecord[] | null>(
     null,
   );
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -182,16 +177,14 @@ export default function Calendar({
     [timelineDays, currentDayKey],
   );
 
-  // Normalizar la lista de festivos a un Set de keys `YYYY-MM-DD` para
-  // comparaciones rápidas. Las filas de `festivos` vienen con la propiedad
-  // `festivo` en formato `DD/MM/YYYY` o `YYYY-MM-DD` según la fuente, por
-  // eso la parseamos con `parseLocalDate` y la convertimos con `toDayKey`.
+  // Normalizar la lista de festivos a un Set de keys `YYYY-MM-DD`
   const festivoKeys = useMemo(() => {
     const s = new Set<string>();
     festivos.forEach((f) => {
       // `FestivoRecord` usa la propiedad `festivo` (no `fecha`). También
-      // toleramos `fecha` por compatibilidad si aparece en otros orígenes.
-      const raw = (f as any)?.festivo ?? (f as any)?.fecha ?? null;
+      const raw = (f as { festivo?: string; fecha?: string })?.festivo 
+         ?? (f as { festivo?: string; fecha?: string })?.fecha 
+         ?? null;
       const d = parseLocalDate(raw);
       if (d) s.add(toDayKey(d));
     });
@@ -215,6 +208,14 @@ export default function Calendar({
     const list = Array.from(set);
     const now = new Date();
     now.setHours(0, 0, 0, 0);
+
+    const visibleMonthStart = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      1,
+    );
+    const actualMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const esMesHistorico = visibleMonthStart < actualMonthStart;
 
     const getCampanaInfo = (campanaName: string) => {
       const records = data.filter(
@@ -261,6 +262,17 @@ export default function Calendar({
           }
         }
       });
+
+      if (esMesHistorico) {
+        return {
+          estadoCampana: "ENTREGADO",
+          tieneProceso: false,
+          tieneProyectado: false,
+          minFutureStart,
+          maxPastStart,
+          desarrollosActivos: 0,
+        };
+      }
 
       // Definir estado jerárquico final de la campaña
       let estadoCampana = "ENTREGADO";
@@ -313,11 +325,9 @@ export default function Calendar({
       nombre: campana,
       info: getCampanaInfo(campana),
     }));
-  }, [data, searchTerm]);
+  }, [currentMonth, data, searchTerm]);
 
-  // 3. Agrupar registros por campaña y, dentro de cada campaña, por rango de
-  // fechas EXACTO (mismo inicio + mismo fin). Registros con el mismo rango
-  // colapsan en una sola barra; rangos distintos generan barras distintas.
+  // 3. Agrupar registros por campaña y, dentro de cada campaña, por rango de fechas EXACTO (mismo inicio + mismo fin). Registros con el mismo rango
   const barsByCampana = useMemo(() => {
     type RawGroup = {
       start: Date;
@@ -363,9 +373,7 @@ export default function Calendar({
       }
     });
 
-    // 3.2 Convertir cada grupo en una barra posicionada (usando SUS propias
-    // fechas, no las de otros grupos) y asignar carriles (lanes) solo entre
-    // grupos que se solapan dentro de la misma campaña.
+    // 3.2 Convertir cada grupo en una barra posicionada (usando SUS propias fechas 
     const map = new Map<string, Bar[]>();
 
     groupsByCampana.forEach((campanaGroups, campanaKey) => {
@@ -425,6 +433,49 @@ export default function Calendar({
     return map;
   }, [data, monthStart, monthEnd, timelineDays.length]);
 
+  // Procesar el cálculo de inicio, fin y posición horizontal de las novedades
+  const novedadesPosicionadas = useMemo(() => {
+    type NovItem = {
+      startIndex: number;
+      endIndex: number;
+      record: NovedadesRecord;
+    };
+
+    const result: NovItem[] = [];
+
+    novedades.forEach((nov) => {
+      const start = parseLocalDate(nov.fechaInicio);
+      const end = parseLocalDate(nov.fechaFin) || start;
+
+      if (!start || !end) return;
+
+      // Normalizar horas a medianoche para comparación limpia
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+
+      // Recortar al mes que está mostrando actualmente el calendario
+      const clippedStart = new Date(
+        Math.max(start.getTime(), monthStart.getTime()),
+      );
+      const clippedEnd = new Date(Math.min(end.getTime(), monthEnd.getTime()));
+
+      if (clippedStart > clippedEnd) return; // Fuera del rango visible
+
+      const dayMs = 24 * 60 * 60 * 1000;
+      const startIndex = Math.round(
+        (clippedStart.getTime() - monthStart.getTime()) / dayMs,
+      );
+      const endIndex = Math.round(
+        (clippedEnd.getTime() - monthStart.getTime()) / dayMs,
+      );
+
+      if (startIndex < 0 || endIndex >= timelineDays.length) return;
+
+      result.push({ startIndex, endIndex, record: nov });
+    });
+
+    return result;
+  }, [novedades, monthStart, monthEnd, timelineDays.length]);
   // Navegación de meses
   const handlePrevMonth = () => {
     setCurrentMonth(
@@ -442,7 +493,6 @@ export default function Calendar({
   const timelineBarInset = 4;
 
   // Al cambiar de mes, centra el scroll horizontal alrededor del día actual
-  // (si el mes visible lo contiene) o, si no, deja el inicio del mes visible.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -515,47 +565,111 @@ export default function Calendar({
       </div>
 
       {/* Tabla Timeline: scroll en X (días) y en Y (campañas) */}
-      <div ref={scrollRef} className="flex-1 overflow-auto m-4 rounded-2xl ring-1 ring-sky-800/20">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-auto m-4 rounded-2xl ring-1 ring-sky-800/20"
+      >
+        {detailRecords && (
+          <TrainingDetailModal
+            records={detailRecords}
+            onClose={() => setDetailRecords(null)}
+          />
+        )}
+
         <div style={{ minWidth: totalTimelineWidth }}>
-          {/* Cabecera de Días */}
+          {/* FRANJA DE PESTAÑAS DE NOVEDADES (Se mueve con el scroll)  */}
+          {novedadesPosicionadas.length > 0 && (
+            <div className="grid bg-slate-800 border-b border-slate-900" style={{ gridTemplateColumns: gridTemplate }}>
+              <div className="sticky -left-0.5 z-30 bg-slate-800 px-4 py-1.5 flex items-center justify-between border-r border-slate-900">
+                <span className="text-[10px] font-black uppercase text-background tracking-wider flex items-center gap-1">
+                  ⚠️ Novedades ({novedadesPosicionadas.length})
+                </span>
+              </div>
+              <div
+                className="relative z-0 h-8 bg-slate-800"
+                style={{
+                  gridColumn: "2 / -1",
+                  display: "grid",
+                  gridTemplateColumns: `repeat(${timelineDays.length}, ${DAY_COLUMN_WIDTH}px)`,
+                }}
+              >
+                {novedadesPosicionadas.map((item, idx) => {
+                  const barGap = 2;
+                  const left = item.startIndex * DAY_COLUMN_WIDTH + barGap;
+                  const width =
+                    (item.endIndex - item.startIndex + 1) * DAY_COLUMN_WIDTH -
+                    barGap * 2;
+
+                  const dev = item.record.desarrollador || "Desarrollador";
+                  const nov = item.record.novedad || "Novedad";
+
+                  return (
+                    <div
+                      key={`tab-nov-${idx}`}
+                      className="absolute top-1 flex h-6 items-center truncate rounded-md bg-slate-600 px-2 text-[10px] font-bold text-white transition hover:bg-amber-500 hover:scale-[1.01] cursor-pointer z-20"
+                      style={{
+                        left,
+                        width: Math.max(width, 28),
+                      }}
+                      title={`Novedad: ${nov}\nDesarrollador: ${dev}\nInicio: ${item.record.fechaInicio} - Fin: ${item.record.fechaFin}`}
+                    >
+                      <span className="truncate">Novedad: {nov} de ( {dev} )</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div
-            className="sticky top-0 z-40 grid border-b border-slate-200 bg-slate-300 text-slate-900 text-[10px] font-bold uppercase "
+            className="sticky top-0 z-20 grid border-b border-slate-200 bg-slate-100 shadow-sm"
             style={{ gridTemplateColumns: gridTemplate }}
           >
-            <div className="sticky left-0 z-50 flex items-center gap-2 border-r border-slate-200 bg-[#254a80] px-4 py-3 text-xs font-bold uppercase text-background">
-              <CalendarIcon className="h-4 w-4 text-amber-600" />
+            {/* Columna Izquierda Fija: CAMPAÑA / CLIENTE */}
+            <div className="sticky left-0 z-30 flex items-center gap-2 border-r border-slate-200 bg-slate-800 px-4 py-3 text-xs font-bold uppercase text-white">
+              <CalendarIcon className="h-4 w-4 text-indigo-400" />
               <span>Campaña / Cliente</span>
             </div>
-            {timelineDays.map((day) => {
-              const { day: dayNum, weekday } = formatHeaderDay(day);
-              const key = toDayKey(day);
-              const isToday = key === currentDayKey;
-              const isFestivo = festivoKeys.has(key);
-              const dayOfWeek = day.getDay();
-              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // 0 = Domingo, 6 = Sábado
 
-              return (
-                <div
-                  key={key}
-                  className={`border-r border-slate-200 py-2 text-center text-[10px] font-bold ${
-                    isToday
-                      ? "bg-amber-300 text-amber-950 font-black"
-                      : isFestivo
-                        ? "bg-red-100 text-red-700 ring-1 ring-inset ring-red-300"
-                        : isWeekend
-                          ? "bg-slate-200/60 text-slate-400"
-                          : "text-slate-600"
-                  }`}
-                >
-                  <div>{weekday}</div>
+            {/* Días del Encabezado */}
+            <div
+              className="grid w-full"
+              style={{
+                gridColumn: "2 / -1",
+                gridTemplateColumns: `repeat(${timelineDays.length}, ${DAY_COLUMN_WIDTH}px)`,
+              }}
+            >
+              {timelineDays.map((day) => {
+                const { day: dayNum, weekday } = formatHeaderDay(day);
+                const key = toDayKey(day);
+                const isToday = key === currentDayKey;
+                 const isFestivo = festivoKeys.has(key);
+                const dayOfWeek = day.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+                return (
                   <div
-                    className={`text-xs ${isFestivo ? "font-black text-red-700" : "font-extrabold"}`}
+                    key={key}
+                    className={`border-r border-slate-200 py-2 text-center text-[10px] font-bold ${
+                      isToday
+                        ? "bg-amber-300 ring-2 ring-amber-500 ring-inset text-amber-950 font-black"
+                        : isFestivo
+                          ? "bg-red-100 text-red-700 ring-2 ring-inset ring-red-300"
+                          : isWeekend
+                            ? "bg-slate-200/60 text-slate-400"
+                            : "text-slate-600"
+                    }`}
                   >
-                    {dayNum}
+                    <div className="uppercase">{weekday}</div>
+                    <div
+                      className={`text-xs ${isFestivo ? "font-black text-red-700" : "font-extrabold"}`}
+                    >
+                      {dayNum}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           {/* Filas de Campañas */}
@@ -583,7 +697,7 @@ export default function Calendar({
                   className="grid border-b border-slate-200 transition hover:bg-slate-50/50"
                   style={{ gridTemplateColumns: gridTemplate }}
                 >
-                  {/* Columna Izquierda Fija: Badge + Nombre Campaña */}
+                  {/* Columna Izquierda Fija: Nombre Campaña */}
                   <div
                     className="sticky left-0 z-10 flex flex-col justify-center border-r border-slate-200 bg-white px-3 py-2"
                     style={{ minHeight: rowHeight }}
@@ -597,7 +711,9 @@ export default function Calendar({
                       {mostrarCantidad && (
                         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
                           {info.desarrollosActivos}{" "}
-                          {info.desarrollosActivos === 1 ? "Pendientes" : "Pendientes"}
+                          {info.desarrollosActivos === 1
+                            ? "Pendientes"
+                            : "Pendientes"}
                         </span>
                       )}
                     </div>
@@ -637,9 +753,9 @@ export default function Calendar({
                             key={key}
                             className={`border-r border-slate-100 ${
                               isToday
-                                ? "bg-amber-50/40"
+                                ? "bg-amber-100"
                                 : isFestivo
-                                  ? "bg-red-50/80 ring-1 ring-inset ring-red-200/60"
+                                  ? "bg-red-100 ring-1 ring-inset ring-red-200/60"
                                   : isWeekend
                                     ? "bg-slate-100/70"
                                     : ""
@@ -666,7 +782,7 @@ export default function Calendar({
                         primerRegistro.desarrollador || "Sin desarrollador";
                       const etiqueta =
                         cantidad > 1
-                          ? `${nombrePrincipal} +${cantidad - 1}`
+                          ? `${nombrePrincipal}`
                           : nombrePrincipal;
 
                       const detalleDesarrollos = bar.desarrollos
@@ -681,8 +797,7 @@ export default function Calendar({
                           key={`${bar.startIndex}-${bar.endIndex}-${bar.lane}`}
                           type="button"
                           onClick={() => {
-                            setSelectedRecord(primerRegistro);
-                            if (onEdit) onEdit(primerRegistro);
+                            setDetailRecords(bar.desarrollos);
                           }}
                           className={`absolute z-20 flex h-6 items-center truncate rounded-md px-2 text-left text-[10px] font-bold text-white shadow-sm ring-1 ring-white/30 transition hover:z-30 hover:shadow-md ${colorClass}`}
                           style={{
