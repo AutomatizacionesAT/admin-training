@@ -16,7 +16,7 @@
    Si una campaña NO está en este archivo, el modal muestra "Sin coincidencia"
    y no se rompe nada.
    ============================================================================= */
-
+import alianzaTec from "../Webs/Alianza_Tec.png";
 export interface CampanaInfo {
   estadoServidor?: "EN SERVIDOR" | "SIN SERVIDOR" | "EN MIGRACION" | string
   enlace?: string
@@ -26,20 +26,14 @@ export interface CampanaInfo {
 
 /* ------------------------- 2 EJEMPLOS DE USO BASE -------------------------- */
 export const CAMPANAS_INFO: Record<string, CampanaInfo> = {
-  // Ejemplo 1: campaña publicada, con todo lleno
-  LINDE: {
-    estadoServidor: "EN SERVIDOR",
-    enlace: "https://intranet.empresa.com/entrenamientos/linde",
-    rutaCarpetas: "\\\\servidor01\\entrenamientos\\2026\\LINDE",
+  // Ejemplo 1: Campaña con imagen (ruta como string)
+  LINDE: { 
     imagen: "/images/campana-preview.png",
   },
 
-  // Ejemplo 2: campaña en migración, sin imagen (usa la de por defecto)
-  "ALIANZA TEC": {
-    estadoServidor: "EN SERVIDOR",
-    enlace: "http://colbogweb26.atento.com.co/Web_Training_AlianzaTec/AlianzaTec.html#/",
-    rutaCarpetas: "\\COLBOGWEB26\Web_Training_AlianzaTec$",
-    imagen: "/images/campana-preview.png",
+  // Ejemplo 2: Campaña con imagen (importada como módulo)
+  "ALIANZA TEC": { 
+    imagen: alianzaTec,
   },
 
   // 👇 SIGUE AGREGANDO AQUÍ TUS CAMPAÑAS
@@ -47,7 +41,7 @@ export const CAMPANAS_INFO: Record<string, CampanaInfo> = {
   //   estadoServidor: "SIN SERVIDOR",
   //   enlace: "",
   //   rutaCarpetas: "",
-  //   imagen: "",
+  //   imagen: "/images/tu-imagen.jpg",  // 👈 URL relativa a /public/ o import
   // },
 }
 

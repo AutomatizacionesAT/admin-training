@@ -79,7 +79,7 @@ export default function Navbar() {
                   Training
                 </span>
                 <span className="text-[9px] font-semibold text-white/30 tracking-widest uppercase mt-0.5 leading-none">
-                  v 1.5.0
+                  v 1.5.4
                 </span>
               </div>
             </Link>

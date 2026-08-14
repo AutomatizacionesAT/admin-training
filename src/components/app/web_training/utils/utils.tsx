@@ -325,3 +325,106 @@ export const submitTrainingData = async (data: TrainingRecord[] | any): Promise<
     throw error;
   }
 };
+
+/* ============================================================================
+   ENVIOS SERVIDORES API
+   ============================================================================
+   Carga dinámica de información de campañas desde la hoja "Envios Servidores"
+   Mapea: CAMPAÑA (0) + SEGMENTO (1) como clave, EN SERVIDOR (2), URL (5), BASES (6)
+   ========================================================================== */
+
+export interface EnviosServidoresRecord {
+  campana: string // CAMPAÑA (0) + SEGMENTO (1) combinados
+  estadoServidor: string // índice 2: EN SERVIDOR (checkbox o VERDADERO/FALSO)
+  url: string // índice 5: URL
+  bases: string // índice 6: BASES
+}
+
+/* Normaliza la clave: sin tildes, sin espacios extra, en MAYÚSCULAS */
+function normalizarCampana(valor: string): string {
+  return (valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase()
+}
+
+/* Cache global para evitar múltiples fetches */
+let ENVIOS_CACHE: EnviosServidoresRecord[] | null = null
+let ENVIOS_CACHE_LOADING = false
+
+const SHEET_ID = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo"
+
+/* Fetch de "Envios Servidores" sheet via Google Visualization API */
+export async function fetchEnviosServidores(): Promise<EnviosServidoresRecord[]> {
+  if (ENVIOS_CACHE) return ENVIOS_CACHE
+  if (ENVIOS_CACHE_LOADING) {
+    // Esperar a que se complete
+    let attempts = 0
+    while (ENVIOS_CACHE_LOADING && attempts < 50) {
+      await new Promise((r) => setTimeout(r, 100))
+      attempts++
+    }
+    return ENVIOS_CACHE || []
+  }
+
+  ENVIOS_CACHE_LOADING = true
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent("Envios Servidores")}`
+    const response = await fetch(url)
+    const text = await response.text()
+
+    // Google retorna JSONP — extraer el JSON
+    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/)
+    if (!match || !match[1]) {
+      console.warn("No se pudo parsear Envios Servidores")
+      ENVIOS_CACHE = []
+      return []
+    }
+
+    const data: SheetData = JSON.parse(match[1])
+    const records: EnviosServidoresRecord[] = []
+
+    data.table.rows.forEach((row: SheetRow) => {
+      if (!row?.c?.length) return
+
+      // Índices: 0=CAMPAÑA, 1=SEGMENTO, 2=EN SERVIDOR, 5=URL, 6=BASES
+      const campana = row.c[0]?.v ? String(row.c[0].v).trim() : ""
+      const segmento = row.c[1]?.v ? String(row.c[1].v).trim() : ""
+      const estadoServidor = row.c[2]?.v ? String(row.c[2].v).trim() : ""
+      const url = row.c[5]?.v ? String(row.c[5].v).trim() : ""
+      const bases = row.c[6]?.v ? String(row.c[6].v).trim() : ""
+
+      // Combinar CAMPAÑA + SEGMENTO como clave (si ambos existen)
+      const clave = segmento ? `${campana} ${segmento}`.trim() : campana
+
+      if (clave) {
+        records.push({
+          campana: clave,
+          estadoServidor,
+          url,
+          bases,
+        })
+      }
+    })
+
+    ENVIOS_CACHE = records
+    console.log(`📊 ENVIOS_SERVIDORES: ${records.length} registros cargados`)
+    return records
+  } catch (error) {
+    console.error("Error al cargar Envios Servidores:", error)
+    ENVIOS_CACHE = []
+    return []
+  } finally {
+    ENVIOS_CACHE_LOADING = false
+  }
+}
+
+/* Busca en Envios Servidores usando normalización */
+export function getEnviosInfo(nombreCampana: string | null | undefined): Partial<EnviosServidoresRecord> {
+  if (!ENVIOS_CACHE) return {}
+  const normalizado = normalizarCampana(nombreCampana || "")
+  const match = ENVIOS_CACHE.find((r) => normalizarCampana(r.campana) === normalizado)
+  return match || {}
+}
