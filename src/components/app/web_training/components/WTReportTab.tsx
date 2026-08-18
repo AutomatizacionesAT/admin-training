@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import type { WTReportData } from "../hooks/useWTReportData";
+import type { EstadoServidorFilter } from "../hooks/useWTReportData";
 import type { TrainingRecord } from "../utils/utils";
 import SearchableSelect from "../utils/SearchableSelect.tsx";
 import { WTCoordinatorDetailTable } from "./DetallesTabla/WTCoordinatorDetailTable.tsx";
 import { WTCoordinatorDetailDialog } from "./DetallesTabla/Wtcoordinatordetaildialog";
+import { EnviosServidoresReportDialog } from "./EnviosServidoresReportDialog";
 import type { EstadoKind } from "./DetallesTabla/WTcoordinatordetailshared";
+import type { EnviosServidoresRecord } from "../utils/utils";
 import {
   SlidersHorizontal,
   CalendarDays,
@@ -132,6 +135,7 @@ interface WTReportTabProps {
   availableYears: number[];
   availableDirecciones: string[];
   availableCampanas: string[];
+  enviosServidores: EnviosServidoresRecord[];
 }
 
 export function WTReportTab({
@@ -150,10 +154,14 @@ export function WTReportTab({
   availableYears,
   availableDirecciones,
   availableCampanas,
+  enviosServidores,
 }: WTReportTabProps) {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [dialogIndustria, setDialogIndustria] = useState<string | null>(null)
   const [dialogEstadoFilters, setDialogEstadoFilters] = useState<EstadoKind[]>([])
+  const [selectedEstadoServidor, setSelectedEstadoServidor] =
+    useState<EstadoServidorFilter | null>(null)
+  const [isEnviosReportOpen, setIsEnviosReportOpen] = useState(false)
 
   const statusLabelToKind: Record<string, EstadoKind> = {
     Entregados: "final",
@@ -326,11 +334,44 @@ export function WTReportTab({
                 />
               </div>
             </div>
+            <div className="flex items-center gap-2.5 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary">
+              <label
+                htmlFor="f-estado-servidor"
+                className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground"
+              >
+                <Monitor className="size-3.5 text-amber-500" aria-hidden="true" />
+                Servidor
+              </label>
+              <div className="relative">
+                <select
+                  id="f-estado-servidor"
+                  value={selectedEstadoServidor ?? ""}
+                  onChange={(e) => {
+                    const value = e.target.value === ""
+                      ? null
+                      : (e.target.value as EstadoServidorFilter);
+                    setSelectedEstadoServidor(value);
+                    setIsEnviosReportOpen(value !== null);
+                  }}
+                  className="peer cursor-pointer appearance-none rounded-sm bg-blue-100/60 py-1.5 pl-3 pr-8 text-sm font-semibold text-foreground shadow-[inset_0_1px_2px_rgb(15_23_42_/0.05)] outline-none transition focus:ring-2 focus:ring-yellow-500 hover:bg-primary/40 focus:bg-primary/40"
+                >
+                  <option value="">Todos</option>
+                  <option value="SI">SI</option>
+                  <option value="NO">NO</option>
+                  <option value="MIGRACION">MIGRACION</option>
+                </select>
+                <ChevronDown
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-foreground transition peer-hover:text-chart-4"
+                />
+              </div>
+            </div>
             <div className="ml-auto flex items-center gap-2">
               {[
                 selectedMonth !== null,
                 selectedDireccion !== null,
                 selectedCampana !== null,
+                selectedEstadoServidor !== null,
               ].filter(Boolean).length > 0 && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 ring-1 ring-inset ring-blue-200">
                   <span
@@ -342,6 +383,7 @@ export function WTReportTab({
                       selectedMonth !== null,
                       selectedDireccion !== null,
                       selectedCampana !== null,
+                      selectedEstadoServidor !== null,
                     ].filter(Boolean).length
                   }
                 </span>
@@ -352,6 +394,8 @@ export function WTReportTab({
                   setSelectedMonth(null);
                   setSelectedDireccion(null);
                   setSelectedCampana(null);
+                  setSelectedEstadoServidor(null);
+                  setIsEnviosReportOpen(false);
                 }}
                 className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-amber-500 transition bg-amber-100 hover:bg-amber-200"
               >
@@ -727,6 +771,13 @@ export function WTReportTab({
         selectedCampana={selectedCampana ?? undefined}
         selectedIndustria={dialogIndustria}
         initialEstadoFilters={dialogEstadoFilters}
+      />
+
+      <EnviosServidoresReportDialog
+        open={isEnviosReportOpen}
+        records={enviosServidores}
+        selectedStatus={selectedEstadoServidor}
+        onClose={() => setIsEnviosReportOpen(false)}
       />
     </div>
   );

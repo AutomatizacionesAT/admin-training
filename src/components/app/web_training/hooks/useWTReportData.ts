@@ -63,7 +63,6 @@ export function useWTReportData(data: TrainingRecord[]): UseWTReportData {
     null,
   );
   const [selectedCampana, setSelectedCampana] = useState<string | null>(null);
-
   // Parsear fechas: los datos de WT vienen como DD/MM/YYYY tras normalizeGvizDate
   const recordsWithDate = data.map((record) => ({
     ...record,

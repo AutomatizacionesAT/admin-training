@@ -3,12 +3,14 @@ import {
   fetchGoogleSheetData,
   fetchMasterData,
   fetchSheetNovedades,
+  fetchEnviosServidores,
   submitTrainingData,
 } from "./utils/utils";
 import type {
   TrainingRecord,
   FestivoRecord,
   NovedadesRecord,
+  EnviosServidoresRecord,
 } from "./utils/utils";
 import { useAuth } from "@/context/AuthContext";
 import CalendarTab from "./components/CalendarTab";
@@ -23,6 +25,7 @@ export default function WebTraining() {
   const [data, setData] = useState<TrainingRecord[]>([]);
   const [festivos, setFestivos] = useState<FestivoRecord[]>([]);
   const [novedades, setNovedades] = useState<NovedadesRecord[]>([]);
+  const [enviosServidores, setEnviosServidores] = useState<EnviosServidoresRecord[]>([]);
   // Listas Maestras
   const [desarrolladores, setDesarrolladores] = useState<string[]>([]);
   const [coordinadores, setCoordinadores] = useState<string[]>([]);
@@ -42,10 +45,11 @@ export default function WebTraining() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [records, masterData, novedadesData] = await Promise.all([
+      const [records, masterData, novedadesData, enviosData] = await Promise.all([
         fetchGoogleSheetData(),
         fetchMasterData(),
         fetchSheetNovedades(),
+        fetchEnviosServidores(),
       ]);
       setData(records);
       setFestivos(masterData.festivos);
@@ -56,6 +60,7 @@ export default function WebTraining() {
       setEstados(masterData.estados);
 
       setNovedades(novedadesData);
+      setEnviosServidores(enviosData);
       setError(null);
     } catch (err) {
       setError("Error al cargar los datos de Google Sheets");
@@ -244,6 +249,7 @@ export default function WebTraining() {
               availableYears={availableYears}
               availableDirecciones={availableDirecciones}
               availableCampanas={availableCampanas}
+              enviosServidores={enviosServidores}
             />
           )}
         </>

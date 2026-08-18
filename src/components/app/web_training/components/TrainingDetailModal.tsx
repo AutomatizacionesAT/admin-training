@@ -1,25 +1,3 @@
-/* =============================================================================
-   TrainingDetailModal — Modal de detalle de campañas
-   
-   ORIGEN DE DATOS:
-     📊 Envios Servidores: fetchEnviosServidores() en utils.tsx
-        Campos: estadoServidor, url, bases (desde Google Sheet)
-     
-     📝 Record local: valores en el registro si los tiene
-     
-     🖼️ Imagen: por defecto desde public/images/
-     
-   FLUJO DE BÚSQUEDA:
-     1) El propio record (si tiene valor)
-     2) Envios Servidores (búsqueda por CAMPAÑA + SEGMENTO normalizado)
-     3) Fallback vacío (sin romper nada)
-     
-   ESTADO DEL SERVIDOR:
-     Interpreta: TRUE/VERDADERO/1 → EN SERVIDOR
-                 FALSE/FALSO/0 → SIN SERVIDOR
-                 Texto con "MIGRA" → EN MIGRACION
-   ============================================================================= */
-
 import { useState, useEffect } from "react";
 import {
   CalendarDays,
@@ -53,7 +31,6 @@ function formatField(value: string | null | undefined): string {
   return value && value.trim() ? value.trim() : "—";
 }
 
-/* Lee cualquier campo (aunque todavía no exista en el tipo) sin romper nada */
 function pick(record: unknown, ...keys: string[]): string {
   const source = (record ?? {}) as Record<string, unknown>;
   for (const key of keys) {
@@ -195,7 +172,6 @@ export default function TrainingDetailModal({
   records,
   onClose,
 }: TrainingDetailModalProps) {
-  // ⚠️ HOOKS DEBEN ESTAR PRIMERO, ANTES DE CUALQUIER CONDICIONAL
   const [copied, setCopied] = useState(false);
   const [enviosData, setEnviosData] = useState<Partial<EnviosServidoresRecord>>(
     {},
@@ -215,17 +191,12 @@ export default function TrainingDetailModal({
     loadData();
   }, [records]);
 
-  // ⚠️ Ahora sí, después de los hooks
   if (!records.length) return null;
 
   const principal = records[0];
   const title = principal.campana || principal.cliente || "Detalle de campaña";
   const count = records.length;
 
-  /* ---------------------------------------------------------------------------
-     CAMPOS EXTRA: primero se busca en el registro, y si no, en Envios Servidores
-     Si no hay match en ninguno -> valores vacíos (nada se rompe).
-     --------------------------------------------------------------------------- */
   /* Consultar CAMPANAS_INFO para obtener info extra de la campaña */
   const campanaInfo = getCampanaInfo(title);
 
@@ -240,7 +211,6 @@ export default function TrainingDetailModal({
     pick(principal, "rutaCarpetas", "ruta", "ruta_carpetas", "carpeta") ||
     enviosData.bases ||
     "";
-  /* 🖼️ Cascada de imagen: registro → CAMPANAS_INFO → IMAGEN_POR_DEFECTO */
   const imagen =
     pick(principal, "imagen", "image", "thumbnail") ||
     campanaInfo.imagen ||
@@ -287,7 +257,7 @@ export default function TrainingDetailModal({
 
           <div className="relative flex items-start justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-lg shadow-blue-900/40 ring-1 ring-white/20">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-blue-700 text-white shadow-lg shadow-blue-900/40 ring-1 ring-white/20">
                 <FileText className="h-5 w-5" />
               </div>
               <div className="min-w-0">
@@ -590,9 +560,7 @@ export default function TrainingDetailModal({
 
                           <div className="mb-2 flex items-start justify-between gap-2">
                             <p className="text-pretty text-sm font-black leading-tight text-slate-900">
-                              {record.desarrollo ||
-                                record.nombre ||
-                                "Sin desarrollo"}
+                              {record.nombre || "Sin nombre"}
                             </p>
                             <span className="shrink-0 rounded-md bg-[#0b1a2f] px-1.5 py-0.5 text-[10px] font-black text-white">
                               #{index + 1}
@@ -605,17 +573,22 @@ export default function TrainingDetailModal({
                             >
                               {record.estado || "Sin estado"}
                             </span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ring-1 ring-inset ${tone.chip}`}
+                            >
+                              {record.desarrollo || "Sin desarrollo"}
+                            </span>
                           </div>
 
                           <div className="grid gap-2 text-[11px] text-slate-600">                            
-                            <p className="pt-0.5">
+                            <div className="pt-0.5">
                               <p className="font-black uppercase tracking-widest text-slate-500 border-b-2 border-slate-200 py-0.5">
                                 Observaciones
                               </p>
                               <span className="font-medium text-slate-700">
                                 {formatField(record.observaciones)}
                               </span>
-                            </p>
+                            </div>
                           </div>
                         </div>
                       );
