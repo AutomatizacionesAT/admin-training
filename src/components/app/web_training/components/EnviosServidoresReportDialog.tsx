@@ -1,7 +1,5 @@
 import { X, ClipboardList } from "lucide-react";
-import type {
-  EstadoServidorFilter,
-} from "../hooks/useWTReportData";
+export type EstadoServidorFilter = "SI" | "NO" | "MIGRACION";
 import type { EnviosServidoresRecord } from "../utils/utils";
 
 interface EnviosServidoresReportDialogProps {
@@ -52,13 +50,13 @@ export function EnviosServidoresReportDialog({
   const total = records.length;
   const visibleRecords = selectedStatus
     ? records.filter(
-        (record) => normalizeStatus(record.estadoServidor) === selectedStatus,
-      )
+      (record) => normalizeStatus(record.estadoServidor) === selectedStatus,
+    )
     : records;
 
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10">       
+      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10">
         <div className="relative overflow-hidden bg-[#12243d] px-6 py-5">
           <div
             aria-hidden="true"
@@ -82,7 +80,7 @@ export function EnviosServidoresReportDialog({
               </div>
               <div>
                 <h3 className="text-lg font-bold tracking-tight text-white">Informe general del estado de web training en servidores</h3>
-                <p className="mt-1 text-[13px] leading-relaxed text-slate-300">                
+                <p className="mt-1 text-[13px] leading-relaxed text-slate-300">
                   <b className="font-semibold text-amber-400">Estado de servidores</b>
                 </p>
               </div>
