@@ -36,7 +36,7 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '1013606798', nombre: 'MARCIA JOHANA MUÑOZ GARAVITO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
 ];
 
-const ADMIN_PASSWORD = '123';
+const ADMIN_PASSWORD = 'Desarrollo2026';
 
 const ADMIN_GLOBAL_USER: SalasUser = {
     documento: 'admin',

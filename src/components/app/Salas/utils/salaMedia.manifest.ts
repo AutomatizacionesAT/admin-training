@@ -181,6 +181,11 @@ export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
       "/salas/royal/Royal Sala Venezuela 3.jpg",
     ],
   },
+  "TELARES 301": {
+    fotos: [
+      "/salas/telares/Telares Sala 301.jpg",
+    ],
+  },
   "TELARES ARLES": {
     fotos: [
       "/salas/telares/Telares Sala Arles.jpg",
