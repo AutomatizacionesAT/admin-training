@@ -31,7 +31,7 @@ function AppContent() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <Navbar />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-linear-to-br from-gray-50 via-blue-50 to-indigo-50 ">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/simulator" element={<RequireAuth><Simulator /></RequireAuth>} />

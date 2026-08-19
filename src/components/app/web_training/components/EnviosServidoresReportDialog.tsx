@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { X, ClipboardList } from "lucide-react";
 import type {
   EstadoServidorFilter,
 } from "../hooks/useWTReportData";
@@ -27,9 +27,9 @@ function normalizeStatus(value: string): EstadoServidorFilter | null {
 }
 
 const STATUS_LABELS: Record<EstadoServidorFilter, string> = {
-  SI: "SI",
-  NO: "NO",
-  MIGRACION: "MIGRACION",
+  SI: "EN SERVIDOR",
+  NO: "SIN SERVIDOR",
+  MIGRACION: "EN MIGRACION",
 };
 
 export function EnviosServidoresReportDialog({
@@ -57,28 +57,57 @@ export function EnviosServidoresReportDialog({
     : records;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10">
-        <header className="flex items-center justify-between bg-[#12243d] px-6 py-5 text-white">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-300">
-              Informe de envios
-            </p>
-            <h2 className="mt-1 text-xl font-black">Estado de servidores</h2>
-            <p className="mt-1 text-xs text-slate-300">
-              Campañas con estado {selectedStatus ? STATUS_LABELS[selectedStatus] : "de servidor"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar informe de servidores"
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10">       
+        <div className="relative overflow-hidden bg-[#12243d] px-6 py-5">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.18]"
+            style={{
+              backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)",
+              backgroundSize: "14px 14px",
+              color: "#93c5fd",
+              maskImage: "linear-gradient(to right, black, transparent 70%)",
+              WebkitMaskImage: "linear-gradient(to right, black, transparent 70%)",
+            }}
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-blue-400/10 blur-2xl"
+          />
+          <div className="relative flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-inset ring-white/20">
+                <ClipboardList className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold tracking-tight text-white">Informe general del estado de web training en servidores</h3>
+                <p className="mt-1 text-[13px] leading-relaxed text-slate-300">                
+                  <b className="font-semibold text-amber-400">Estado de servidores</b>
+                </p>
+              </div>
+            </div>
 
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5 rounded-xl bg-white/[0.07] px-4 py-2.5 ring-1 ring-inset ring-white/15">
+                <span className="text-2xl font-bold leading-none text-amber-400">{total}</span>
+                <span className="text-[11px] font-semibold uppercase leading-tight tracking-wider text-slate-300">
+                  registros
+                  <br />
+                  listados
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Cerrar"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-inset ring-white/20 transition hover:bg-white/20"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
         <div className="overflow-y-auto bg-slate-50 p-4 sm:p-6">
           <div className="grid gap-3 sm:grid-cols-3">
             {STATUS_OPTIONS.map((status) => {
@@ -91,7 +120,7 @@ export function EnviosServidoresReportDialog({
                     : "border-orange-200 bg-orange-50 text-orange-700";
 
               return (
-                <div key={status} className={`rounded-xl border p-4 ${tone}`}>
+                <div key={status} className={`rounded-xl border p-4 ${tone} ${selectedStatus === status ? 'ring-3 ring-amber-500' : ''}`}>
                   <p className="text-[10px] font-black uppercase tracking-[0.16em]">
                     {STATUS_LABELS[status]}
                   </p>
@@ -104,12 +133,12 @@ export function EnviosServidoresReportDialog({
             })}
           </div>
 
-          <div className="mt-5 overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <div className="mt-5 overflow-hidden rounded-xl bg-white">
+            <div className="flex items-center bg-slate-300 justify-between border-b border-slate-200 px-4 py-3">
               <h3 className="text-sm font-black uppercase tracking-[0.12em] text-slate-700">
                 Campañas
               </h3>
-              <span className="text-xs font-bold text-slate-500">
+              <span className="text-xs font-bold text-blue-900">
                 {visibleRecords.length} registros
               </span>
             </div>
@@ -123,12 +152,12 @@ export function EnviosServidoresReportDialog({
                 </thead>
                 <tbody>
                   {visibleRecords.map((record, index) => (
-                    <tr key={`${record.campana}-${index}`} className="border-t border-slate-100">
+                    <tr key={`${record.campana}-${index}`} className={`${record.estadoServidor === "NO" ? 'bg-red-50 border-l-4 border-red-800 hover:bg-red-100' : record.estadoServidor === "MIGRACION" ? 'bg-amber-50 border-l-4 border-amber-800 hover:bg-amber-100' : 'bg-green-50 border-l-4 border-green-800 hover:bg-green-100'}`}>
                       <td className="px-4 py-3 font-semibold text-slate-800">
                         {record.campana || "Sin campaña"}
                       </td>
                       <td className="px-4 py-3 font-bold text-slate-600">
-                        {record.estadoServidor || "Sin dato"}
+                        {record.estadoServidor === "SI" ? "EN SERVIDOR" : record.estadoServidor === "NO" ? "SIN SERVIDOR" : record.estadoServidor === "MIGRACION" ? "EN MIGRACION" : record.estadoServidor || "DESCONOCIDO"}
                       </td>
                     </tr>
                   ))}

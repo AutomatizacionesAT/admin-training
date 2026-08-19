@@ -513,7 +513,7 @@ export default function Calendar({
     LEFT_COLUMN_WIDTH + timelineDays.length * DAY_COLUMN_WIDTH;
 
   return (
-    <div className="flex 2xl:h-[530px] h-[400px] flex-col overflow-hidden rounded-xl ring-2 ring-sky-800/20 bg-white shadow-sm">
+    <div className="flex 2xl:h-[630px] h-[460px] flex-col overflow-hidden rounded-xl ring-2 ring-sky-800/20 bg-white shadow-sm">
       {/* Controles del encabezado */}
       <div className="flex flex-col gap-4 bg-slate-100 p-4 px-6 md:flex-row md:items-center md:justify-between">
         <div>

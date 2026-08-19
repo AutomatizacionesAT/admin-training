@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { WTReportData } from "../hooks/useWTReportData";
-import type { EstadoServidorFilter } from "../hooks/useWTReportData";
 import type { TrainingRecord } from "../utils/utils";
 import SearchableSelect from "../utils/SearchableSelect.tsx";
 import { WTCoordinatorDetailTable } from "./DetallesTabla/WTCoordinatorDetailTable.tsx";
@@ -160,7 +159,7 @@ export function WTReportTab({
   const [dialogIndustria, setDialogIndustria] = useState<string | null>(null)
   const [dialogEstadoFilters, setDialogEstadoFilters] = useState<EstadoKind[]>([])
   const [selectedEstadoServidor, setSelectedEstadoServidor] =
-    useState<EstadoServidorFilter | null>(null)
+    useState<string | null>(null)
   const [isEnviosReportOpen, setIsEnviosReportOpen] = useState(false)
 
   const statusLabelToKind: Record<string, EstadoKind> = {
@@ -179,7 +178,7 @@ export function WTReportTab({
     <div className="">
       {/* Filtros */}
       <div className="mb-6 rounded-2xl border-b-3 border-[#1a3459] p-px shadow-[0_12px_34px_-16px_rgb(59_130_246/0.5)]">
-        <div className="relative  rounded-[15px] bg-white px-5 py-4">
+        <div className="relative  rounded-[15px] bg-white 2xl:px-5 px-2 py-4">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0"
@@ -193,9 +192,9 @@ export function WTReportTab({
             }}
           />
 
-          <div className="relative flex flex-wrap items-center gap-x-5 gap-y-3">
-            <div className="flex items-center gap-2.5">
-              <span className="size-9 place-items-center rounded-lg bg-primary text-chart-3 min-w-[60px] 2xl:grid hidden">
+          <div className="relative flex flex-wrap items-center 2xl:gap-x-5 gap-x-1 gap-y-3">
+            <div className="flex items-center gap-2.5 2xl:w-auto w-full">
+              <span className="size-9 place-items-center rounded-lg bg-primary text-chart-3 min-w-[60px] grid">
                 <SlidersHorizontal
                   className="size-6"
                   strokeWidth={2.5}
@@ -210,13 +209,53 @@ export function WTReportTab({
                   Panel
                 </span>
               </span>
+              <div className="ml-auto items-center gap-2 2xl:hidden flex">
+                {[
+                  selectedMonth !== null,
+                  selectedDireccion !== null,
+                  selectedCampana !== null,
+                  selectedEstadoServidor !== null,
+                ].filter(Boolean).length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 ring-1 ring-inset ring-blue-200">
+                    <span
+                      aria-hidden="true"
+                      className="size-1.5 rounded-full bg-blue-500"
+                    />
+                    {
+                      [
+                        selectedMonth !== null,
+                        selectedDireccion !== null,
+                        selectedCampana !== null,
+                        selectedEstadoServidor !== null,
+                      ].filter(Boolean).length
+                    }
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedMonth(null);
+                    setSelectedDireccion(null);
+                    setSelectedCampana(null);
+                    setSelectedEstadoServidor(null);
+                    setIsEnviosReportOpen(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-amber-500 transition bg-amber-100 hover:bg-amber-200"
+                >
+                  <RotateCcw
+                    className="size-3.5 text-amber-500"
+                    aria-hidden="true"
+                  />
+                  <span className="2xl:flex hidden">Limpiar</span>
+                </button>
+              </div>
             </div>
 
             <span
               aria-hidden="true"
-              className="hidden h-9 w-px bg-linear-to-b from-transparent via-gray-200 to-transparent sm:block"
+              className="hidden h-9 w-px bg-linear-to-b from-transparent via-gray-200 to-transparent 2xl:block"
             />
-            <div className="flex items-center gap-2.5 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary">
+            <div className="flex items-center 2xl:gap-2.5 gap-2 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary">
               <label
                 htmlFor="f-anio"
                 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground"
@@ -246,7 +285,7 @@ export function WTReportTab({
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary">
+            <div className="flex items-center 2xl:gap-2.5 gap-2 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary">
               <label
                 htmlFor="f-mes"
                 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground"
@@ -281,7 +320,7 @@ export function WTReportTab({
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary">
+            <div className="flex items-center 2xl:gap-2.5 gap-2 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary">
               <label
                 htmlFor="f-direccion"
                 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground"
@@ -316,7 +355,7 @@ export function WTReportTab({
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary sm:w-[300px]">
+            <div className="flex items-center 2xl:gap-2.5 gap-2 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary sm:w-[300px]">
               <label className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">
                 <Megaphone
                   className="size-3.5 text-amber-500"
@@ -334,7 +373,7 @@ export function WTReportTab({
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary">
+            <div className="flex items-center 2xl:gap-2.5 gap-2 rounded-sm px-3 py-2 ring-1 ring-inset ring-blue-100/90 transition hover:shadow-sm hover:ring-primary">
               <label
                 htmlFor="f-estado-servidor"
                 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground"
@@ -349,16 +388,16 @@ export function WTReportTab({
                   onChange={(e) => {
                     const value = e.target.value === ""
                       ? null
-                      : (e.target.value as EstadoServidorFilter);
+                      : (e.target.value);
                     setSelectedEstadoServidor(value);
                     setIsEnviosReportOpen(value !== null);
                   }}
                   className="peer cursor-pointer appearance-none rounded-sm bg-blue-100/60 py-1.5 pl-3 pr-8 text-sm font-semibold text-foreground shadow-[inset_0_1px_2px_rgb(15_23_42_/0.05)] outline-none transition focus:ring-2 focus:ring-yellow-500 hover:bg-primary/40 focus:bg-primary/40"
                 >
-                  <option value="">Todos</option>
-                  <option value="SI">SI</option>
-                  <option value="NO">NO</option>
-                  <option value="MIGRACION">MIGRACION</option>
+                  <option value="">Seleccionar</option>
+                  <option value="SI">EN SERVIDOR</option>
+                  <option value="NO">SIN SERVIDRO</option>
+                  <option value="MIGRACION">EN MIGRACION</option>
                 </select>
                 <ChevronDown
                   aria-hidden="true"
@@ -366,7 +405,7 @@ export function WTReportTab({
                 />
               </div>
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto items-center gap-2 2xl:flex hidden">
               {[
                 selectedMonth !== null,
                 selectedDireccion !== null,

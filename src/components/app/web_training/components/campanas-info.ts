@@ -44,7 +44,7 @@ export const CAMPANAS_INFO: Record<string, CampanaInfo> = {
   "LINDE OXIGENOS": { 
     imagen: LINDE,
   },
-  "ALIANZA TEC": { 
+  "COLSUBSIDIO ALIANZA TEC": { 
     imagen: alianzaTec,
   },
   "RUNT": { 
