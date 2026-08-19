@@ -261,18 +261,18 @@ export default function WebTraining() {
       )}
 
       {/* Botón de Agregar Nuevo (Flotante) - Solo Admin */}
-      {/* {isAdmin && (
+      {isAdmin &&  (
         <button
           onClick={() => {
             setEditingRecord(null); // Nuevo, limpieza
             setShowAddModal(true);
           }}
-          className="fixed bottom-28 right-8 bg-linear-to-r from-green-500 to-emerald-600 text-white rounded-full w-16 h-16 shadow-2xl hover:shadow-3xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center font-bold text-3xl z-40 border-4 border-white"
+          className={`bg-linear-to-r ${activeTab === "calendar" ? "block" : "hidden"} from-[#e56618] to-amber-700 text-white rounded-lg shadow-2xl hover:shadow-3xl transform hover:scale-01 transition-all duration-300 flex items-center justify-center font-bold 2xl:text-xl w-[400px] ml-7 mt-2 py-2 hover:w-[420px] cursor-pointer hover:ring-3 hover:ring-slate-700`}
           title="Agregar Nuevo Registro"
         >
-          +
+          Agregar Nuevo registro +
         </button>
-      )} */}
+      )}
 
       {/* Modal de Agregar Datos - Solo Admin */}
       {isAdmin && (
