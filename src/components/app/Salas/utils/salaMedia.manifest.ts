@@ -184,6 +184,8 @@ export const SALA_MEDIA_MANIFEST: Record<string, { fotos: string[] }> = {
   "TELARES 301": {
     fotos: [
       "/salas/telares/Telares Sala 301.jpg",
+      "/salas/telares/Telares Sala 301 2.jpg",
+      "/salas/telares/Telares Sala 301 3.jpg",
     ],
   },
   "TELARES ARLES": {

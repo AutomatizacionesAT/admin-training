@@ -4,7 +4,10 @@ import type { TrainingRecord } from "../utils/utils";
 import SearchableSelect from "../utils/SearchableSelect.tsx";
 import { WTCoordinatorDetailTable } from "./DetallesTabla/WTCoordinatorDetailTable.tsx";
 import { WTCoordinatorDetailDialog } from "./DetallesTabla/Wtcoordinatordetaildialog";
-import { EnviosServidoresReportDialog } from "./EnviosServidoresReportDialog";
+import {
+  EnviosServidoresReportDialog,
+  type EstadoServidorFilter,
+} from "./EnviosServidoresReportDialog";
 import type { EstadoKind } from "./DetallesTabla/WTcoordinatordetailshared";
 import type { EnviosServidoresRecord } from "../utils/utils";
 import {
@@ -159,7 +162,7 @@ export function WTReportTab({
   const [dialogIndustria, setDialogIndustria] = useState<string | null>(null)
   const [dialogEstadoFilters, setDialogEstadoFilters] = useState<EstadoKind[]>([])
   const [selectedEstadoServidor, setSelectedEstadoServidor] =
-    useState<string | null>(null)
+    useState<EstadoServidorFilter | null>(null)
   const [isEnviosReportOpen, setIsEnviosReportOpen] = useState(false)
 
   const statusLabelToKind: Record<string, EstadoKind> = {
@@ -388,7 +391,7 @@ export function WTReportTab({
                   onChange={(e) => {
                     const value = e.target.value === ""
                       ? null
-                      : (e.target.value);
+                      : (e.target.value as EstadoServidorFilter);
                     setSelectedEstadoServidor(value);
                     setIsEnviosReportOpen(value !== null);
                   }}
@@ -396,7 +399,7 @@ export function WTReportTab({
                 >
                   <option value="">Seleccionar</option>
                   <option value="SI">EN SERVIDOR</option>
-                  <option value="NO">SIN SERVIDRO</option>
+                  <option value="NO">SIN SERVIDOR</option>
                   <option value="MIGRACION">EN MIGRACION</option>
                 </select>
                 <ChevronDown
