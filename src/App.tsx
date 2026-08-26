@@ -9,6 +9,7 @@ import InformeBiometrico from "./components/app/informe_biometrico/InformeBiomet
 import Salas from "./components/app/Salas/Salas";
 import AgileTraining from "./components/app/agile_training/AgileTraining";
 import Academy from "./components/app/academy/Academy";
+import Cohorts from "./components/app/cohorts/Cohorts";
 
 import { AuthProvider } from "@/context/AuthContext";
 import { useAuth } from "@/context/AuthContext";
@@ -41,6 +42,7 @@ function AppContent() {
           <Route path="/salas" element={<Salas />} />
           <Route path="/agile-training" element={<RequireAuth><AgileTraining /></RequireAuth>} />
           <Route path="/academy" element={<RequireAuth><Academy /></RequireAuth>} />
+          <Route path="/cohorts" element={<RequireAuth><Cohorts /></RequireAuth>} />
         </Routes>
       </div>
     </div>
