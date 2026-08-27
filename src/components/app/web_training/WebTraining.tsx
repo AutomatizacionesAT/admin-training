@@ -17,8 +17,9 @@ import CalendarTab from "./components/CalendarTab";
 import AddTrainingModal from "./components/AddTrainingModal";
 import { useWTReportData } from "./hooks/useWTReportData";
 import { WTReportTab } from "./components/WTReportTab";
+import { WTReportCamp } from "./components/WTReportCamp";
 
-type Tab = "calendar" | "report";
+type Tab = "calendar" | "report" | "campanas";
 
 export default function WebTraining() {
   const { isAdmin } = useAuth();
@@ -193,7 +194,16 @@ export default function WebTraining() {
               : "text-gray-600 hover:bg-gray-100"
               } flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-105`}
           >
-            📊 Reporte
+            📊 Reporte Desarrollos
+          </button>
+          <button
+            onClick={() => setActiveTab("campanas")}
+            className={`${activeTab === "campanas"
+              ? "bg-linear-to-r from-[#1b355b] to-[#13253f] text-white shadow-lg"
+              : "text-gray-600 hover:bg-gray-100"
+              } flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-105`}
+          >
+            📊 Reporte Campañas
           </button>
         </nav>
       </div>
@@ -237,6 +247,26 @@ export default function WebTraining() {
               selectedCoordinador={selectedCoordinador}
               onSelectCoordinador={setSelectedCoordinador}
               data={filteredData}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+              selectedMonth={selectedMonth}
+              setSelectedMonth={setSelectedMonth}
+              selectedDireccion={selectedDireccion}
+              setSelectedDireccion={setSelectedDireccion}
+              selectedCampana={selectedCampana}
+              setSelectedCampana={setSelectedCampana}
+              availableYears={availableYears}
+              availableDirecciones={availableDirecciones}
+              availableCampanas={availableCampanas}
+              enviosServidores={enviosServidores}
+            />
+          )}
+           {activeTab === "campanas" && (
+            <WTReportCamp
+              reportData={reportData}
+              selectedCoordinador={selectedCoordinador}
+              onSelectCoordinador={setSelectedCoordinador}
+              data={data}
               selectedYear={selectedYear}
               setSelectedYear={setSelectedYear}
               selectedMonth={selectedMonth}

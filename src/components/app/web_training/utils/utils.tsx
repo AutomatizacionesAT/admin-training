@@ -338,6 +338,8 @@ export interface EnviosServidoresRecord {
   estadoServidor: string // índice 2: EN SERVIDOR (checkbox o VERDADERO/FALSO)
   url: string // índice 5: URL
   bases: string // índice 6: BASES
+  campanasDos: string // índice 15: CAMPAÑAS DOS
+  segmentosDos: string // índice 16: SEGMENTOS DOS
 }
 
 /* Normaliza la clave: sin tildes, sin espacios extra, en MAYÚSCULAS */
@@ -395,6 +397,8 @@ export async function fetchEnviosServidores(): Promise<EnviosServidoresRecord[]>
       const estadoServidor = row.c[2]?.v ? String(row.c[2].v).trim() : ""
       const url = row.c[5]?.v ? String(row.c[5].v).trim() : ""
       const bases = row.c[6]?.v ? String(row.c[6].v).trim() : ""
+      const campanasDos = row.c[15]?.v ? String(row.c[15].v).trim() : ""
+      const segmentosDos = row.c[16]?.v ? String(row.c[16].v).trim() : ""
 
       // Combinar CAMPAÑA + SEGMENTO como clave (si ambos existen)
       const clave = segmento ? `${campana} ${segmento}`.trim() : campana
@@ -405,6 +409,8 @@ export async function fetchEnviosServidores(): Promise<EnviosServidoresRecord[]>
           estadoServidor,
           url,
           bases,
+          campanasDos,
+          segmentosDos
         })
       }
     })
