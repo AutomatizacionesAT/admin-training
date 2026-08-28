@@ -11,7 +11,8 @@ interface EnviosServidoresReportDialogProps {
 
 const STATUS_OPTIONS: EstadoServidorFilter[] = ["SI", "NO", "MIGRACION"];
 
-function normalizeStatus(value: string): EstadoServidorFilter | null {
+function normalizeStatus(value?: string | null): EstadoServidorFilter {
+  if (!value) return "NO";
   const normalized = value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -21,7 +22,7 @@ function normalizeStatus(value: string): EstadoServidorFilter | null {
   if (["SI", "TRUE", "VERDADERO", "1", "EN SERVIDOR"].includes(normalized)) return "SI";
   if (["NO", "FALSE", "FALSO", "0", "SIN SERVIDOR"].includes(normalized)) return "NO";
   if (normalized.includes("MIGRACION")) return "MIGRACION";
-  return null;
+  return "NO";
 }
 
 const STATUS_LABELS: Record<EstadoServidorFilter, string> = {
