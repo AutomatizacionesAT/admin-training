@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { CohortRecord } from "../utils/utils";
 import { toPct, semaforo, mesNumero } from "../utils/utils";
 
@@ -36,15 +36,22 @@ export interface RacPorCampana {
 const norm = (s: string | null | undefined) =>
   (s ?? "").trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-export function useCohortData(data: CohortRecord[]) {
+export function useCohortData(data: CohortRecord[], lockedCoordinador: string | null = null) {
   const [filters, setFilters] = useState<CohortFilters>({
     anio: new Date().getFullYear(),
     mes: null,
-    coordinador: null,
+    coordinador: lockedCoordinador,
     campana: null,
     direccion: null,
     indicador: null,
   });
+
+  // Si entra o cambia el coordinador bloqueado por login, forzar su filtro
+  useEffect(() => {
+    if (lockedCoordinador) {
+      setFilters((prev) => ({ ...prev, coordinador: lockedCoordinador }));
+    }
+  }, [lockedCoordinador]);
 
   // ── Opciones GLOBALES (sin filtro) ───────────────────────
   const availableAnios = useMemo(() => {
@@ -59,7 +66,7 @@ export function useCohortData(data: CohortRecord[]) {
     data.filter((r) =>
       filters.anio === null || Math.round(r.anio ?? 0) === filters.anio
     ),
-  [data, filters.anio]);
+    [data, filters.anio]);
 
   // ── Paso 2: filtrar por año + mes ────────────────────────
   const afterMes = useMemo(() =>
@@ -67,30 +74,31 @@ export function useCohortData(data: CohortRecord[]) {
       if (filters.mes === null) return true;
       return mesNumero(r.mes) === filters.mes;
     }),
-  [afterAnio, filters.mes]);
+    [afterAnio, filters.mes]);
 
   // ── Paso 3: filtrar por año + mes + coordinador ──────────
+  const activeCoordFilter = lockedCoordinador ?? filters.coordinador;
   const afterCoord = useMemo(() =>
     afterMes.filter((r) => {
-      if (!filters.coordinador) return true;
+      if (!activeCoordFilter) return true;
       const recCoord = norm(r.coordinador) || norm(r.sheetName);
-      return recCoord === norm(filters.coordinador);
+      return recCoord === norm(activeCoordFilter);
     }),
-  [afterMes, filters.coordinador]);
+    [afterMes, activeCoordFilter]);
 
   // ── Paso 4: filtrar por + dirección ─────────────────────
   const afterDireccion = useMemo(() =>
     afterCoord.filter((r) =>
       !filters.direccion || norm(r.direccion) === norm(filters.direccion)
     ),
-  [afterCoord, filters.direccion]);
+    [afterCoord, filters.direccion]);
 
   // ── Paso 5: filtrar por + campaña ───────────────────────
   const afterCampana = useMemo(() =>
     afterDireccion.filter((r) =>
       !filters.campana || norm(r.campana) === norm(filters.campana)
     ),
-  [afterDireccion, filters.campana]);
+    [afterDireccion, filters.campana]);
 
   // ── Datos finales (todos los filtros) ────────────────────
   const filteredData = useMemo(() =>
@@ -99,17 +107,18 @@ export function useCohortData(data: CohortRecord[]) {
       const key = buildReqIndicadorKey(r.req, r.indicador);
       return key === filters.indicador;
     }),
-  [afterCampana, filters.indicador]);
+    [afterCampana, filters.indicador]);
 
   // ── Opciones EN CASCADA (dependen del contexto actual) ───
   const availableCoordinadores = useMemo(() => {
+    if (lockedCoordinador) return [lockedCoordinador];
     const s = new Set<string>();
     afterMes.forEach((r) => {
       const v = r.coordinador?.trim() || r.sheetName?.trim();
       if (v) s.add(v);
     });
     return Array.from(s).sort();
-  }, [afterMes]);
+  }, [afterMes, lockedCoordinador]);
 
   const availableDirecciones = useMemo(() => {
     const s = new Set<string>();
@@ -134,19 +143,22 @@ export function useCohortData(data: CohortRecord[]) {
   }, [afterCampana]);
 
   // ── setFilters con limpieza en cascada ───────────────────
-  // Cuando se cambia un filtro de nivel superior, se limpian
-  // los filtros dependientes para evitar combinaciones imposibles.
   const setFiltersWithCascade = (newFilters: CohortFilters | ((prev: CohortFilters) => CohortFilters)) => {
     setFilters((prev) => {
       const next = typeof newFilters === "function" ? newFilters(prev) : newFilters;
 
+      // Si está bloqueado como coordinador, nunca permitir resetear o cambiar de coordinador
+      if (lockedCoordinador) {
+        next.coordinador = lockedCoordinador;
+      }
+
       // Si cambió el año → limpiar todo lo demás
       if (next.anio !== prev.anio) {
-        return { ...next, mes: null, coordinador: null, direccion: null, campana: null, indicador: null };
+        return { ...next, mes: null, coordinador: lockedCoordinador ?? null, direccion: null, campana: null, indicador: null };
       }
       // Si cambió el mes → limpiar coordinador en adelante
       if (next.mes !== prev.mes) {
-        return { ...next, coordinador: null, direccion: null, campana: null, indicador: null };
+        return { ...next, coordinador: lockedCoordinador ?? null, direccion: null, campana: null, indicador: null };
       }
       // Si cambió el coordinador → limpiar dirección en adelante
       if (next.coordinador !== prev.coordinador) {
@@ -294,6 +306,101 @@ export function useCohortData(data: CohortRecord[]) {
       .sort((a, b) => b.racs - a.racs);
   }, [filteredData]);
 
+  // ── Coordinadores y Formadores ──────────────────────────
+  const byCoordinador = useMemo(() => {
+    const map = new Map<string, { nombre: string; count: number; racs: Set<string>; sumCierre: number; countCierre: number }>();
+    filteredData.forEach((r) => {
+      const name = r.coordinador?.trim() || r.sheetName?.trim() || "Sin asignar";
+      if (!map.has(name)) {
+        map.set(name, { nombre: name, count: 0, racs: new Set(), sumCierre: 0, countCierre: 0 });
+      }
+      const entry = map.get(name)!;
+      entry.count++;
+      if (r.documento) entry.racs.add(r.documento);
+      if (r.cumplimientoCierre !== null) {
+        const p = toPct(r.cumplimientoCierre) ?? 0;
+        entry.sumCierre += p;
+        entry.countCierre++;
+      }
+    });
+
+    return Array.from(map.values())
+      .map((e) => ({
+        nombre: e.nombre,
+        count: e.racs.size > 0 ? e.racs.size : e.count,
+        registros: e.count,
+        promCierre: e.countCierre > 0 ? Math.round(e.sumCierre / e.countCierre) : null,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredData]);
+
+  const byFormador = useMemo(() => {
+    const map = new Map<string, number>();
+    filteredData.forEach((r) => {
+      if (r.formador) map.set(r.formador, (map.get(r.formador) ?? 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([formador, total]) => ({ formador, total }))
+      .sort((a, b) => b.total - a.total);
+  }, [filteredData]);
+
+  // ── Evolución por Etapas (OJT, S1, S2, S3, S4, Cierre) ─────
+  const stagesEvolution = useMemo(() => {
+    const stagesDef = [
+      { stage: "OJT (Inducción)", shortName: "OJT", metaKey: "metaOjt", resKey: "resultadoOjt", cumpKey: "cumplimientoOjt" },
+      { stage: "Semana 1", shortName: "S1", metaKey: "metaS1", resKey: "resultadoS1", cumpKey: "cumplimientoS1" },
+      { stage: "Semana 2", shortName: "S2", metaKey: "metaS2", resKey: "resultadoS2", cumpKey: "cumplimientoS2" },
+      { stage: "Semana 3", shortName: "S3", metaKey: "metaS3", resKey: "resultadoS3", cumpKey: "cumplimientoS3" },
+      { stage: "Semana 4", shortName: "S4", metaKey: "metaS4", resKey: "resultadoS4", cumpKey: "cumplimientoS4" },
+      { stage: "Cierre Final 30D", shortName: "Cierre", metaKey: "metaCierre", resKey: "resultadoCierre", cumpKey: "cumplimientoCierre" },
+    ] as const;
+
+    return stagesDef.map((def) => {
+      let sumMeta = 0, countMeta = 0;
+      let sumRes = 0, countRes = 0;
+      let sumCump = 0, countCump = 0;
+      let verde = 0, amarillo = 0, rojo = 0;
+
+      filteredData.forEach((r) => {
+        const metaVal = r[def.metaKey as keyof CohortRecord] as number | null;
+        const resVal = r[def.resKey as keyof CohortRecord] as number | null;
+        const cumpVal = r[def.cumpKey as keyof CohortRecord] as number | null;
+
+        if (metaVal !== null && !isNaN(Number(metaVal))) {
+          sumMeta += Number(metaVal);
+          countMeta++;
+        }
+        if (resVal !== null && !isNaN(Number(resVal))) {
+          sumRes += Number(resVal);
+          countRes++;
+        }
+        if (cumpVal !== null) {
+          const pct = toPct(cumpVal);
+          if (pct !== null) {
+            sumCump += pct;
+            countCump++;
+            const s = semaforo(cumpVal);
+            if (s === "green") verde++;
+            else if (s === "yellow") amarillo++;
+            else if (s === "red") rojo++;
+          }
+        }
+      });
+
+      return {
+        stage: def.stage,
+        shortName: def.shortName,
+        promMeta: countMeta > 0 ? Math.round((sumMeta / countMeta) * 10) / 10 : null,
+        promResultado: countRes > 0 ? Math.round((sumRes / countRes) * 10) / 10 : null,
+        promCumplimiento: countCump > 0 ? Math.round(sumCump / countCump) : null,
+        verde,
+        amarillo,
+        rojo,
+        totalValid: countCump,
+      };
+    });
+  }, [filteredData]);
+
   return {
     filters,
     setFilters: setFiltersWithCascade,
@@ -302,6 +409,9 @@ export function useCohortData(data: CohortRecord[]) {
     byCampana,
     byIndicador,
     racPorCampana,
+    byCoordinador,
+    byFormador,
+    stagesEvolution,
     availableAnios,
     availableCoordinadores,
     availableCampanas,
@@ -309,3 +419,4 @@ export function useCohortData(data: CohortRecord[]) {
     availableIndicadores,
   };
 }
+

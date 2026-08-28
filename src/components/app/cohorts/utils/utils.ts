@@ -179,19 +179,88 @@ const fetchSheet = async (sheetName: string): Promise<CohortRecord[]> => {
 
 // ── Lista de coordinadores ── agregar aquí nuevos ─────────────
 
-// ── Para agregar un coordinador: descomentar o añadir su nombre
-//    exacto tal como aparece en la pestaña del Google Sheet.
+// ── Lista completa de hojas de coordinadores en Google Sheets
 export const COHORT_SHEETS: string[] = [
   "Jenny Carolina",
   "Jhon Eyder",
-  // "Cristian Camilo",
-  // "Jerson Lorena",
-  // "Jhenny Alexander",
-  // "Michael David",
-  // "Olga Lucia",
-  // "Walter Duvan",
-  // "Yanny Vanesa",
+  "Cristian Camilo",
+  "Jerson Lorena",
+  "Jeimmy Lorena",
+  "Jhenny Alexander",
+  "Jhonny Alexander",
+  "Michael David",
+  "Michael Daniel",
+  "Olga Lucia",
+  "Walter Duvan",
+  "Walther Duvan",
+  "Yanny Vanesa",
+  "Yenny Vanessa",
+  "Gladys Liliana",
+  "Karol Ferreira",
+  "Fernando Andres",
+  "Deisy Carolina",
+  "Marcia Johana",
 ];
+
+// ── Matcher entre el usuario de AuthContext y las hojas de Cohortes ─────────
+export const matchCoordinatorName = (
+  userNombre: string | null | undefined,
+  availableCoordinadores: string[]
+): string | null => {
+  if (!userNombre) return null;
+
+  const normUser = userNombre
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+  const userWords = normUser.split(/\s+/).filter(Boolean);
+
+  for (const coord of availableCoordinadores) {
+    const normCoord = coord
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+    // 1. Coincidencia exacta o contenida
+    if (normUser === normCoord || normUser.includes(normCoord) || normCoord.includes(normUser)) {
+      return coord;
+    }
+
+    // 2. Coincidencia por los dos primeros nombres (ej. "JENNY CAROLINA")
+    if (userWords.length >= 2) {
+      const firstTwo = `${userWords[0]} ${userWords[1]}`;
+      if (normCoord.includes(firstTwo) || firstTwo.includes(normCoord)) {
+        return coord;
+      }
+    }
+
+    // 3. Coincidencia por primer nombre + inicio
+    if (userWords.length >= 1 && normCoord.startsWith(userWords[0])) {
+      return coord;
+    }
+  }
+
+  // Fallback: si no está en la lista pero hay nombres parecidos en COHORT_SHEETS
+  for (const coord of COHORT_SHEETS) {
+    const normCoord = coord
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+    if (userWords.length >= 2) {
+      const firstTwo = `${userWords[0]} ${userWords[1]}`;
+      if (normCoord.includes(firstTwo) || firstTwo.includes(normCoord)) {
+        return coord;
+      }
+    }
+  }
+
+  return null;
+};
 
 // ── Fetch principal ──────────────────────────────────────────
 
@@ -204,7 +273,7 @@ export const fetchAllCohortData = async (): Promise<CohortRecord[]> => {
     if (result.status === "fulfilled") {
       all.push(...result.value);
     } else {
-      console.error(`[COHORTS] Error al cargar "${COHORT_SHEETS[i]}":`, result.reason);
+      console.warn(`[COHORTS] Hoja no disponible o sin acceso "${COHORT_SHEETS[i]}":`, result.reason);
     }
   });
   return all;
