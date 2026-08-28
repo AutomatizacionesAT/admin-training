@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { fetchAllCohortData, matchCoordinatorName } from "./utils/utils";
+import { fetchAllCohortData, matchCoordinatorName, type CohortRecord } from "./utils/utils";
 import { useCohortData } from "./hooks/useCohortData";
 import CohortFilters from "./components/CohortFilters";
 import CohortTable from "./components/CohortTable";
@@ -7,23 +7,23 @@ import CohortResumenTab from "./components/CohortResumenTab";
 import CohortReportModal from "./components/CohortReportModal";
 import GlobalLoginModal from "@/components/web/GlobalLoginModal";
 import { useAuth } from "@/context/AuthContext";
-import { RefreshCw, Users, AlertCircle, ShieldCheck, Lock, LogIn } from "lucide-react";
+import { RefreshCw, AlertCircle, ShieldCheck, Lock, LogIn } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Cohorts() {
   const { isAuthenticated, isSuperAdmin, isCoordinador, salasUser, login } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  const [rawData, setRawData] = useState([]);
+  const [rawData, setRawData] = useState<CohortRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("resumen");
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"resumen" | "tabla">("resumen");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   // Lista temporal de coordinadores extraídos del rawData para el matcher
   const allCoordinadorNames = useMemo(() => {
-    const s = new Set();
+    const s = new Set<string>();
     rawData.forEach((r) => {
       const v = r.coordinador?.trim() || r.sheetName?.trim();
       if (v) s.add(v);
@@ -79,7 +79,7 @@ export default function Cohorts() {
     loadData();
   }, []);
 
-  const handleLoginSuccess = (input) => {
+  const handleLoginSuccess = (input: any) => {
     const ok = login(input);
     if (ok) {
       toast.success("Sesión iniciada", {
@@ -126,6 +126,7 @@ export default function Cohorts() {
         {/* Pestañas de Vista */}
         <div className="flex items-center gap-2 bg-white/80 p-1 rounded-xl border border-gray-200/80 shadow-2xs backdrop-blur-md">
           <button
+            type="button"
             onClick={() => setActiveTab("resumen")}
             className={`${activeTab === "resumen"
               ? "bg-gradient-to-r from-[#1b355b] to-[#13253f] text-white shadow-md font-bold"
@@ -183,6 +184,7 @@ export default function Cohorts() {
             <p className="text-xs text-red-600">{error}</p>
           </div>
           <button
+            type="button"
             onClick={loadData}
             className="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-800 text-xs font-bold transition-colors cursor-pointer"
           >
@@ -207,12 +209,12 @@ export default function Cohorts() {
               selectedCoordinador={filters.coordinador}
               onSelectCoordinador={(coord) => {
                 if (!lockedCoordinador) {
-                  setFilters((prev) => ({ ...prev, coordinador: coord }));
+                  setFilters((prev: any) => ({ ...prev, coordinador: coord }));
                 }
               }}
               selectedCampana={filters.campana}
               onSelectCampana={(campana) =>
-                setFilters((prev) => ({ ...prev, campana }))
+                setFilters((prev: any) => ({ ...prev, campana }))
               }
             />
           )}
@@ -249,6 +251,7 @@ export default function Cohorts() {
               </span>
             )}
             <button
+              type="button"
               onClick={loadData}
               disabled={loading}
               className="flex items-center gap-1.5 hover:text-[#1a355b] transition-colors cursor-pointer font-medium"

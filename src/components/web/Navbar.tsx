@@ -46,7 +46,7 @@ export default function Navbar() {
     { name: "Biométrico", path: "/informe-biometrico", icon: Fingerprint },
     { name: "Agile Training", path: "/agile-training", icon: Rocket },
     { name: "Academy", path: "/academy", icon: GraduationCap },
-    { name: "Cohorts", path: "/cohorts", icon: UsersRound },
+    // { name: "Cohorts", path: "/cohorts", icon: UsersRound },
     { name: "Salas", path: "/salas", icon: DoorOpen },
   ].filter((link) => {
     if (!isAuthenticated) {
@@ -81,7 +81,7 @@ export default function Navbar() {
                   Training
                 </span>
                 <span className="text-[9px] font-semibold text-white/30 tracking-widest uppercase mt-0.5 leading-none">
-                  v 1.5.6
+                  v 1.5.8
                 </span>
               </div>
             </Link>
