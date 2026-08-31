@@ -45,6 +45,10 @@ export function GridMetricasCampana({
   selectedEstadoServidor,
   setSelectedEstadoServidor,
 }: GridMetricasCampanaProps) {
+  const visibleIndustrias = industriasMetrics.filter(
+    (ind) => ind.nombre && ind.nombre.trim().toLowerCase() !== "sin asignar",
+  );
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
       {/* ═══ TOTAL CAMPAÑAS  ═══ */}
@@ -138,7 +142,7 @@ export function GridMetricasCampana({
               </button>
             )}
             <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-[#1a355b]">
-              {industriasMetrics.length} sectores
+              {visibleIndustrias.length} sectores
             </span>
           </div>
         </div>
@@ -149,7 +153,7 @@ export function GridMetricasCampana({
             gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
           }}
         >
-          {industriasMetrics.map((ind, idx) => {
+          {visibleIndustrias.map((ind, idx) => {
             const isSelected = selectedIndustria === ind.nombre;
             return (
               <button
@@ -212,7 +216,7 @@ export function GridMetricasCampana({
               </button>
             );
           })}
-          {industriasMetrics.length === 0 && (
+          {visibleIndustrias.length === 0 && (
             <div className="col-span-full flex min-h-[130px] items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-5 text-center text-xs text-gray-400">
               No hay industrias para el filtro seleccionado
             </div>

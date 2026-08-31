@@ -15,7 +15,6 @@ import {
   Rocket,
   UserCircle,
   Zap,
-  UsersRound,
 } from "lucide-react";
 
 const ATENTO_NAVY = "#1B365D";

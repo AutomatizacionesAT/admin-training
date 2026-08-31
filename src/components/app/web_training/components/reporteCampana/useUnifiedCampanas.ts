@@ -428,21 +428,28 @@ export function useUnifiedCampanas({
       return true;
     });
 
-    const total = source.length;
-
     source.forEach((camp) => {
-      const ind = camp.industriaPrincipal || "Sin Asignar";
+      const ind = camp.industriaPrincipal?.trim();
+      if (!ind || ind.toLowerCase() === "sin asignar") return;
       if (!indMap.has(ind)) {
         indMap.set(ind, new Set<string>());
       }
       indMap.get(ind)!.add(camp.normalizedKey);
     });
 
+    const totalAssigned = Array.from(indMap.values()).reduce(
+      (acc, set) => acc + set.size,
+      0,
+    );
+
     return Array.from(indMap.entries())
       .map(([nombre, campSet]) => ({
         nombre,
         count: campSet.size,
-        porcentaje: total > 0 ? ((campSet.size / total) * 100).toFixed(1) : "0.0",
+        porcentaje:
+          totalAssigned > 0
+            ? ((campSet.size / totalAssigned) * 100).toFixed(1)
+            : "0.0",
       }))
       .sort((a, b) => b.count - a.count);
   }, [
