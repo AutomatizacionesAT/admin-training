@@ -15,6 +15,7 @@ import {
   Rocket,
   UserCircle,
   Zap,
+  UsersRound
 } from "lucide-react";
 
 const ATENTO_NAVY = "#1B365D";
@@ -45,7 +46,7 @@ export default function Navbar() {
     { name: "Biométrico", path: "/informe-biometrico", icon: Fingerprint },
     { name: "Agile Training", path: "/agile-training", icon: Rocket },
     { name: "Academy", path: "/academy", icon: GraduationCap },
-    // { name: "Cohorts", path: "/cohorts", icon: UsersRound },
+    { name: "Cohorts", path: "/cohorts", icon: UsersRound },
     { name: "Salas", path: "/salas", icon: DoorOpen },
   ].filter((link) => {
     if (!isAuthenticated) {

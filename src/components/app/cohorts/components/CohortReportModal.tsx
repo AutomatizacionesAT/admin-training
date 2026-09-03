@@ -52,6 +52,25 @@ interface CohortRowData {
   meta: number;
 }
 
+interface KpiStageValues {
+  meta: number | null;
+  resultado: number | null;
+  cumplimiento: number | null;
+}
+
+interface KpiSummaryRow {
+  indicador: string;
+  totalRecords: number;
+  totalDocs: number;
+  ojt: KpiStageValues;
+  s1: KpiStageValues;
+  s2: KpiStageValues;
+  s3: KpiStageValues;
+  s4: KpiStageValues;
+  cierre: KpiStageValues;
+  avgCumplimiento: number | null;
+}
+
 interface IndicatorGroup {
   indicador: string;
   rows: CohortRowData[];
@@ -264,11 +283,135 @@ export default function CohortReportModal({
     return { meses, motivos };
   }, [filteredData]);
 
+  // ── 2.5. Resumen de Indicadores (Metas & Cumplimientos Semanales) ─────────
+  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
+
+  const kpiSummaryData = useMemo((): KpiSummaryRow[] => {
+    const map = new Map<string, { records: CohortRecord[]; docs: Set<string> }>();
+
+    filteredData.forEach((r) => {
+      const ind = r.indicador?.trim() || "INDICADOR GENERAL";
+      if (!map.has(ind)) {
+        map.set(ind, { records: [], docs: new Set() });
+      }
+      const entry = map.get(ind)!;
+      entry.records.push(r);
+      const doc = r.documento?.trim() || r.nombre?.trim();
+      if (doc) entry.docs.add(doc);
+    });
+
+    const getStageMetrics = (
+      records: CohortRecord[],
+      metaKey: keyof CohortRecord,
+      resKey: keyof CohortRecord,
+      cumpKey: keyof CohortRecord
+    ): KpiStageValues => {
+      let metaSum = 0, metaCnt = 0;
+      let resSum = 0, resCnt = 0;
+      let cumpSum = 0, cumpCnt = 0;
+
+      records.forEach((r) => {
+        const m = r[metaKey] as number | null;
+        const res = r[resKey] as number | null;
+        const c = r[cumpKey] as number | null;
+
+        if (m !== null && !isNaN(Number(m))) {
+          metaSum += Number(m);
+          metaCnt++;
+        }
+        if (res !== null && !isNaN(Number(res))) {
+          resSum += Number(res);
+          resCnt++;
+        }
+        if (c !== null) {
+          const pct = toPct(c);
+          if (pct !== null) {
+            cumpSum += pct;
+            cumpCnt++;
+          }
+        }
+      });
+
+      const avgMeta = metaCnt > 0 ? Math.round((metaSum / metaCnt) * 10) / 10 : null;
+      const avgRes = resCnt > 0 ? Math.round((resSum / resCnt) * 10) / 10 : null;
+      const avgCump = cumpCnt > 0 ? Math.round(cumpSum / cumpCnt) : null;
+
+      return {
+        meta: avgMeta,
+        resultado: avgRes,
+        cumplimiento: avgCump,
+      };
+    };
+
+    const rows: KpiSummaryRow[] = [];
+
+    map.forEach(({ records, docs }, indicador) => {
+      const ojt = getStageMetrics(records, "metaOjt", "resultadoOjt", "cumplimientoOjt");
+      const s1 = getStageMetrics(records, "metaS1", "resultadoS1", "cumplimientoS1");
+      const s2 = getStageMetrics(records, "metaS2", "resultadoS2", "cumplimientoS2");
+      const s3 = getStageMetrics(records, "metaS3", "resultadoS3", "cumplimientoS3");
+      const s4 = getStageMetrics(records, "metaS4", "resultadoS4", "cumplimientoS4");
+      const cierre = getStageMetrics(records, "metaCierre", "resultadoCierre", "cumplimientoCierre");
+
+      const validCumps = [ojt.cumplimiento, s1.cumplimiento, s2.cumplimiento, s3.cumplimiento, s4.cumplimiento].filter(
+        (v): v is number => v !== null
+      );
+      const avgCumplimiento =
+        validCumps.length > 0 ? Math.round(validCumps.reduce((a, b) => a + b, 0) / validCumps.length) : null;
+
+      rows.push({
+        indicador,
+        totalRecords: records.length,
+        totalDocs: docs.size > 0 ? docs.size : records.length,
+        ojt,
+        s1,
+        s2,
+        s3,
+        s4,
+        cierre,
+        avgCumplimiento,
+      });
+    });
+
+    return rows.sort((a, b) => b.totalDocs - a.totalDocs);
+  }, [filteredData]);
+
+  // Indicador activo para gráfica interactiva
+  const activeKpiRow = useMemo(() => {
+    if (kpiSummaryData.length === 0) return null;
+    const found = kpiSummaryData.find((k) => k.indicador === selectedKpi);
+    return found ?? kpiSummaryData[0];
+  }, [kpiSummaryData, selectedKpi]);
+
   // ── 3. Coordinador Activo, Tema de Campaña y Líneas de Negocio ────────────
   const theme = useMemo(() => getCampaignTheme(filters.campana), [filters.campana]);
   const coordinadorActivo = filters.coordinador ?? byCoordinador[0]?.nombre ?? "Lucia Bravo Nuñez";
-  const totalFormadores = byFormador.length || 2;
-  const ratioAtencion = `1:${Math.round(kpis.totalPersonas / Math.max(1, totalFormadores))}`;
+  const totalFormadores = Math.max(1, byFormador.length);
+  const ratioAtencion = `1:${Math.round(kpis.totalPersonas / totalFormadores)}`;
+
+  // Mapa de agentes únicos por campaña (solo documentos únicos)
+  const agentsByCampaign = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+
+    filteredData.forEach((r) => {
+      const campana = r.campana ?? "Sin campaña";
+      const doc = (r.documento?.trim() || r.nombre?.trim() || "").toUpperCase();
+
+      if (!doc) return;
+
+      if (!map.has(campana)) {
+        map.set(campana, new Set());
+      }
+      map.get(campana)!.add(doc);
+    });
+
+    const countMap = new Map<string, number>();
+    map.forEach((docs, campana) => {
+      countMap.set(campana, docs.size);
+    });
+
+    return countMap;
+  }, [filteredData]);
 
   // Semáforo breakdown
   const totalSemaforo = (kpis.verde + kpis.amarillo + kpis.rojo) || 1;
@@ -333,11 +476,10 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
               <button
                 type="button"
                 onClick={() => setActiveTab("tablero")}
-                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-                  activeTab === "tablero"
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${activeTab === "tablero"
                     ? "bg-amber-400 text-slate-950 font-bold shadow-xs"
                     : "text-sky-200 hover:text-white"
-                }`}
+                  }`}
               >
                 <Layers className="w-3.5 h-3.5 inline mr-1" />
                 Tablero Completo
@@ -345,11 +487,10 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
               <button
                 type="button"
                 onClick={() => setActiveTab("ejecutivo")}
-                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-                  activeTab === "ejecutivo"
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${activeTab === "ejecutivo"
                     ? "bg-amber-400 text-slate-950 font-bold shadow-xs"
                     : "text-sky-200 hover:text-white"
-                }`}
+                  }`}
               >
                 <BarChart3 className="w-3.5 h-3.5 inline mr-1" />
                 Resumen KPIs
@@ -434,177 +575,407 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
               </div>
 
               {/* Grid Superior de Fichas Operativas */}
-              <div className="p-3.5 grid grid-cols-1 lg:grid-cols-12 gap-3 text-xs bg-slate-50/50">
+              <div className="p-3.5 grid grid-cols-1 lg:grid-cols-12 gap-3.5 text-xs bg-slate-50/50">
 
-                {/* 1.1 Coordinador(es) de Formación & Formadores */}
-                <div className="lg:col-span-4 bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden flex flex-col justify-between">
-                  <div
-                    className="text-white px-3 py-1.5 font-bold flex items-center justify-between text-[11px] transition-colors"
-                    style={{ backgroundColor: theme.colorSecundario }}
-                  >
-                    <span>Coordinador(es) de Formación</span>
-                    <span className="text-amber-300 font-extrabold">{coordinadorActivo}</span>
-                  </div>
+                {/* ── COLUMNA IZQUIERDA: Coordinadores, Formadores y Líneas de Negocio ── */}
+                <div className="lg:col-span-5 xl:col-span-4 space-y-3 flex flex-col justify-between">
 
-                  <div className="p-2.5 space-y-2">
-                    {/* Mini-tabla de ratios */}
-                    <table className="w-full text-center text-[10px] border border-slate-200 border-collapse">
-                      <thead className="bg-slate-100 font-bold text-slate-700">
-                        <tr>
-                          <th className="border border-slate-200 py-1">Agentes</th>
-                          <th className="border border-slate-200 py-1">Formador</th>
-                          <th className="border border-slate-200 py-1">Semillero</th>
-                          <th className="border border-slate-200 py-1">Ratio Act</th>
-                        </tr>
-                      </thead>
-                      <tbody className="font-bold text-slate-800">
-                        <tr>
-                          <td className="border border-slate-200 py-1 text-blue-900">{kpis.totalPersonas}</td>
-                          <td className="border border-slate-200 py-1">{Math.max(1, byFormador.length)}</td>
-                          <td className="border border-slate-200 py-1">1</td>
-                          <td className="border border-slate-200 py-1 text-emerald-700">{ratioAtencion}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  {/* 1.1 Coordinador(es) de Formación & Formadores */}
+                  <div className="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
+                    <div
+                      className="text-white px-3 py-1.5 font-bold flex items-center justify-between text-[11px] transition-colors"
+                      style={{ backgroundColor: theme.colorSecundario }}
+                    >
+                      <span>Coordinador(es) de Formación</span>
+                      <span className="text-amber-300 font-extrabold">{coordinadorActivo}</span>
+                    </div>
 
-                    {/* Tabla de Formadores */}
-                    <div className="border border-slate-200 rounded overflow-hidden">
-                      <div className="bg-slate-100 px-2 py-1 font-bold text-[10px] text-slate-700 border-b border-slate-200 flex justify-between">
-                        <span>Formador(es) Asignados</span>
-                        <span>Rol</span>
-                      </div>
-                      <div className="max-h-[85px] overflow-y-auto divide-y divide-slate-100 text-[10px]">
-                        {byFormador.slice(0, 4).map((f, i) => (
-                          <div key={f.formador} className="px-2 py-1 flex justify-between items-center hover:bg-blue-50/50">
-                            <span className="font-semibold text-slate-800 uppercase truncate" title={f.formador}>
-                              {f.formador}
-                            </span>
-                            <span className="text-slate-500 font-medium shrink-0">
-                              {i % 2 === 0 ? "Formador(a)" : "Semillero"} ({f.total} RACs)
-                            </span>
-                          </div>
-                        ))}
-                        {byFormador.length === 0 && (
-                          <div className="px-2 py-1.5 text-center text-slate-400 italic">
-                            Sin formadores específicos registrados
-                          </div>
-                        )}
+                    <div className="p-2.5 space-y-2">
+                      {/* Mini-tabla de ratios */}
+                      <table className="w-full text-center text-[10px] border border-slate-200 border-collapse">
+                        <thead className="bg-slate-100 font-bold text-slate-700">
+                          <tr>
+                            <th className="border border-slate-200 py-1">Agentes</th>
+                            <th className="border border-slate-200 py-1">Formador</th>
+                            <th className="border border-slate-200 py-1">Semillero</th>
+                            <th className="border border-slate-200 py-1">Ratio Act</th>
+                          </tr>
+                        </thead>
+                        <tbody className="font-bold text-slate-800">
+                          <tr>
+                            <td className="border border-slate-200 py-1 text-blue-900">{kpis.totalPersonas}</td>
+                            <td className="border border-slate-200 py-1">{Math.max(1, byFormador.length)}</td>
+                            <td className="border border-slate-200 py-1">1</td>
+                            <td className="border border-slate-200 py-1 text-emerald-700">{ratioAtencion}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      {/* Tabla de Formadores */}
+                      <div className="border border-slate-200 rounded overflow-hidden">
+                        <div className="bg-slate-100 px-2 py-1 font-bold text-[10px] text-slate-700 border-b border-slate-200 flex justify-between">
+                          <span>Formador(es) Asignados</span>
+                          <span>Rol</span>
+                        </div>
+                        <div className="max-h-[85px] overflow-y-auto divide-y divide-slate-100 text-[10px]">
+                          {byFormador.map((f, i) => (
+                            <div key={f.formador} className="px-2 py-1 flex justify-between items-center hover:bg-blue-50/50">
+                              <span className="font-semibold text-slate-800 uppercase truncate" title={f.formador}>
+                                {f.formador}
+                              </span>
+                              <span className="text-slate-500 font-medium shrink-0">
+                                {i % 2 === 0 ? "Formador(a)" : "Semillero"} ({f.total} RACs)
+                              </span>
+                            </div>
+                          ))}
+                          {byFormador.length === 0 && (
+                            <div className="px-2 py-1.5 text-center text-slate-400 italic">
+                              Sin formadores específicos registrados
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* 1.2 Línea de Negocio y Métricas Operativas */}
-                <div className="lg:col-span-5 bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden flex flex-col justify-between">
-                  <div
-                    className="text-white px-3 py-1.5 font-bold text-[11px] flex justify-between transition-colors"
-                    style={{ backgroundColor: theme.colorSecundario }}
-                  >
-                    <span>Líneas de Negocio & Observación Operativa</span>
-                    <span className="text-sky-200 font-medium">{racPorCampana.length} LNs</span>
+                  {/* 1.2 Línea de Negocio y Métricas Operativas */}
+                  <div className="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
+                    <div
+                      className="text-white px-3 py-1.5 font-bold text-[11px] flex justify-between transition-colors"
+                      style={{ backgroundColor: theme.colorSecundario }}
+                    >
+                      <span>Líneas de Negocio & Observación Operativa</span>
+                      <span className="text-sky-200 font-medium">{racPorCampana.length} LNs</span>
+                    </div>
+
+                    <div className="p-2.5 space-y-2">
+                      <div className="border border-slate-200 rounded overflow-hidden">
+                        <table className="w-full text-[10px] border-collapse">
+                          <thead className="bg-slate-100 font-bold text-slate-700 text-center">
+                            <tr>
+                              <th className="border border-slate-200 px-2 py-1 text-left">Línea de Negocio</th>
+                              <th className="border border-slate-200 px-1 py-1">Agentes</th>
+                              <th className="border border-slate-200 px-1 py-1">Días Cap</th>
+                              <th className="border border-slate-200 px-1 py-1">Días OJT</th>
+                              <th className="border border-slate-200 px-1 py-1">Cierre</th>
+                              <th className="border border-slate-200 px-2 py-1 text-left">Observación</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-slate-700">
+                            {racPorCampana.slice(0, 4).map((c, idx) => (
+                              <tr key={c.campana} className="hover:bg-blue-50/50">
+                                <td className="border border-slate-200 px-2 py-1 font-bold text-slate-900 uppercase">
+                                  {c.campana}
+                                </td>
+                               <td className="border border-slate-200 px-1 py-1 text-center font-bold text-blue-900">
+                                   {agentsByCampaign.get(c.campana) ?? 0}
+                                 </td>
+                                <td className="border border-slate-200 px-1 py-1 text-center text-slate-600">
+                                  {14 + (idx * 2)}
+                                </td>
+                                <td className="border border-slate-200 px-1 py-1 text-center text-slate-600">
+                                  {7 + idx}
+                                </td>
+                                <td className="border border-slate-200 px-1 py-1 text-center font-bold">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] ${(c.promCierre ?? 0) >= 90 ? "bg-emerald-100 text-emerald-800" :
+                                      (c.promCierre ?? 0) >= 70 ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"
+                                    }`}>
+                                    {c.promCierre !== null ? `${c.promCierre}%` : "—"}
+                                  </span>
+                                </td>
+                                <td className="border border-slate-200 px-2 py-1 text-slate-500 truncate max-w-[140px]" title="Gestiona solicitudes y flujo continuo de clientes">
+                                  Gestiona solicitudes y flujo continuo
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="p-2.5 space-y-2">
-                    <div className="border border-slate-200 rounded overflow-hidden">
-                      <table className="w-full text-[10px] border-collapse">
-                        <thead className="bg-slate-100 font-bold text-slate-700 text-center">
-                          <tr>
-                            <th className="border border-slate-200 px-2 py-1 text-left">Línea de Negocio</th>
-                            <th className="border border-slate-200 px-1 py-1">Agentes</th>
-                            <th className="border border-slate-200 px-1 py-1">Días Cap</th>
-                            <th className="border border-slate-200 px-1 py-1">Días OJT</th>
-                            <th className="border border-slate-200 px-1 py-1">Cierre</th>
-                            <th className="border border-slate-200 px-2 py-1 text-left">Observación</th>
+                </div>
+
+                {/* ── COLUMNA DERECHA: Matriz de Metas & Cumplimiento por KPI + Gráfica Dinámica ── */}
+                <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden flex flex-col justify-between">
+                  <div
+                    className="text-white px-3 py-1.5 font-bold text-[11px] flex justify-between items-center transition-colors"
+                    style={{ backgroundColor: theme.colorSecundario }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Target className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Matriz de Metas & Cumplimiento por Indicador (KPIs)</span>
+                    </div>
+                    <span className="text-amber-300 font-bold text-[10px] bg-white/10 px-2 py-0.5 rounded">
+                      {kpiSummaryData.length} KPIs Evaluados
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 space-y-3">
+                    {/* ── 1. TABLA EXCEL STYLE DE KPIS ── */}
+                    <div className="overflow-x-auto rounded border border-slate-300">
+                      <table className="w-full text-[10px] border-collapse border border-slate-300">
+                        <thead>
+                          {/* Fila 1: Título de Campaña y Año */}
+                          <tr className="bg-[#dbeafe] border-b border-slate-300 text-slate-900 font-black text-center uppercase tracking-wider">
+                            <th colSpan={11} className="py-1 px-2 text-[11px]">
+                              {filters.campana ?? theme.nombreComercial} {filters.anio ?? new Date().getFullYear()}
+                            </th>
+                          </tr>
+                          {/* Fila 2: Cabeceras de Grupo */}
+                          <tr className="border-b border-slate-300 text-center font-black">
+                            <th
+                              rowSpan={2}
+                              className="border-r border-slate-300 bg-[#e0f2fe] text-[#0369a1] px-2.5 py-1 text-left uppercase tracking-wider min-w-[90px]"
+                            >
+                              KPIS
+                            </th>
+                            <th
+                              colSpan={5}
+                              className="border-r border-slate-300 bg-[#86efac] text-emerald-950 px-2 py-0.5 uppercase tracking-wider text-[10px]"
+                            >
+                              METAS
+                            </th>
+                            <th
+                              colSpan={5}
+                              className="bg-[#d8b4fe] text-purple-950 px-2 py-0.5 uppercase tracking-wider text-[10px]"
+                            >
+                              CUMPLIMIENTO
+                            </th>
+                          </tr>
+                          {/* Fila 3: Sub-columnas semanales */}
+                          <tr className="border-b border-slate-300 text-center font-bold text-[9px]">
+                            {/* Metas sub-cols */}
+                            <th className="border-r border-slate-200 bg-[#bbf7d0] text-emerald-900 px-1 py-0.5">OJT</th>
+                            <th className="border-r border-slate-200 bg-[#bbf7d0] text-emerald-900 px-1 py-0.5">SEMA1</th>
+                            <th className="border-r border-slate-200 bg-[#bbf7d0] text-emerald-900 px-1 py-0.5">SEMAN2</th>
+                            <th className="border-r border-slate-200 bg-[#bbf7d0] text-emerald-900 px-1 py-0.5">SEMA3</th>
+                            <th className="border-r border-slate-300 bg-[#bbf7d0] text-emerald-900 px-1 py-0.5">SEMAN4</th>
+                            {/* Cumplimiento sub-cols */}
+                            <th className="border-r border-slate-200 bg-[#e9d5ff] text-purple-900 px-1 py-0.5">OJT</th>
+                            <th className="border-r border-slate-200 bg-[#e9d5ff] text-purple-900 px-1 py-0.5">SEMA1</th>
+                            <th className="border-r border-slate-200 bg-[#e9d5ff] text-purple-900 px-1 py-0.5">SEMAN2</th>
+                            <th className="border-r border-slate-200 bg-[#e9d5ff] text-purple-900 px-1 py-0.5">SEMA3</th>
+                            <th className="bg-[#e9d5ff] text-purple-900 px-1 py-0.5">SEMAN4</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 text-slate-700">
-                          {racPorCampana.slice(0, 4).map((c, idx) => (
-                            <tr key={c.campana} className="hover:bg-blue-50/50">
-                              <td className="border border-slate-200 px-2 py-1 font-bold text-slate-900 uppercase">
-                                {c.campana}
-                              </td>
-                              <td className="border border-slate-200 px-1 py-1 text-center font-bold text-blue-900">
-                                {c.racs}
-                              </td>
-                              <td className="border border-slate-200 px-1 py-1 text-center text-slate-600">
-                                {14 + (idx * 2)}
-                              </td>
-                              <td className="border border-slate-200 px-1 py-1 text-center text-slate-600">
-                                {7 + idx}
-                              </td>
-                              <td className="border border-slate-200 px-1 py-1 text-center font-bold">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] ${
-                                  (c.promCierre ?? 0) >= 90 ? "bg-emerald-100 text-emerald-800" :
-                                  (c.promCierre ?? 0) >= 70 ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"
-                                }`}>
-                                  {c.promCierre !== null ? `${c.promCierre}%` : "—"}
-                                </span>
-                              </td>
-                              <td className="border border-slate-200 px-2 py-1 text-slate-500 truncate max-w-[140px]" title="Gestiona solicitudes y flujo continuo de clientes">
-                                Gestiona solicitudes y flujo continuo
+                        <tbody className="divide-y divide-slate-200 text-center font-medium">
+                          {kpiSummaryData.map((row) => {
+                            const isSelected = activeKpiRow?.indicador === row.indicador;
+                            return (
+                              <tr
+                                key={row.indicador}
+                                onClick={() => setSelectedKpi(row.indicador)}
+                                className={`cursor-pointer transition-all ${isSelected ? "bg-blue-50/90 font-bold" : "hover:bg-slate-50"
+                                  }`}
+                              >
+                                {/* Columna KPIS */}
+                                <td
+                                  className={`border-r border-slate-300 px-2 py-1 text-left uppercase text-slate-800 truncate max-w-[120px] transition-colors ${isSelected
+                                      ? "bg-blue-100 text-blue-950 font-black border-l-2 border-l-blue-600"
+                                      : "bg-[#f0f9ff] font-bold"
+                                    }`}
+                                  title={row.indicador}
+                                >
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="truncate">{row.indicador}</span>
+                                    {isSelected && (
+                                      <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+                                    )}
+                                  </div>
+                                </td>
+
+                                {/* Metas */}
+                                <td className="border-r border-slate-200 px-1 py-1 text-slate-700 bg-white">
+                                  {row.ojt.meta ?? "—"}
+                                </td>
+                                <td className="border-r border-slate-200 px-1 py-1 text-slate-700 bg-white">
+                                  {row.s1.meta ?? "—"}
+                                </td>
+                                <td className="border-r border-slate-200 px-1 py-1 text-slate-700 bg-white">
+                                  {row.s2.meta ?? "—"}
+                                </td>
+                                <td className="border-r border-slate-200 px-1 py-1 text-slate-700 bg-white">
+                                  {row.s3.meta ?? "—"}
+                                </td>
+                                <td className="border-r border-slate-300 px-1 py-1 text-slate-700 bg-white">
+                                  {row.s4.meta ?? "—"}
+                                </td>
+
+                                {/* Cumplimiento / Resultado */}
+                                <td className="border-r border-slate-200 px-1 py-1 font-bold text-purple-950 bg-purple-50/40">
+                                  {row.ojt.resultado ?? (row.ojt.cumplimiento !== null ? `${row.ojt.cumplimiento}%` : "—")}
+                                </td>
+                                <td className="border-r border-slate-200 px-1 py-1 font-bold text-purple-950 bg-purple-50/40">
+                                  {row.s1.resultado ?? (row.s1.cumplimiento !== null ? `${row.s1.cumplimiento}%` : "—")}
+                                </td>
+                                <td className="border-r border-slate-200 px-1 py-1 font-bold text-purple-950 bg-purple-50/40">
+                                  {row.s2.resultado ?? (row.s2.cumplimiento !== null ? `${row.s2.cumplimiento}%` : "—")}
+                                </td>
+                                <td className="border-r border-slate-200 px-1 py-1 font-bold text-purple-950 bg-purple-50/40">
+                                  {row.s3.resultado ?? (row.s3.cumplimiento !== null ? `${row.s3.cumplimiento}%` : "—")}
+                                </td>
+                                <td className="px-1 py-1 font-bold text-purple-950 bg-purple-50/40">
+                                  {row.s4.resultado ?? (row.s4.cumplimiento !== null ? `${row.s4.cumplimiento}%` : "—")}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {kpiSummaryData.length === 0 && (
+                            <tr>
+                              <td colSpan={11} className="py-4 text-center text-slate-400 italic">
+                                No hay indicadores registrados para este período
                               </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>
-                  </div>
-                </div>
 
-                {/* 1.3 Logros y Agile Training */}
-                <div className="lg:col-span-3 space-y-2 flex flex-col justify-between">
-                  {/* Logros */}
-                  <div className="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden flex-1">
-                    <div
-                      className="text-white px-2.5 py-1 font-bold text-[11px] flex items-center gap-1.5 transition-colors"
-                      style={{ backgroundColor: theme.colorSecundario }}
-                    >
-                      <Award className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Logros Principales</span>
-                    </div>
-                    <div className="p-2 space-y-1.5 text-[10px] text-slate-700">
-                      <p className="flex items-start gap-1 leading-snug">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
-                        <span>Optimización en curva de 21 a 17 días de inducción.</span>
-                      </p>
-                      <p className="flex items-start gap-1 leading-snug">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
-                        <span>Seguimiento continuo por RAC en primeras 4 semanas.</span>
-                      </p>
-                    </div>
-                  </div>
+                    {/* ── 2. GRÁFICA INTERACTIVA DEL KPI SELECCIONADO ── */}
+                    {activeKpiRow && (() => {
+                      const stages = [
+                        { label: "OJT", meta: activeKpiRow.ojt.meta, res: activeKpiRow.ojt.resultado ?? activeKpiRow.ojt.cumplimiento, cumpPct: activeKpiRow.ojt.cumplimiento },
+                        { label: "SEMA 1", meta: activeKpiRow.s1.meta, res: activeKpiRow.s1.resultado ?? activeKpiRow.s1.cumplimiento, cumpPct: activeKpiRow.s1.cumplimiento },
+                        { label: "SEMA 2", meta: activeKpiRow.s2.meta, res: activeKpiRow.s2.resultado ?? activeKpiRow.s2.cumplimiento, cumpPct: activeKpiRow.s2.cumplimiento },
+                        { label: "SEMA 3", meta: activeKpiRow.s3.meta, res: activeKpiRow.s3.resultado ?? activeKpiRow.s3.cumplimiento, cumpPct: activeKpiRow.s3.cumplimiento },
+                        { label: "SEMA 4", meta: activeKpiRow.s4.meta, res: activeKpiRow.s4.resultado ?? activeKpiRow.s4.cumplimiento, cumpPct: activeKpiRow.s4.cumplimiento },
+                      ];
 
-                  {/* Agile Training */}
-                  <div className="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden">
-                    <div
-                      className="text-white px-2.5 py-1 font-bold text-[11px] flex justify-between transition-colors"
-                      style={{ backgroundColor: theme.colorSecundario }}
-                    >
-                      <span>Agile Training</span>
-                      <span className="text-amber-300 font-black">{kpis.pctCumplimiento70}%</span>
-                    </div>
-                    <div className="p-2">
-                      <table className="w-full text-center text-[10px] border border-slate-200 border-collapse">
-                        <thead className="bg-slate-100 text-slate-700 font-bold">
-                          <tr>
-                            <th className="border border-slate-200 py-0.5 px-1 text-left">Línea de Negocio</th>
-                            <th className="border border-slate-200 py-0.5 px-1">Esperado</th>
-                            <th className="border border-slate-200 py-0.5 px-1">Cumplimiento</th>
-                          </tr>
-                        </thead>
-                        <tbody className="font-semibold text-slate-800">
-                          <tr>
-                            <td className="border border-slate-200 py-0.5 px-1 text-left truncate max-w-[80px]">
-                              {filters.campana ?? theme.nombreComercial}
-                            </td>
-                            <td className="border border-slate-200 py-0.5 px-1 text-slate-600">80%</td>
-                            <td className="border border-slate-200 py-0.5 px-1 font-black text-emerald-700">
-                              {kpis.promedioCierre !== null ? `${kpis.promedioCierre}%` : "82%"}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+                      const allVals = stages
+                        .flatMap((s) => [s.meta, s.res])
+                        .filter((v): v is number => v !== null && !isNaN(v));
+
+                      const minVal = allVals.length > 0 ? Math.min(...allVals) : 0;
+                      const maxVal = allVals.length > 0 ? Math.max(...allVals) : 10;
+                      const yMin = Math.max(0, minVal > 0 && minVal / (maxVal || 1) > 0.4 ? Math.floor(minVal * 0.8) : 0);
+                      const yMax = maxVal === yMin ? yMin + 10 : Math.ceil(maxVal * 1.15) || 10;
+
+                      const svgWidth = 420;
+                      const svgHeight = 110;
+                      const padL = 36;
+                      const padR = 25;
+                      const padT = 16;
+                      const padB = 22;
+                      const plotW = svgWidth - padL - padR;
+                      const plotH = svgHeight - padT - padB;
+
+                      const getX = (idx: number) => padL + idx * (plotW / 4);
+                      const getY = (val: number) => padT + plotH - ((val - yMin) / (yMax - yMin || 1)) * plotH;
+
+                      const metaPoints = stages.map((s, i) =>
+                        s.meta !== null ? { x: getX(i), y: getY(s.meta), val: s.meta, label: s.label } : null
+                      );
+                      const validMeta = metaPoints.filter((p): p is { x: number; y: number; val: number; label: string } => p !== null);
+                      const metaPath = validMeta.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+
+                      const resPoints = stages.map((s, i) =>
+                        s.res !== null ? { x: getX(i), y: getY(s.res), val: s.res, label: s.label, cumpPct: s.cumpPct } : null
+                      );
+                      const validRes = resPoints.filter((p): p is { x: number; y: number; val: number; label: string; cumpPct: number | null } => p !== null);
+                      const resPath = validRes.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+                      const areaPath = validRes.length > 1
+                        ? `${resPath} L ${validRes[validRes.length - 1].x} ${padT + plotH} L ${validRes[0].x} ${padT + plotH} Z`
+                        : "";
+
+                      return (
+                        <div className="bg-slate-50/80 rounded-lg border border-slate-200 p-2 space-y-2">
+                          {/* Barra de Selección de KPI & Leyenda */}
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-black uppercase text-slate-700 flex items-center gap-1">
+                                <TrendingUp className="w-3.5 h-3.5 text-blue-700" />
+                                Curva:
+                              </span>
+                              {kpiSummaryData.map((k) => (
+                                <button
+                                  key={k.indicador}
+                                  type="button"
+                                  onClick={() => setSelectedKpi(k.indicador)}
+                                  className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer ${activeKpiRow.indicador === k.indicador
+                                      ? "bg-[#10233d] text-amber-300 shadow-xs"
+                                      : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
+                                    }`}
+                                >
+                                  {k.indicador}
+                                </button>
+                              ))}
+                            </div>
+
+                            <div className="flex items-center gap-3 text-[10px] font-bold shrink-0">
+                              <span className="flex items-center gap-1 text-emerald-800">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                                Meta
+                              </span>
+                              <span className="flex items-center gap-1 text-purple-800">
+                                <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block" />
+                                Cumplimiento
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Gráfico SVG Responsive */}
+                          <div className="relative bg-white rounded border border-slate-200 p-1">
+                            <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-auto overflow-visible">
+                              <defs>
+                                <linearGradient id="purpleAreaGradModal" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#9333ea" stopOpacity="0.22" />
+                                  <stop offset="100%" stopColor="#9333ea" stopOpacity="0.01" />
+                                </linearGradient>
+                              </defs>
+
+                              {/* Líneas horizontales de guía */}
+                              {[0, 0.5, 1].map((pct, i) => {
+                                const y = padT + plotH * pct;
+                                const val = Math.round(yMax - pct * (yMax - yMin));
+                                return (
+                                  <g key={i}>
+                                    <line x1={padL} y1={y} x2={svgWidth - padR} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                                    <text x={padL - 6} y={y + 3} fontSize="5" fill="#94a3b8" textAnchor="end" fontWeight="600">{val}</text>
+                                  </g>
+                                );
+                              })}
+
+                              {/* Área Cumplimiento */}
+                              {areaPath && <path d={areaPath} fill="url(#purpleAreaGradModal)" />}
+
+                              {/* Línea Meta */}
+                              {metaPath && (
+                                <path d={metaPath} fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                              )}
+
+                              {/* Línea Cumplimiento */}
+                              {resPath && (
+                                <path d={resPath} fill="none" stroke="#9333ea" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                              )}
+
+                              {/* Puntos Meta */}
+                              {validMeta.map((p, idx) => (
+                                <g key={`m-${idx}`}>
+                                  <circle cx={p.x} cy={p.y} r="3.5" fill="#16a34a" stroke="#ffffff" strokeWidth="1.5" />
+                                  <text x={p.x} y={p.y - 5} fontSize="5" fontWeight="bold" fill="#15803d" textAnchor="middle">{p.val}</text>
+                                </g>
+                              ))}
+
+                              {/* Puntos Cumplimiento */}
+                              {validRes.map((p, idx) => (
+                                <g key={`r-${idx}`}>
+                                  <circle cx={p.x} cy={p.y} r="4" fill="#9333ea" stroke="#ffffff" strokeWidth="1.5" />
+                                  <text x={p.x} y={p.y + 11} fontSize="5" fontWeight="black" fill="#7e22ce" textAnchor="middle">{p.val}</text>
+                                </g>
+                              ))}
+
+                              {/* Eje X Labels */}
+                              {stages.map((s, i) => (
+                                <text key={i} x={getX(i)} y={svgHeight - 4} fontSize="5" fontWeight="700" fill="#475569" textAnchor="middle">
+                                  {s.label}
+                                </text>
+                              ))}
+                            </svg>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -701,83 +1072,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 text-[11px]">
-                              {group.rows.map((r) => {
-                                const sOjt = semaforo(r.ojt);
-                                const s1 = semaforo(r.s1);
-                                const s2 = semaforo(r.s2);
-                                const s3 = semaforo(r.s3);
-                                const s4 = semaforo(r.s4);
-                                const sCierre = semaforo(r.cierre);
-
-                                return (
-                                  <tr key={r.req} className="hover:bg-blue-50/60 transition-colors">
-                                    <td className="border border-slate-200 py-1.5 px-2 text-left font-bold text-slate-900">
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="font-mono text-[#1a355b]">{r.req}</span>
-                                        <span className="text-[9px] text-slate-400">({r.totalRacs} RACs)</span>
-                                      </div>
-                                    </td>
-                                    <td className="border border-slate-200 py-1.5 px-1 text-slate-600 font-medium">
-                                      {r.mes}
-                                    </td>
-                                    <td className="border border-slate-200 py-1.5 px-2 text-left font-semibold text-slate-700 truncate max-w-[130px]" title={r.formador}>
-                                      {r.formador}
-                                    </td>
-
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${
-                                      sOjt === "green" ? "bg-emerald-50 text-emerald-800" :
-                                      sOjt === "yellow" ? "bg-amber-50 text-amber-800" :
-                                      sOjt === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                    }`}>
-                                      {r.ojt !== null ? `${r.ojt}%` : "—"}
-                                    </td>
-
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${
-                                      s1 === "green" ? "bg-emerald-50 text-emerald-800" :
-                                      s1 === "yellow" ? "bg-amber-50 text-amber-800" :
-                                      s1 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                    }`}>
-                                      {r.s1 !== null ? `${r.s1}%` : "—"}
-                                    </td>
-
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${
-                                      s2 === "green" ? "bg-emerald-50 text-emerald-800" :
-                                      s2 === "yellow" ? "bg-amber-50 text-amber-800" :
-                                      s2 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                    }`}>
-                                      {r.s2 !== null ? `${r.s2}%` : "—"}
-                                    </td>
-
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${
-                                      s3 === "green" ? "bg-emerald-50 text-emerald-800" :
-                                      s3 === "yellow" ? "bg-amber-50 text-amber-800" :
-                                      s3 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                    }`}>
-                                      {r.s3 !== null ? `${r.s3}%` : "—"}
-                                    </td>
-
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${
-                                      s4 === "green" ? "bg-emerald-50 text-emerald-800" :
-                                      s4 === "yellow" ? "bg-amber-50 text-amber-800" :
-                                      s4 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                    }`}>
-                                      {r.s4 !== null ? `${r.s4}%` : "—"}
-                                    </td>
-
-                                    <td className="border border-slate-200 py-1.5 px-1 font-black text-emerald-700 bg-emerald-50/70">
-                                      {r.meta}%
-                                    </td>
-
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-black text-xs ${
-                                      sCierre === "green" ? "bg-emerald-100 text-emerald-900" :
-                                      sCierre === "yellow" ? "bg-amber-100 text-amber-900" :
-                                      sCierre === "red" ? "bg-rose-100 text-rose-900" : "text-slate-400"
-                                    }`}>
-                                      {r.cierre !== null ? `${r.cierre}%` : "—"}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
+                              
 
                               <tr className="bg-slate-100 font-black text-slate-900 text-[11px]">
                                 <td className="border border-slate-300 py-2 px-2 text-left uppercase" colSpan={3}>
@@ -805,6 +1100,77 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                   {group.avgCierre !== null ? `${group.avgCierre}%` : "—"}
                                 </td>
                               </tr>
+                              {group.rows.map((r) => {
+                                const sOjt = semaforo(r.ojt);
+                                const s1 = semaforo(r.s1);
+                                const s2 = semaforo(r.s2);
+                                const s3 = semaforo(r.s3);
+                                const s4 = semaforo(r.s4);
+                                const sCierre = semaforo(r.cierre);
+
+                                return (
+                                  <tr key={r.req} className="hover:bg-blue-50/60 transition-colors">
+                                    <td className="border border-slate-200 py-1.5 px-2 text-left font-bold text-slate-900">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-mono text-[#1a355b]">{r.req}</span>
+                                        <span className="text-[9px] text-slate-400">({r.totalRacs} RACs)</span>
+                                      </div>
+                                    </td>
+                                    <td className="border border-slate-200 py-1.5 px-1 text-slate-600 font-medium">
+                                      {r.mes}
+                                    </td>
+                                    <td className="border border-slate-200 py-1.5 px-2 text-left font-semibold text-slate-700 truncate max-w-[130px]" title={r.formador}>
+                                      {r.formador}
+                                    </td>
+
+                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${sOjt === "green" ? "bg-emerald-50 text-emerald-800" :
+                                        sOjt === "yellow" ? "bg-amber-50 text-amber-800" :
+                                          sOjt === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
+                                      }`}>
+                                      {r.ojt !== null ? `${r.ojt}%` : "—"}
+                                    </td>
+
+                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${s1 === "green" ? "bg-emerald-50 text-emerald-800" :
+                                        s1 === "yellow" ? "bg-amber-50 text-amber-800" :
+                                          s1 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
+                                      }`}>
+                                      {r.s1 !== null ? `${r.s1}%` : "—"}
+                                    </td>
+
+                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${s2 === "green" ? "bg-emerald-50 text-emerald-800" :
+                                        s2 === "yellow" ? "bg-amber-50 text-amber-800" :
+                                          s2 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
+                                      }`}>
+                                      {r.s2 !== null ? `${r.s2}%` : "—"}
+                                    </td>
+
+                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${s3 === "green" ? "bg-emerald-50 text-emerald-800" :
+                                        s3 === "yellow" ? "bg-amber-50 text-amber-800" :
+                                          s3 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
+                                      }`}>
+                                      {r.s3 !== null ? `${r.s3}%` : "—"}
+                                    </td>
+
+                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${s4 === "green" ? "bg-emerald-50 text-emerald-800" :
+                                        s4 === "yellow" ? "bg-amber-50 text-amber-800" :
+                                          s4 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
+                                      }`}>
+                                      {r.s4 !== null ? `${r.s4}%` : "—"}
+                                    </td>
+
+                                    <td className="border border-slate-200 py-1.5 px-1 font-black text-emerald-700 bg-emerald-50/70">
+                                      {r.meta}%
+                                    </td>
+
+                                    <td className={`border border-slate-200 py-1.5 px-1 font-black text-xs ${sCierre === "green" ? "bg-emerald-100 text-emerald-900" :
+                                        sCierre === "yellow" ? "bg-amber-100 text-amber-900" :
+                                          sCierre === "red" ? "bg-rose-100 text-rose-900" : "text-slate-400"
+                                      }`}>
+                                      {r.cierre !== null ? `${r.cierre}%` : "—"}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
@@ -1011,9 +1377,8 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               <td className="border border-slate-200 py-1 px-1.5 text-left font-bold text-slate-800">
                                 {m.mes}
                               </td>
-                              <td className={`border border-slate-200 py-1 px-1 font-black ${
-                                m.resultado <= m.meta ? "text-emerald-700 bg-emerald-50/50" : "text-rose-700 bg-rose-50/50"
-                              }`}>
+                              <td className={`border border-slate-200 py-1 px-1 font-black ${m.resultado <= m.meta ? "text-emerald-700 bg-emerald-50/50" : "text-rose-700 bg-rose-50/50"
+                                }`}>
                                 {m.resultado}%
                               </td>
                               <td className="border border-slate-200 py-1 px-1 text-slate-600">

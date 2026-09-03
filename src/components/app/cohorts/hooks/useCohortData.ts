@@ -182,8 +182,12 @@ export function useCohortData(data: CohortRecord[], lockedCoordinador: string | 
       return { totalCohortes: 0, totalPersonas: 0, pctCumplimiento70: 0, promedioCierre: null, verde: 0, amarillo: 0, rojo: 0 };
     }
 
-    const uniqueReqs = new Set(filteredData.map((r) => r.req).filter(Boolean));
-    const uniqueDocs = new Set(filteredData.map((r) => r.documento).filter(Boolean));
+    const uniqueReqs = new Set(filteredData.map((r) => r.req?.trim()).filter(Boolean));
+    const uniqueDocs = new Set(
+      filteredData
+        .map((r) => r.documento?.trim() || r.nombre?.trim())
+        .filter(Boolean)
+    );
 
     let cumple70 = 0;
     let totalCierre = 0;
@@ -335,12 +339,27 @@ export function useCohortData(data: CohortRecord[], lockedCoordinador: string | 
   }, [filteredData]);
 
   const byFormador = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { formador: string; racs: Set<string>; registros: number }>();
     filteredData.forEach((r) => {
-      if (r.formador) map.set(r.formador, (map.get(r.formador) ?? 0) + 1);
+      const name = r.formador?.trim();
+      if (!name) return;
+      if (!map.has(name)) {
+        map.set(name, { formador: name, racs: new Set(), registros: 0 });
+      }
+      const entry = map.get(name)!;
+      entry.registros++;
+      const doc = r.documento?.trim() || r.nombre?.trim();
+      if (doc) {
+        entry.racs.add(doc);
+      }
     });
-    return Array.from(map.entries())
-      .map(([formador, total]) => ({ formador, total }))
+
+    return Array.from(map.values())
+      .map((e) => ({
+        formador: e.formador,
+        total: e.racs.size > 0 ? e.racs.size : e.registros,
+        registros: e.registros,
+      }))
       .sort((a, b) => b.total - a.total);
   }, [filteredData]);
 
