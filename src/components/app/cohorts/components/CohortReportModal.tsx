@@ -74,6 +74,7 @@ interface KpiSummaryRow {
 interface IndicatorGroup {
   indicador: string;
   rows: CohortRowData[];
+  totalAgents: number;
   avgOjt: number | null;
   avgS1: number | null;
   avgS2: number | null;
@@ -96,12 +97,21 @@ export default function CohortReportModal({
 }: Props) {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"tablero" | "ejecutivo">("tablero");
+  const [deselectedReqsByIndicator, setDeselectedReqsByIndicator] = useState<Record<string, string[]>>({});
+
+  const handleClose = () => {
+    setDeselectedReqsByIndicator({});
+    onClose();
+  };
 
   // Bloquear scroll de fondo al abrir
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        setDeselectedReqsByIndicator({});
+        onClose();
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     const prevOverflow = document.body.style.overflow;
@@ -211,6 +221,7 @@ export default function CohortReportModal({
       groups.push({
         indicador: ind,
         rows: rows.sort((a, b) => a.req.localeCompare(b.req)),
+        totalAgents: rows.reduce((sum, row) => sum + row.totalRacs, 0),
         avgOjt: indOjtCnt > 0 ? Math.round(indOjtSum / indOjtCnt) : null,
         avgS1: indS1Cnt > 0 ? Math.round(indS1Sum / indS1Cnt) : null,
         avgS2: indS2Cnt > 0 ? Math.round(indS2Sum / indS2Cnt) : null,
@@ -223,6 +234,24 @@ export default function CohortReportModal({
 
     return groups.sort((a, b) => b.rows.length - a.rows.length);
   }, [filteredData]);
+
+  const toggleCohortSelection = (indicador: string, req: string) => {
+    setDeselectedReqsByIndicator((current) => {
+      const deselectedReqs = current[indicador] ?? [];
+      const nextDeselectedReqs = deselectedReqs.includes(req)
+        ? deselectedReqs.filter((item) => item !== req)
+        : [...deselectedReqs, req];
+
+      return { ...current, [indicador]: nextDeselectedReqs };
+    });
+  };
+
+  const toggleAllCohorts = (group: IndicatorGroup, selectAll: boolean) => {
+    setDeselectedReqsByIndicator((current) => ({
+      ...current,
+      [group.indicador]: selectAll ? [] : group.rows.map((row) => row.req),
+    }));
+  };
 
   // ── 2. Datos de Deserción y Motivos para Sección FORMACIÓN INICIAL ─────────
   const desercionData = useMemo(() => {
@@ -448,7 +477,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
       <div
         aria-hidden="true"
         className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity print:hidden"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Modal Container */}
@@ -517,7 +546,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Cerrar"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-rose-600 transition-all border border-white/15 cursor-pointer ml-1"
             >
@@ -1010,14 +1039,29 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
               {/* Matriz de Indicadores (PEC, EPA, Calidad, Ventas...) */}
               <div className="space-y-6">
                 {nestingGroups.map((group) => {
+                  const deselectedReqs = new Set(deselectedReqsByIndicator[group.indicador] ?? []);
+                  const selectedRows = group.rows.filter((row) => !deselectedReqs.has(row.req));
+                  const allRowsSelected = selectedRows.length === group.rows.length;
+                  const someRowsSelected = selectedRows.length > 0;
+                  const selectedAgents = selectedRows.reduce((sum, row) => sum + row.totalRacs, 0);
+                  const averageFor = (key: "ojt" | "s1" | "s2" | "s3" | "s4" | "meta") => {
+                    const values = selectedRows
+                      .map((row) => row[key])
+                      .filter((value): value is number => value !== null);
+
+                    return values.length > 0
+                      ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+                      : null;
+                  };
                   const points = [
-                    { label: "OJT", val: group.avgOjt ?? 75 },
-                    { label: "Semana 1", val: group.avgS1 ?? 78 },
-                    { label: "Semana 2", val: group.avgS2 ?? 82 },
-                    { label: "Semana 3", val: group.avgS3 ?? 84 },
-                    { label: "Semana 4", val: group.avgS4 ?? 86 },
+                    { label: "OJT", val: averageFor("ojt") },
+                    { label: "Semana 1", val: averageFor("s1") },
+                    { label: "Semana 2", val: averageFor("s2") },
+                    { label: "Semana 3", val: averageFor("s3") },
+                    { label: "Semana 4", val: averageFor("s4") },
                   ];
-                  const metaVal = group.metaGlobal || 80;
+                  const metaVal = averageFor("meta");
+                  const hasChartData = points.some((point) => point.val !== null);
 
                   return (
                     <div
@@ -1035,12 +1079,12 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                             Indicador: {group.indicador}
                           </span>
                           <span className="text-slate-300">
-                            ({group.rows.length} cohortes evaluadas)
+                            ({group.rows.length} cohortes evaluadas · {group.totalAgents} agentes)
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded text-[10px] font-bold">
-                            Meta Objetivo: {metaVal}%
+                            Meta Objetivo: {group.metaGlobal}%
                           </span>
                           <span className="text-sky-200 text-[11px]">
                             Promedio Cierre: <strong className="text-white">{group.avgCierre ?? group.avgS4 ?? "—"}%</strong>
@@ -1059,6 +1103,19 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               style={{ backgroundColor: theme.colorSecundario }}
                             >
                               <tr>
+                                <th className="border border-slate-700 py-1.5 px-2 w-9 print:hidden">
+                                  <input
+                                    ref={(input) => {
+                                      if (input) input.indeterminate = someRowsSelected && !allRowsSelected;
+                                    }}
+                                    type="checkbox"
+                                    checked={allRowsSelected}
+                                    onChange={(event) => toggleAllCohorts(group, event.target.checked)}
+                                    aria-label={`Seleccionar todas las cohortes de ${group.indicador}`}
+                                    title={allRowsSelected ? "Desmarcar todas las cohortes" : "Marcar todas las cohortes"}
+                                    className="h-3.5 w-3.5 cursor-pointer accent-amber-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+                                  />
+                                </th>
                                 <th className="border border-slate-700 py-1.5 px-2 text-left">REQ / Cohorte</th>
                                 <th className="border border-slate-700 py-1.5 px-1">Mes</th>
                                 <th className="border border-slate-700 py-1.5 px-2 text-left">Formador</th>
@@ -1075,6 +1132,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               
 
                               <tr className="bg-slate-100 font-black text-slate-900 text-[11px]">
+                                <td className="border border-slate-300 print:hidden" aria-hidden="true" />
                                 <td className="border border-slate-300 py-2 px-2 text-left uppercase" colSpan={3}>
                                   Promedio Indicador {group.indicador}
                                 </td>
@@ -1109,7 +1167,19 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 const sCierre = semaforo(r.cierre);
 
                                 return (
-                                  <tr key={r.req} className="hover:bg-blue-50/60 transition-colors">
+                                  <tr
+                                    key={r.req}
+                                    className={`transition-colors ${deselectedReqs.has(r.req) ? "bg-slate-50/70 text-slate-400" : "hover:bg-blue-50/60"}`}
+                                  >
+                                    <td className="border border-slate-200 py-1.5 px-2 print:hidden">
+                                      <input
+                                        type="checkbox"
+                                        checked={!deselectedReqs.has(r.req)}
+                                        onChange={() => toggleCohortSelection(group.indicador, r.req)}
+                                        aria-label={`Incluir cohorte ${r.req} en la gráfica de ${group.indicador}`}
+                                        className="h-3.5 w-3.5 cursor-pointer accent-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                                      />
+                                    </td>
                                     <td className="border border-slate-200 py-1.5 px-2 text-left font-bold text-slate-900">
                                       <div className="flex items-center gap-1.5">
                                         <span className="font-mono text-[#1a355b]">{r.req}</span>
@@ -1182,9 +1252,14 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
                               Curva de Evolución vs Meta
                             </span>
-                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
-                              Meta: {metaVal}%
-                            </span>
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                              <span className="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded">
+                                {selectedRows.length}/{group.rows.length} cohortes · {selectedAgents} agentes
+                              </span>
+                              <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                                Meta: {metaVal !== null ? `${metaVal}%` : "—"}
+                              </span>
+                            </div>
                           </div>
 
                           <div className="relative w-full h-[190px] bg-white border border-slate-200 rounded-lg p-2 flex items-center justify-center">
@@ -1209,7 +1284,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 );
                               })}
 
-                              {(() => {
+                              {metaVal !== null && (() => {
                                 const metaY = 140 - (metaVal / 100) * 120;
                                 return (
                                   <g>
@@ -1245,22 +1320,26 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               })()}
 
                               {(() => {
-                                const coords = points.map((p, i) => {
+                                const coords = points.flatMap((p, i) => {
+                                  if (p.val === null) return [];
                                   const x = 45 + i * 65;
-                                  const val = p.val !== null ? Math.min(100, Math.max(0, p.val)) : 70;
+                                  const val = Math.min(100, Math.max(0, p.val));
                                   const y = 140 - (val / 100) * 120;
-                                  return { x, y, val: p.val, label: p.label };
+                                  return [{ x, y, val: p.val, label: p.label }];
                                 });
 
+                                if (coords.length === 0) return null;
                                 const pathD = coords.reduce((acc, pt, idx) => `${acc} ${idx === 0 ? "M" : "L"} ${pt.x},${pt.y}`, "");
 
                                 return (
                                   <g>
-                                    <path
-                                      d={`${pathD} L ${coords[coords.length - 1].x},140 L ${coords[0].x},140 Z`}
-                                      fill="#1a355b"
-                                      fillOpacity="0.08"
-                                    />
+                                    {coords.length > 1 && (
+                                      <path
+                                        d={`${pathD} L ${coords[coords.length - 1].x},140 L ${coords[0].x},140 Z`}
+                                        fill="#1a355b"
+                                        fillOpacity="0.08"
+                                      />
+                                    )}
                                     <path
                                       d={pathD}
                                       fill="none"
@@ -1298,22 +1377,36 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                         >
                                           {pt.val !== null ? `${pt.val}%` : "—"}
                                         </text>
-                                        <text
-                                          x={pt.x}
-                                          y="152"
-                                          textAnchor="middle"
-                                          fill="#475569"
-                                          fontSize="8"
-                                          fontWeight="bold"
-                                        >
-                                          {pt.label.replace("Semana ", "S")}
-                                        </text>
                                       </g>
                                     ))}
                                   </g>
                                 );
                               })()}
+
+                              {points.map((point, index) => (
+                                <text
+                                  key={point.label}
+                                  x={45 + index * 65}
+                                  y="152"
+                                  textAnchor="middle"
+                                  fill="#475569"
+                                  fontSize="8"
+                                  fontWeight="bold"
+                                >
+                                  {point.label.replace("Semana ", "S")}
+                                </text>
+                              ))}
                             </svg>
+                            {!someRowsSelected && (
+                              <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/90 px-6 text-center text-[11px] font-bold text-slate-500">
+                                Selecciona al menos una cohorte para visualizar su curva.
+                              </div>
+                            )}
+                            {someRowsSelected && !hasChartData && (
+                              <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/90 px-6 text-center text-[11px] font-bold text-slate-500">
+                                Las cohortes seleccionadas no tienen datos semanales disponibles.
+                              </div>
+                            )}
                           </div>
 
                           <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500 font-semibold px-1">
@@ -1323,7 +1416,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                             </span>
                             <span className="flex items-center gap-1">
                               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                              Meta Estándar ({metaVal}%)
+                              Meta seleccionada ({metaVal !== null ? `${metaVal}%` : "—"})
                             </span>
                           </div>
                         </div>
@@ -1682,7 +1775,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-1.5 rounded-lg border border-slate-300 font-bold hover:bg-slate-100 transition-colors cursor-pointer text-slate-700"
             >
               Cerrar
