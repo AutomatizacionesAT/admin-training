@@ -300,6 +300,30 @@ export const formatPct = (v: number | null): string => {
 export const formatNum = (v: number | null): string =>
   v === null ? "—" : v.toLocaleString("es-CO");
 
+export const normalizeMetricFormat = (format: string | null | undefined): string =>
+  format?.trim() || "Num.";
+
+export const normalizeMetricValue = (
+  value: number | null,
+  format: string | null | undefined
+): number | null => {
+  if (value === null) return null;
+  return normalizeMetricFormat(format) === "%" ? value * 100 : value;
+};
+
+export const formatMetricValue = (
+  value: number | null,
+  format: string | null | undefined
+): string => {
+  if (value === null) return "—";
+  const unit = normalizeMetricFormat(format);
+  const formattedValue = value.toLocaleString("es-CO", {
+    maximumFractionDigits: 2,
+  });
+
+  return unit === "%" ? `${formattedValue}%` : `${formattedValue} ${unit}`;
+};
+
 export const semaforo = (v: number | null): CumplimientoColor => {
   if (v === null) return "gray";
   const p = toPct(v) ?? v;

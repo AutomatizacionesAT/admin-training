@@ -1,7 +1,14 @@
 import { useMemo, useState, useEffect } from "react";
 import type { CohortRecord } from "../utils/utils";
 import type { CohortFilters, CohortKPIs, RacPorCampana } from "../hooks/useCohortData";
-import { toPct, semaforo, mesLabel } from "../utils/utils";
+import {
+  formatMetricValue,
+  mesLabel,
+  normalizeMetricFormat,
+  normalizeMetricValue,
+  semaforo,
+  toPct,
+} from "../utils/utils";
 import { getCampaignTheme } from "../utils/campaignThemes";
 import {
   X,
@@ -49,7 +56,9 @@ interface CohortRowData {
   s3: number | null;
   s4: number | null;
   cierre: number | null;
-  meta: number;
+  meta: number | null;
+  stageMetas: Record<"ojt" | "s1" | "s2" | "s3" | "s4", number | null>;
+  stageResults: Record<"ojt" | "s1" | "s2" | "s3" | "s4", number | null>;
 }
 
 interface KpiStageValues {
@@ -59,7 +68,9 @@ interface KpiStageValues {
 }
 
 interface KpiSummaryRow {
+  key: string;
   indicador: string;
+  format: string;
   totalRecords: number;
   totalDocs: number;
   ojt: KpiStageValues;
@@ -72,7 +83,9 @@ interface KpiSummaryRow {
 }
 
 interface IndicatorGroup {
+  key: string;
   indicador: string;
+  format: string;
   rows: CohortRowData[];
   totalAgents: number;
   avgOjt: number | null;
@@ -81,7 +94,7 @@ interface IndicatorGroup {
   avgS3: number | null;
   avgS4: number | null;
   avgCierre: number | null;
-  metaGlobal: number;
+  metaGlobal: number | null;
 }
 
 export default function CohortReportModal({
@@ -124,16 +137,22 @@ export default function CohortReportModal({
 
   // ── 1. Agrupación para Sección NESTING por Indicador & REQ ─────────────────
   const nestingGroups = useMemo((): IndicatorGroup[] => {
-    const map = new Map<string, Map<string, CohortRecord[]>>();
+    const map = new Map<string, {
+      indicador: string;
+      format: string;
+      reqMap: Map<string, CohortRecord[]>;
+    }>();
 
     filteredData.forEach((r) => {
       const ind = r.indicador?.trim() || "INDICADOR GENERAL";
+      const format = normalizeMetricFormat(r.formato);
+      const groupKey = `${ind}\u0000${format}`;
       const req = r.req?.trim() || "REQ-SIN-NUMERO";
 
-      if (!map.has(ind)) {
-        map.set(ind, new Map());
+      if (!map.has(groupKey)) {
+        map.set(groupKey, { indicador: ind, format, reqMap: new Map() });
       }
-      const reqMap = map.get(ind)!;
+      const reqMap = map.get(groupKey)!.reqMap;
       if (!reqMap.has(req)) {
         reqMap.set(req, []);
       }
@@ -142,7 +161,7 @@ export default function CohortReportModal({
 
     const groups: IndicatorGroup[] = [];
 
-    map.forEach((reqMap, ind) => {
+    map.forEach(({ indicador, format, reqMap }, groupKey) => {
       const rows: CohortRowData[] = [];
       let indOjtSum = 0, indOjtCnt = 0;
       let indS1Sum = 0, indS1Cnt = 0;
@@ -159,7 +178,6 @@ export default function CohortReportModal({
         let s3Sum = 0, s3Cnt = 0;
         let s4Sum = 0, s4Cnt = 0;
         let cierreSum = 0, cierreCnt = 0;
-        let metaSum = 0, metaCnt = 0;
 
         const docs = new Set<string>();
         let mes = "—";
@@ -179,11 +197,21 @@ export default function CohortReportModal({
           if (r.cumplimientoS4 !== null) { s4Sum += toPct(r.cumplimientoS4) ?? 0; s4Cnt++; }
           if (r.cumplimientoCierre !== null) { cierreSum += toPct(r.cumplimientoCierre) ?? 0; cierreCnt++; }
 
-          // Meta de cohorte
-          const target = toPct(r.metaCierre ?? r.metaOjt ?? 0.8) ?? 80;
-          metaSum += target;
-          metaCnt++;
         });
+
+        const averageMetric = (
+          key:
+            | "metaOjt" | "metaS1" | "metaS2" | "metaS3" | "metaS4" | "metaCierre"
+            | "resultadoOjt" | "resultadoS1" | "resultadoS2" | "resultadoS3" | "resultadoS4"
+        ) => {
+          const values = records
+            .map((record) => normalizeMetricValue(record[key], format))
+            .filter((value): value is number => value !== null);
+
+          return values.length > 0
+            ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100
+            : null;
+        };
 
         const ojtAvg = ojtCnt > 0 ? Math.round(ojtSum / ojtCnt) : null;
         const s1Avg = s1Cnt > 0 ? Math.round(s1Sum / s1Cnt) : null;
@@ -191,7 +219,21 @@ export default function CohortReportModal({
         const s3Avg = s3Cnt > 0 ? Math.round(s3Sum / s3Cnt) : null;
         const s4Avg = s4Cnt > 0 ? Math.round(s4Sum / s4Cnt) : null;
         const cierreAvg = cierreCnt > 0 ? Math.round(cierreSum / cierreCnt) : null;
-        const metaAvg = metaCnt > 0 ? Math.round(metaSum / metaCnt) : 80;
+        const stageMetas = {
+          ojt: averageMetric("metaOjt"),
+          s1: averageMetric("metaS1"),
+          s2: averageMetric("metaS2"),
+          s3: averageMetric("metaS3"),
+          s4: averageMetric("metaS4"),
+        };
+        const stageResults = {
+          ojt: averageMetric("resultadoOjt"),
+          s1: averageMetric("resultadoS1"),
+          s2: averageMetric("resultadoS2"),
+          s3: averageMetric("resultadoS3"),
+          s4: averageMetric("resultadoS4"),
+        };
+        const metaAvg = averageMetric("metaCierre") ?? stageMetas.s4 ?? stageMetas.ojt;
 
         if (ojtAvg !== null) { indOjtSum += ojtAvg; indOjtCnt++; }
         if (s1Avg !== null) { indS1Sum += s1Avg; indS1Cnt++; }
@@ -199,8 +241,7 @@ export default function CohortReportModal({
         if (s3Avg !== null) { indS3Sum += s3Avg; indS3Cnt++; }
         if (s4Avg !== null) { indS4Sum += s4Avg; indS4Cnt++; }
         if (cierreAvg !== null) { indCierreSum += cierreAvg; indCierreCnt++; }
-        indMetaSum += metaAvg;
-        indMetaCnt++;
+        if (metaAvg !== null) { indMetaSum += metaAvg; indMetaCnt++; }
 
         rows.push({
           req,
@@ -215,11 +256,15 @@ export default function CohortReportModal({
           s4: s4Avg,
           cierre: cierreAvg,
           meta: metaAvg,
+          stageMetas,
+          stageResults,
         });
       });
 
       groups.push({
-        indicador: ind,
+        key: groupKey,
+        indicador,
+        format,
         rows: rows.sort((a, b) => a.req.localeCompare(b.req)),
         totalAgents: rows.reduce((sum, row) => sum + row.totalRacs, 0),
         avgOjt: indOjtCnt > 0 ? Math.round(indOjtSum / indOjtCnt) : null,
@@ -228,28 +273,28 @@ export default function CohortReportModal({
         avgS3: indS3Cnt > 0 ? Math.round(indS3Sum / indS3Cnt) : null,
         avgS4: indS4Cnt > 0 ? Math.round(indS4Sum / indS4Cnt) : null,
         avgCierre: indCierreCnt > 0 ? Math.round(indCierreSum / indCierreCnt) : null,
-        metaGlobal: indMetaCnt > 0 ? Math.round(indMetaSum / indMetaCnt) : 80,
+        metaGlobal: indMetaCnt > 0 ? Math.round((indMetaSum / indMetaCnt) * 100) / 100 : null,
       });
     });
 
     return groups.sort((a, b) => b.rows.length - a.rows.length);
   }, [filteredData]);
 
-  const toggleCohortSelection = (indicador: string, req: string) => {
+  const toggleCohortSelection = (groupKey: string, req: string) => {
     setDeselectedReqsByIndicator((current) => {
-      const deselectedReqs = current[indicador] ?? [];
+      const deselectedReqs = current[groupKey] ?? [];
       const nextDeselectedReqs = deselectedReqs.includes(req)
         ? deselectedReqs.filter((item) => item !== req)
         : [...deselectedReqs, req];
 
-      return { ...current, [indicador]: nextDeselectedReqs };
+      return { ...current, [groupKey]: nextDeselectedReqs };
     });
   };
 
   const toggleAllCohorts = (group: IndicatorGroup, selectAll: boolean) => {
     setDeselectedReqsByIndicator((current) => ({
       ...current,
-      [group.indicador]: selectAll ? [] : group.rows.map((row) => row.req),
+      [group.key]: selectAll ? [] : group.rows.map((row) => row.req),
     }));
   };
 
@@ -316,14 +361,21 @@ export default function CohortReportModal({
   const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
 
   const kpiSummaryData = useMemo((): KpiSummaryRow[] => {
-    const map = new Map<string, { records: CohortRecord[]; docs: Set<string> }>();
+    const map = new Map<string, {
+      indicador: string;
+      format: string;
+      records: CohortRecord[];
+      docs: Set<string>;
+    }>();
 
     filteredData.forEach((r) => {
       const ind = r.indicador?.trim() || "INDICADOR GENERAL";
-      if (!map.has(ind)) {
-        map.set(ind, { records: [], docs: new Set() });
+      const format = normalizeMetricFormat(r.formato);
+      const key = `${ind}\u0000${format}`;
+      if (!map.has(key)) {
+        map.set(key, { indicador: ind, format, records: [], docs: new Set() });
       }
-      const entry = map.get(ind)!;
+      const entry = map.get(key)!;
       entry.records.push(r);
       const doc = r.documento?.trim() || r.nombre?.trim();
       if (doc) entry.docs.add(doc);
@@ -333,15 +385,16 @@ export default function CohortReportModal({
       records: CohortRecord[],
       metaKey: keyof CohortRecord,
       resKey: keyof CohortRecord,
-      cumpKey: keyof CohortRecord
+      cumpKey: keyof CohortRecord,
+      format: string
     ): KpiStageValues => {
       let metaSum = 0, metaCnt = 0;
       let resSum = 0, resCnt = 0;
       let cumpSum = 0, cumpCnt = 0;
 
       records.forEach((r) => {
-        const m = r[metaKey] as number | null;
-        const res = r[resKey] as number | null;
+        const m = normalizeMetricValue(r[metaKey] as number | null, format);
+        const res = normalizeMetricValue(r[resKey] as number | null, format);
         const c = r[cumpKey] as number | null;
 
         if (m !== null && !isNaN(Number(m))) {
@@ -374,13 +427,13 @@ export default function CohortReportModal({
 
     const rows: KpiSummaryRow[] = [];
 
-    map.forEach(({ records, docs }, indicador) => {
-      const ojt = getStageMetrics(records, "metaOjt", "resultadoOjt", "cumplimientoOjt");
-      const s1 = getStageMetrics(records, "metaS1", "resultadoS1", "cumplimientoS1");
-      const s2 = getStageMetrics(records, "metaS2", "resultadoS2", "cumplimientoS2");
-      const s3 = getStageMetrics(records, "metaS3", "resultadoS3", "cumplimientoS3");
-      const s4 = getStageMetrics(records, "metaS4", "resultadoS4", "cumplimientoS4");
-      const cierre = getStageMetrics(records, "metaCierre", "resultadoCierre", "cumplimientoCierre");
+    map.forEach(({ indicador, format, records, docs }, key) => {
+      const ojt = getStageMetrics(records, "metaOjt", "resultadoOjt", "cumplimientoOjt", format);
+      const s1 = getStageMetrics(records, "metaS1", "resultadoS1", "cumplimientoS1", format);
+      const s2 = getStageMetrics(records, "metaS2", "resultadoS2", "cumplimientoS2", format);
+      const s3 = getStageMetrics(records, "metaS3", "resultadoS3", "cumplimientoS3", format);
+      const s4 = getStageMetrics(records, "metaS4", "resultadoS4", "cumplimientoS4", format);
+      const cierre = getStageMetrics(records, "metaCierre", "resultadoCierre", "cumplimientoCierre", format);
 
       const validCumps = [ojt.cumplimiento, s1.cumplimiento, s2.cumplimiento, s3.cumplimiento, s4.cumplimiento].filter(
         (v): v is number => v !== null
@@ -389,7 +442,9 @@ export default function CohortReportModal({
         validCumps.length > 0 ? Math.round(validCumps.reduce((a, b) => a + b, 0) / validCumps.length) : null;
 
       rows.push({
+        key,
         indicador,
+        format,
         totalRecords: records.length,
         totalDocs: docs.size > 0 ? docs.size : records.length,
         ojt,
@@ -408,7 +463,7 @@ export default function CohortReportModal({
   // Indicador activo para gráfica interactiva
   const activeKpiRow = useMemo(() => {
     if (kpiSummaryData.length === 0) return null;
-    const found = kpiSummaryData.find((k) => k.indicador === selectedKpi);
+    const found = kpiSummaryData.find((k) => k.key === selectedKpi);
     return found ?? kpiSummaryData[0];
   }, [kpiSummaryData, selectedKpi]);
 
@@ -769,7 +824,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               colSpan={5}
                               className="bg-[#d8b4fe] text-purple-950 px-2 py-0.5 uppercase tracking-wider text-[10px]"
                             >
-                              CUMPLIMIENTO
+                              RESULTADO / CUMPLIMIENTO
                             </th>
                           </tr>
                           {/* Fila 3: Sub-columnas semanales */}
@@ -790,11 +845,11 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                         </thead>
                         <tbody className="divide-y divide-slate-200 text-center font-medium">
                           {kpiSummaryData.map((row) => {
-                            const isSelected = activeKpiRow?.indicador === row.indicador;
+                            const isSelected = activeKpiRow?.key === row.key;
                             return (
                               <tr
-                                key={row.indicador}
-                                onClick={() => setSelectedKpi(row.indicador)}
+                                key={row.key}
+                                onClick={() => setSelectedKpi(row.key)}
                                 className={`cursor-pointer transition-all ${isSelected ? "bg-blue-50/90 font-bold" : "hover:bg-slate-50"
                                   }`}
                               >
@@ -807,7 +862,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                   title={row.indicador}
                                 >
                                   <div className="flex items-center justify-between gap-1">
-                                    <span className="truncate">{row.indicador}</span>
+                                    <span className="truncate">{row.indicador} · {row.format}</span>
                                     {isSelected && (
                                       <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
                                     )}
@@ -816,36 +871,41 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
 
                                 {/* Metas */}
                                 <td className="border-r border-slate-200 px-1 py-1 text-slate-700 bg-white">
-                                  {row.ojt.meta ?? "—"}
+                                  {formatMetricValue(row.ojt.meta, row.format)}
                                 </td>
                                 <td className="border-r border-slate-200 px-1 py-1 text-slate-700 bg-white">
-                                  {row.s1.meta ?? "—"}
+                                  {formatMetricValue(row.s1.meta, row.format)}
                                 </td>
                                 <td className="border-r border-slate-200 px-1 py-1 text-slate-700 bg-white">
-                                  {row.s2.meta ?? "—"}
+                                  {formatMetricValue(row.s2.meta, row.format)}
                                 </td>
                                 <td className="border-r border-slate-200 px-1 py-1 text-slate-700 bg-white">
-                                  {row.s3.meta ?? "—"}
+                                  {formatMetricValue(row.s3.meta, row.format)}
                                 </td>
                                 <td className="border-r border-slate-300 px-1 py-1 text-slate-700 bg-white">
-                                  {row.s4.meta ?? "—"}
+                                  {formatMetricValue(row.s4.meta, row.format)}
                                 </td>
 
                                 {/* Cumplimiento / Resultado */}
                                 <td className="border-r border-slate-200 px-1 py-1 font-bold text-purple-950 bg-purple-50/40">
-                                  {row.ojt.resultado ?? (row.ojt.cumplimiento !== null ? `${row.ojt.cumplimiento}%` : "—")}
+                                  <span className="block">{formatMetricValue(row.ojt.resultado, row.format)}</span>
+                                  {row.ojt.cumplimiento !== null && <span className="block text-[8px] text-purple-600">{row.ojt.cumplimiento}%</span>}
                                 </td>
                                 <td className="border-r border-slate-200 px-1 py-1 font-bold text-purple-950 bg-purple-50/40">
-                                  {row.s1.resultado ?? (row.s1.cumplimiento !== null ? `${row.s1.cumplimiento}%` : "—")}
+                                  <span className="block">{formatMetricValue(row.s1.resultado, row.format)}</span>
+                                  {row.s1.cumplimiento !== null && <span className="block text-[8px] text-purple-600">{row.s1.cumplimiento}%</span>}
                                 </td>
                                 <td className="border-r border-slate-200 px-1 py-1 font-bold text-purple-950 bg-purple-50/40">
-                                  {row.s2.resultado ?? (row.s2.cumplimiento !== null ? `${row.s2.cumplimiento}%` : "—")}
+                                  <span className="block">{formatMetricValue(row.s2.resultado, row.format)}</span>
+                                  {row.s2.cumplimiento !== null && <span className="block text-[8px] text-purple-600">{row.s2.cumplimiento}%</span>}
                                 </td>
                                 <td className="border-r border-slate-200 px-1 py-1 font-bold text-purple-950 bg-purple-50/40">
-                                  {row.s3.resultado ?? (row.s3.cumplimiento !== null ? `${row.s3.cumplimiento}%` : "—")}
+                                  <span className="block">{formatMetricValue(row.s3.resultado, row.format)}</span>
+                                  {row.s3.cumplimiento !== null && <span className="block text-[8px] text-purple-600">{row.s3.cumplimiento}%</span>}
                                 </td>
                                 <td className="px-1 py-1 font-bold text-purple-950 bg-purple-50/40">
-                                  {row.s4.resultado ?? (row.s4.cumplimiento !== null ? `${row.s4.cumplimiento}%` : "—")}
+                                  <span className="block">{formatMetricValue(row.s4.resultado, row.format)}</span>
+                                  {row.s4.cumplimiento !== null && <span className="block text-[8px] text-purple-600">{row.s4.cumplimiento}%</span>}
                                 </td>
                               </tr>
                             );
@@ -864,11 +924,11 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                     {/* ── 2. GRÁFICA INTERACTIVA DEL KPI SELECCIONADO ── */}
                     {activeKpiRow && (() => {
                       const stages = [
-                        { label: "OJT", meta: activeKpiRow.ojt.meta, res: activeKpiRow.ojt.resultado ?? activeKpiRow.ojt.cumplimiento, cumpPct: activeKpiRow.ojt.cumplimiento },
-                        { label: "SEMA 1", meta: activeKpiRow.s1.meta, res: activeKpiRow.s1.resultado ?? activeKpiRow.s1.cumplimiento, cumpPct: activeKpiRow.s1.cumplimiento },
-                        { label: "SEMA 2", meta: activeKpiRow.s2.meta, res: activeKpiRow.s2.resultado ?? activeKpiRow.s2.cumplimiento, cumpPct: activeKpiRow.s2.cumplimiento },
-                        { label: "SEMA 3", meta: activeKpiRow.s3.meta, res: activeKpiRow.s3.resultado ?? activeKpiRow.s3.cumplimiento, cumpPct: activeKpiRow.s3.cumplimiento },
-                        { label: "SEMA 4", meta: activeKpiRow.s4.meta, res: activeKpiRow.s4.resultado ?? activeKpiRow.s4.cumplimiento, cumpPct: activeKpiRow.s4.cumplimiento },
+                        { label: "OJT", meta: activeKpiRow.ojt.meta, res: activeKpiRow.ojt.resultado, cump: activeKpiRow.ojt.cumplimiento },
+                        { label: "SEMA 1", meta: activeKpiRow.s1.meta, res: activeKpiRow.s1.resultado, cump: activeKpiRow.s1.cumplimiento },
+                        { label: "SEMA 2", meta: activeKpiRow.s2.meta, res: activeKpiRow.s2.resultado, cump: activeKpiRow.s2.cumplimiento },
+                        { label: "SEMA 3", meta: activeKpiRow.s3.meta, res: activeKpiRow.s3.resultado, cump: activeKpiRow.s3.cumplimiento },
+                        { label: "SEMA 4", meta: activeKpiRow.s4.meta, res: activeKpiRow.s4.resultado, cump: activeKpiRow.s4.cumplimiento },
                       ];
 
                       const allVals = stages
@@ -891,6 +951,10 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
 
                       const getX = (idx: number) => padL + idx * (plotW / 4);
                       const getY = (val: number) => padT + plotH - ((val - yMin) / (yMax - yMin || 1)) * plotH;
+                      const formatAxisValue = (value: number) => value.toLocaleString("es-CO", {
+                        maximumFractionDigits: 1,
+                        notation: Math.abs(value) >= 10_000 ? "compact" : "standard",
+                      });
 
                       const metaPoints = stages.map((s, i) =>
                         s.meta !== null ? { x: getX(i), y: getY(s.meta), val: s.meta, label: s.label } : null
@@ -899,9 +963,9 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                       const metaPath = validMeta.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
 
                       const resPoints = stages.map((s, i) =>
-                        s.res !== null ? { x: getX(i), y: getY(s.res), val: s.res, label: s.label, cumpPct: s.cumpPct } : null
+                        s.res !== null ? { x: getX(i), y: getY(s.res), val: s.res, label: s.label } : null
                       );
-                      const validRes = resPoints.filter((p): p is { x: number; y: number; val: number; label: string; cumpPct: number | null } => p !== null);
+                      const validRes = resPoints.filter((p): p is { x: number; y: number; val: number; label: string } => p !== null);
                       const resPath = validRes.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
                       const areaPath = validRes.length > 1
                         ? `${resPath} L ${validRes[validRes.length - 1].x} ${padT + plotH} L ${validRes[0].x} ${padT + plotH} Z`
@@ -918,15 +982,15 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               </span>
                               {kpiSummaryData.map((k) => (
                                 <button
-                                  key={k.indicador}
+                                  key={k.key}
                                   type="button"
-                                  onClick={() => setSelectedKpi(k.indicador)}
-                                  className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer ${activeKpiRow.indicador === k.indicador
+                                  onClick={() => setSelectedKpi(k.key)}
+                                  className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer ${activeKpiRow.key === k.key
                                       ? "bg-[#10233d] text-amber-300 shadow-xs"
                                       : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
                                     }`}
                                 >
-                                  {k.indicador}
+                                  {k.indicador} · {k.format}
                                 </button>
                               ))}
                             </div>
@@ -938,8 +1002,28 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               </span>
                               <span className="flex items-center gap-1 text-purple-800">
                                 <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block" />
-                                Cumplimiento
+                                Resultado
                               </span>
+                              <span className="rounded bg-slate-200 px-1.5 py-0.5 text-slate-700">Tipo de valor: {activeKpiRow.format}</span>
+                            </div>
+                          </div>
+
+                          <div className="overflow-x-auto rounded border border-slate-200 bg-white">
+                            <div className="grid min-w-[560px] grid-cols-5">
+                              {stages.map((stage) => (
+                                <div key={stage.label} className="border-r border-slate-200 px-2 py-1.5 text-center last:border-r-0">
+                                  <span className="block text-[9px] font-black text-slate-500">{stage.label}</span>
+                                  <span className="block truncate text-[9px] font-bold text-emerald-700" title={`Meta ${formatMetricValue(stage.meta, activeKpiRow.format)}`}>
+                                    Meta {formatMetricValue(stage.meta, activeKpiRow.format)}
+                                  </span>
+                                  <span className="block truncate text-[9px] font-bold text-purple-700" title={`Resultado ${formatMetricValue(stage.res, activeKpiRow.format)}`}>
+                                    Resultado {formatMetricValue(stage.res, activeKpiRow.format)}
+                                  </span>
+                                  <span className="block text-[8px] font-semibold text-slate-500">
+                                    Cumpl. {stage.cump !== null ? `${stage.cump}%` : "—"}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
 
@@ -960,7 +1044,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 return (
                                   <g key={i}>
                                     <line x1={padL} y1={y} x2={svgWidth - padR} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                                    <text x={padL - 6} y={y + 3} fontSize="5" fill="#94a3b8" textAnchor="end" fontWeight="600">{val}</text>
+                                    <text x={padL - 6} y={y + 3} fontSize="5" fill="#94a3b8" textAnchor="end" fontWeight="600">{formatAxisValue(val)}</text>
                                   </g>
                                 );
                               })}
@@ -980,19 +1064,45 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
 
                               {/* Puntos Meta */}
                               {validMeta.map((p, idx) => (
-                                <g key={`m-${idx}`}>
-                                  <circle cx={p.x} cy={p.y} r="3.5" fill="#16a34a" stroke="#ffffff" strokeWidth="1.5" />
-                                  <text x={p.x} y={p.y - 5} fontSize="5" fontWeight="bold" fill="#15803d" textAnchor="middle">{p.val}</text>
+                                <g key={`m-${idx}`} className="cursor-help">
+                                  <title>{`${p.label}\nMeta: ${formatMetricValue(p.val, activeKpiRow.format)}`}</title>
+                                  <circle
+                                    cx={p.x}
+                                    cy={p.y}
+                                    r="3.5"
+                                    fill="#16a34a"
+                                    stroke="#ffffff"
+                                    strokeWidth="1.5"
+                                    tabIndex={0}
+                                    role="img"
+                                    aria-label={`${p.label}. Meta: ${formatMetricValue(p.val, activeKpiRow.format)}`}
+                                    className="focus-visible:outline-none focus-visible:stroke-amber-400"
+                                  />
                                 </g>
                               ))}
 
-                              {/* Puntos Cumplimiento */}
-                              {validRes.map((p, idx) => (
-                                <g key={`r-${idx}`}>
-                                  <circle cx={p.x} cy={p.y} r="4" fill="#9333ea" stroke="#ffffff" strokeWidth="1.5" />
-                                  <text x={p.x} y={p.y + 11} fontSize="5" fontWeight="black" fill="#7e22ce" textAnchor="middle">{p.val}</text>
-                                </g>
-                              ))}
+                              {/* Puntos Resultado */}
+                              {validRes.map((p, idx) => {
+                                const stage = stages.find((item) => item.label === p.label);
+                                const tooltip = `${p.label}\nResultado: ${formatMetricValue(p.val, activeKpiRow.format)}\nCumplimiento: ${stage?.cump !== null && stage?.cump !== undefined ? `${stage.cump}%` : "—"}`;
+                                return (
+                                  <g key={`r-${idx}`} className="cursor-help">
+                                    <title>{tooltip}</title>
+                                    <circle
+                                      cx={p.x}
+                                      cy={p.y}
+                                      r="4"
+                                      fill="#9333ea"
+                                      stroke="#ffffff"
+                                      strokeWidth="1.5"
+                                      tabIndex={0}
+                                      role="img"
+                                      aria-label={tooltip.replaceAll("\n", ". ")}
+                                      className="focus-visible:outline-none focus-visible:stroke-amber-400"
+                                    />
+                                  </g>
+                                );
+                              })}
 
                               {/* Eje X Labels */}
                               {stages.map((s, i) => (
@@ -1039,12 +1149,12 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
               {/* Matriz de Indicadores (PEC, EPA, Calidad, Ventas...) */}
               <div className="space-y-6">
                 {nestingGroups.map((group) => {
-                  const deselectedReqs = new Set(deselectedReqsByIndicator[group.indicador] ?? []);
+                  const deselectedReqs = new Set(deselectedReqsByIndicator[group.key] ?? []);
                   const selectedRows = group.rows.filter((row) => !deselectedReqs.has(row.req));
                   const allRowsSelected = selectedRows.length === group.rows.length;
                   const someRowsSelected = selectedRows.length > 0;
                   const selectedAgents = selectedRows.reduce((sum, row) => sum + row.totalRacs, 0);
-                  const averageFor = (key: "ojt" | "s1" | "s2" | "s3" | "s4" | "meta") => {
+                  const averageFor = (key: "ojt" | "s1" | "s2" | "s3" | "s4") => {
                     const values = selectedRows
                       .map((row) => row[key])
                       .filter((value): value is number => value !== null);
@@ -1053,19 +1163,45 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                       ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
                       : null;
                   };
+                  const averageMetaFor = (key: "ojt" | "s1" | "s2" | "s3" | "s4") => {
+                    const values = selectedRows
+                      .map((row) => row.stageMetas[key])
+                      .filter((value): value is number => value !== null);
+
+                    return values.length > 0
+                      ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100
+                      : null;
+                  };
+                  const averageResultFor = (key: "ojt" | "s1" | "s2" | "s3" | "s4") => {
+                    const values = selectedRows
+                      .map((row) => row.stageResults[key])
+                      .filter((value): value is number => value !== null);
+
+                    return values.length > 0
+                      ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100
+                      : null;
+                  };
                   const points = [
-                    { label: "OJT", val: averageFor("ojt") },
-                    { label: "Semana 1", val: averageFor("s1") },
-                    { label: "Semana 2", val: averageFor("s2") },
-                    { label: "Semana 3", val: averageFor("s3") },
-                    { label: "Semana 4", val: averageFor("s4") },
+                    { label: "OJT", val: averageFor("ojt"), meta: averageMetaFor("ojt"), result: averageResultFor("ojt") },
+                    { label: "Semana 1", val: averageFor("s1"), meta: averageMetaFor("s1"), result: averageResultFor("s1") },
+                    { label: "Semana 2", val: averageFor("s2"), meta: averageMetaFor("s2"), result: averageResultFor("s2") },
+                    { label: "Semana 3", val: averageFor("s3"), meta: averageMetaFor("s3"), result: averageResultFor("s3") },
+                    { label: "Semana 4", val: averageFor("s4"), meta: averageMetaFor("s4"), result: averageResultFor("s4") },
                   ];
-                  const metaVal = averageFor("meta");
                   const hasChartData = points.some((point) => point.val !== null);
+                  const maxCompliance = points.reduce(
+                    (max, point) => point.val !== null ? Math.max(max, point.val) : max,
+                    100
+                  );
+                  const chartMax = Math.ceil((maxCompliance * 1.05) / 20) * 20;
+                  const chartTop = 15;
+                  const chartBottom = 145;
+                  const chartHeight = chartBottom - chartTop;
+                  const getChartY = (value: number) => chartBottom - (value / chartMax) * chartHeight;
 
                   return (
                     <div
-                      key={group.indicador}
+                      key={group.key}
                       className="bg-white rounded-xl border border-slate-300 shadow-xs overflow-hidden print:border-slate-800 print:break-inside-avoid"
                     >
                       {/* Header del Indicador */}
@@ -1076,7 +1212,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                         <div className="flex items-center gap-2">
                           <span className="h-2 w-2 rounded-full bg-emerald-400" />
                           <span className="font-black uppercase tracking-wider text-amber-300">
-                            Indicador: {group.indicador}
+                            Indicador: {group.indicador} · {group.format}
                           </span>
                           <span className="text-slate-300">
                             ({group.rows.length} cohortes evaluadas · {group.totalAgents} agentes)
@@ -1084,7 +1220,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded text-[10px] font-bold">
-                            Meta Objetivo: {group.metaGlobal}%
+                            Meta Objetivo: {formatMetricValue(group.metaGlobal, group.format)}
                           </span>
                           <span className="text-sky-200 text-[11px]">
                             Promedio Cierre: <strong className="text-white">{group.avgCierre ?? group.avgS4 ?? "—"}%</strong>
@@ -1152,7 +1288,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                   {group.avgS4 !== null ? `${group.avgS4}%` : "—"}
                                 </td>
                                 <td className="border border-slate-300 py-2 px-1 text-emerald-800 bg-emerald-100">
-                                  {group.metaGlobal}%
+                                  {formatMetricValue(group.metaGlobal, group.format)}
                                 </td>
                                 <td className="border border-slate-300 py-2 px-1 text-[#10233d] bg-amber-100 text-xs">
                                   {group.avgCierre !== null ? `${group.avgCierre}%` : "—"}
@@ -1175,7 +1311,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       <input
                                         type="checkbox"
                                         checked={!deselectedReqs.has(r.req)}
-                                        onChange={() => toggleCohortSelection(group.indicador, r.req)}
+                                        onChange={() => toggleCohortSelection(group.key, r.req)}
                                         aria-label={`Incluir cohorte ${r.req} en la gráfica de ${group.indicador}`}
                                         className="h-3.5 w-3.5 cursor-pointer accent-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
                                       />
@@ -1229,7 +1365,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                     </td>
 
                                     <td className="border border-slate-200 py-1.5 px-1 font-black text-emerald-700 bg-emerald-50/70">
-                                      {r.meta}%
+                                      {formatMetricValue(r.meta, group.format)}
                                     </td>
 
                                     <td className={`border border-slate-200 py-1.5 px-1 font-black text-xs ${sCierre === "green" ? "bg-emerald-100 text-emerald-900" :
@@ -1250,22 +1386,42 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[11px] font-black text-[#1a355b] uppercase flex items-center gap-1.5">
                               <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
-                              Curva de Evolución vs Meta
+                              Cumplimiento vs Objetivo
                             </span>
                             <div className="flex items-center gap-1.5 text-[10px] font-bold">
                               <span className="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded">
                                 {selectedRows.length}/{group.rows.length} cohortes · {selectedAgents} agentes
                               </span>
                               <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
-                                Meta: {metaVal !== null ? `${metaVal}%` : "—"}
+                                Tipo de valor: {group.format}
                               </span>
                             </div>
                           </div>
 
-                          <div className="relative w-full h-[190px] bg-white border border-slate-200 rounded-lg p-2 flex items-center justify-center">
-                            <svg viewBox="0 0 340 160" className="w-full h-full overflow-visible">
-                              {[0.2, 0.4, 0.6, 0.8, 1.0].map((level) => {
-                                const y = 140 - level * 120;
+                          <div className="mb-2 overflow-x-auto rounded border border-slate-200 bg-white">
+                            <div className="grid min-w-[460px] grid-cols-5">
+                              {points.map((point) => (
+                                <div key={point.label} className="border-r border-slate-200 px-1.5 py-1.5 text-center last:border-r-0">
+                                  <span className="block text-[8px] font-black text-slate-500">{point.label.replace("Semana ", "S")}</span>
+                                  <span className="block truncate text-[8px] font-bold text-emerald-700" title={`Meta ${formatMetricValue(point.meta, group.format)}`}>
+                                    Meta {formatMetricValue(point.meta, group.format)}
+                                  </span>
+                                  <span className="block truncate text-[8px] font-bold text-purple-700" title={`Resultado ${formatMetricValue(point.result, group.format)}`}>
+                                    Resultado {formatMetricValue(point.result, group.format)}
+                                  </span>
+                                  <span className="block text-[8px] font-bold text-blue-800">
+                                    Cumpl. {point.val !== null ? `${point.val}%` : "—"}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="relative w-full h-[210px] bg-white border border-slate-200 rounded-lg p-2 flex items-center justify-center">
+                            <svg viewBox="0 0 340 170" className="w-full h-full overflow-visible">
+                              {[0, 0.25, 0.5, 0.75, 1].map((level) => {
+                                const y = chartTop + level * chartHeight;
+                                const tickValue = Math.round(chartMax * (1 - level));
                                 return (
                                   <g key={level}>
                                     <line
@@ -1275,45 +1431,45 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       y2={y}
                                       stroke="#e2e8f0"
                                       strokeWidth="1"
-                                      strokeDasharray={level === 0.8 ? "none" : "2,2"}
+                                      strokeDasharray="2,2"
                                     />
                                     <text x="5" y={y + 3} fill="#94a3b8" fontSize="8" fontWeight="bold">
-                                      {Math.round(level * 100)}%
+                                      {tickValue}%
                                     </text>
                                   </g>
                                 );
                               })}
 
-                              {metaVal !== null && (() => {
-                                const metaY = 140 - (metaVal / 100) * 120;
+                              {(() => {
+                                const targetY = getChartY(100);
                                 return (
                                   <g>
                                     <line
                                       x1="35"
-                                      y1={metaY}
+                                      y1={targetY}
                                       x2="325"
-                                      y2={metaY}
+                                      y2={targetY}
                                       stroke="#10b981"
                                       strokeWidth="2"
                                     />
                                     <rect
-                                      x="285"
-                                      y={metaY - 9}
-                                      width="38"
+                                      x="278"
+                                      y={targetY - 9}
+                                      width="45"
                                       height="12"
                                       rx="2"
                                       fill="#10b981"
                                     />
                                     <text
                                       x="304"
-                                      y={metaY}
+                                      y={targetY}
                                       textAnchor="middle"
                                       dominantBaseline="middle"
                                       fill="#ffffff"
                                       fontSize="7.5"
                                       fontWeight="900"
                                     >
-                                      META {metaVal}%
+                                      OBJ. 100%
                                     </text>
                                   </g>
                                 );
@@ -1323,9 +1479,8 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 const coords = points.flatMap((p, i) => {
                                   if (p.val === null) return [];
                                   const x = 45 + i * 65;
-                                  const val = Math.min(100, Math.max(0, p.val));
-                                  const y = 140 - (val / 100) * 120;
-                                  return [{ x, y, val: p.val, label: p.label }];
+                                  const y = getChartY(Math.max(0, p.val));
+                                  return [{ x, y, val: p.val, meta: p.meta, result: p.result, label: p.label }];
                                 });
 
                                 if (coords.length === 0) return null;
@@ -1335,7 +1490,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                   <g>
                                     {coords.length > 1 && (
                                       <path
-                                        d={`${pathD} L ${coords[coords.length - 1].x},140 L ${coords[0].x},140 Z`}
+                                        d={`${pathD} L ${coords[coords.length - 1].x},${chartBottom} L ${coords[0].x},${chartBottom} Z`}
                                         fill="#1a355b"
                                         fillOpacity="0.08"
                                       />
@@ -1348,37 +1503,26 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
                                     />
-                                    {coords.map((pt) => (
-                                      <g key={pt.label}>
-                                        <circle
-                                          cx={pt.x}
-                                          cy={pt.y}
-                                          r="4.5"
-                                          fill="#1a355b"
-                                          stroke="#ffffff"
-                                          strokeWidth="2"
-                                        />
-                                        <rect
-                                          x={pt.x - 13}
-                                          y={pt.y - 16}
-                                          width="26"
-                                          height="11"
-                                          rx="2"
-                                          fill="#0f233e"
-                                        />
-                                        <text
-                                          x={pt.x}
-                                          y={pt.y - 8}
-                                          textAnchor="middle"
-                                          dominantBaseline="middle"
-                                          fill="#fef08a"
-                                          fontSize="7.5"
-                                          fontWeight="900"
-                                        >
-                                          {pt.val !== null ? `${pt.val}%` : "—"}
-                                        </text>
-                                      </g>
-                                    ))}
+                                    {coords.map((pt) => {
+                                      const tooltip = `${pt.label}\nMeta: ${formatMetricValue(pt.meta, group.format)}\nResultado: ${formatMetricValue(pt.result, group.format)}\nCumplimiento: ${pt.val}%`;
+                                      return (
+                                        <g key={pt.label} className="cursor-help">
+                                          <title>{tooltip}</title>
+                                          <circle
+                                            cx={pt.x}
+                                            cy={pt.y}
+                                            r="4.5"
+                                            fill="#1a355b"
+                                            stroke="#ffffff"
+                                            strokeWidth="2"
+                                            tabIndex={0}
+                                            role="img"
+                                            aria-label={tooltip.replaceAll("\n", ". ")}
+                                            className="focus-visible:outline-none focus-visible:stroke-amber-400"
+                                          />
+                                        </g>
+                                      );
+                                    })}
                                   </g>
                                 );
                               })()}
@@ -1387,7 +1531,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 <text
                                   key={point.label}
                                   x={45 + index * 65}
-                                  y="152"
+                                  y="163"
                                   textAnchor="middle"
                                   fill="#475569"
                                   fontSize="8"
@@ -1416,7 +1560,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                             </span>
                             <span className="flex items-center gap-1">
                               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                              Meta seleccionada ({metaVal !== null ? `${metaVal}%` : "—"})
+                              Objetivo de cumplimiento (100%)
                             </span>
                           </div>
                         </div>

@@ -1,4 +1,4 @@
-import type { CohortRecord } from "../utils/utils";
+import { formatMetricValue, type CohortRecord } from "../utils/utils";
 import type { CohortKPIs, RacPorCampana } from "../hooks/useCohortData";
 import {
   Users,
@@ -98,6 +98,7 @@ interface FormadorItem {
 interface StageItem {
   stage: string;
   shortName: string;
+  format: string | null;
   promMeta: number | null;
   promResultado: number | null;
   promCumplimiento: number | null;
@@ -575,10 +576,10 @@ export default function CohortResumenTab({
                 {/* Meta vs Resultado */}
                 <div className="flex items-center justify-between w-full text-[10px] font-semibold">
                   <span className="text-gray-400">
-                    Meta: <span className="text-gray-600">{stage.promMeta ?? "—"}</span>
+                    Meta: <span className="text-gray-600">{formatMetricValue(stage.promMeta, stage.format)}</span>
                   </span>
                   <span className="text-gray-400">
-                    Res: <span className="text-gray-600">{stage.promResultado ?? "—"}</span>
+                    Res: <span className="text-gray-600">{formatMetricValue(stage.promResultado, stage.format)}</span>
                   </span>
                 </div>
 

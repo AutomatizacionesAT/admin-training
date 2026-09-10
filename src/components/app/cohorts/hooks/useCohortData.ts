@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import type { CohortRecord } from "../utils/utils";
-import { toPct, semaforo, mesNumero } from "../utils/utils";
+import { mesNumero, normalizeMetricFormat, normalizeMetricValue, semaforo, toPct } from "../utils/utils";
 
 export interface CohortFilters {
   anio: number | null;
@@ -365,6 +365,8 @@ export function useCohortData(data: CohortRecord[], lockedCoordinador: string | 
 
   // ── Evolución por Etapas (OJT, S1, S2, S3, S4, Cierre) ─────
   const stagesEvolution = useMemo(() => {
+    const formats = new Set(filteredData.map((record) => normalizeMetricFormat(record.formato)));
+    const commonFormat = formats.size === 1 ? Array.from(formats)[0] : null;
     const stagesDef = [
       { stage: "OJT (Inducción)", shortName: "OJT", metaKey: "metaOjt", resKey: "resultadoOjt", cumpKey: "cumplimientoOjt" },
       { stage: "Semana 1", shortName: "S1", metaKey: "metaS1", resKey: "resultadoS1", cumpKey: "cumplimientoS1" },
@@ -381,8 +383,12 @@ export function useCohortData(data: CohortRecord[], lockedCoordinador: string | 
       let verde = 0, amarillo = 0, rojo = 0;
 
       filteredData.forEach((r) => {
-        const metaVal = r[def.metaKey as keyof CohortRecord] as number | null;
-        const resVal = r[def.resKey as keyof CohortRecord] as number | null;
+        const metaVal = commonFormat
+          ? normalizeMetricValue(r[def.metaKey as keyof CohortRecord] as number | null, commonFormat)
+          : null;
+        const resVal = commonFormat
+          ? normalizeMetricValue(r[def.resKey as keyof CohortRecord] as number | null, commonFormat)
+          : null;
         const cumpVal = r[def.cumpKey as keyof CohortRecord] as number | null;
 
         if (metaVal !== null && !isNaN(Number(metaVal))) {
@@ -409,6 +415,7 @@ export function useCohortData(data: CohortRecord[], lockedCoordinador: string | 
       return {
         stage: def.stage,
         shortName: def.shortName,
+        format: commonFormat,
         promMeta: countMeta > 0 ? Math.round((sumMeta / countMeta) * 10) / 10 : null,
         promResultado: countRes > 0 ? Math.round((sumRes / countRes) * 10) / 10 : null,
         promCumplimiento: countCump > 0 ? Math.round(sumCump / countCump) : null,
@@ -438,4 +445,3 @@ export function useCohortData(data: CohortRecord[], lockedCoordinador: string | 
     availableIndicadores,
   };
 }
-
