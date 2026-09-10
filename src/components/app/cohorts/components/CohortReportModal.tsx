@@ -49,6 +49,7 @@ interface CohortRowData {
   mes: string;
   formador: string;
   campana: string;
+  segmento: string;
   totalRacs: number;
   ojt: number | null;
   s1: number | null;
@@ -56,9 +57,8 @@ interface CohortRowData {
   s3: number | null;
   s4: number | null;
   cierre: number | null;
-  meta: number | null;
-  stageMetas: Record<"ojt" | "s1" | "s2" | "s3" | "s4", number | null>;
-  stageResults: Record<"ojt" | "s1" | "s2" | "s3" | "s4", number | null>;
+  stageMetas: Record<StageKey, number | null>;
+  stageResults: Record<StageKey, number | null>;
 }
 
 interface KpiStageValues {
@@ -71,6 +71,7 @@ interface KpiSummaryRow {
   key: string;
   indicador: string;
   format: string;
+  reference: ">=" | "<=" | null;
   totalRecords: number;
   totalDocs: number;
   ojt: KpiStageValues;
@@ -86,16 +87,55 @@ interface IndicatorGroup {
   key: string;
   indicador: string;
   format: string;
+  reference: ReferenceDirection;
   rows: CohortRowData[];
   totalAgents: number;
-  avgOjt: number | null;
-  avgS1: number | null;
-  avgS2: number | null;
-  avgS3: number | null;
-  avgS4: number | null;
   avgCierre: number | null;
-  metaGlobal: number | null;
 }
+
+type StageKey = "ojt" | "s1" | "s2" | "s3" | "s4" | "cierre";
+type ReferenceDirection = ">=" | "<=" | null;
+
+const REQ_LINE_COLORS = ["#2563eb", "#7c3aed", "#db2777", "#d97706", "#0891b2", "#4f46e5", "#059669", "#dc2626"];
+
+const getReferenceDirection = (reference: string | null | undefined): ReferenceDirection => {
+  const normalized = reference?.replace(/\s/g, "") ?? "";
+  if (normalized.includes(">=")) return ">=";
+  if (normalized.includes("<=")) return "<=";
+  return null;
+};
+
+const calculateStageMetrics = (
+  records: CohortRecord[],
+  metaKey: keyof CohortRecord,
+  resultKey: keyof CohortRecord,
+  format: string,
+  reference: ReferenceDirection
+): KpiStageValues => {
+  const metas = records
+    .map((record) => normalizeMetricValue(record[metaKey] as number | null, format))
+    .filter((value): value is number => value !== null);
+  const rawMeta = metas.length > 0
+    ? metas.reduce((sum, value) => sum + value, 0) / metas.length
+    : null;
+  const results = records
+    .map((record) => normalizeMetricValue(record[resultKey] as number | null, format))
+    .filter((value): value is number => value !== null);
+  const rawResult = results.length > 0
+    ? results.reduce((sum, value) => sum + value, 0) / results.length
+    : null;
+  const cumplimiento = rawMeta !== null && rawResult !== null && reference !== null
+    ? reference === ">="
+      ? rawMeta !== 0 ? Math.round((rawResult / rawMeta) * 100) : null
+      : rawResult !== 0 ? Math.round((rawMeta / rawResult) * 100) : null
+    : null;
+
+  return {
+    meta: rawMeta !== null ? Math.round(rawMeta * 10) / 10 : null,
+    resultado: rawResult !== null ? Math.round(rawResult * 10) / 10 : null,
+    cumplimiento,
+  };
+};
 
 export default function CohortReportModal({
   open,
@@ -111,9 +151,11 @@ export default function CohortReportModal({
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"tablero" | "ejecutivo">("tablero");
   const [deselectedReqsByIndicator, setDeselectedReqsByIndicator] = useState<Record<string, string[]>>({});
+  const [hoveredCohort, setHoveredCohort] = useState<{ groupKey: string; req: string; stage: StageKey | null } | null>(null);
 
   const handleClose = () => {
     setDeselectedReqsByIndicator({});
+    setHoveredCohort(null);
     onClose();
   };
 
@@ -140,17 +182,19 @@ export default function CohortReportModal({
     const map = new Map<string, {
       indicador: string;
       format: string;
+      reference: ReferenceDirection;
       reqMap: Map<string, CohortRecord[]>;
     }>();
 
     filteredData.forEach((r) => {
       const ind = r.indicador?.trim() || "INDICADOR GENERAL";
       const format = normalizeMetricFormat(r.formato);
-      const groupKey = `${ind}\u0000${format}`;
+      const reference = getReferenceDirection(r.referencia);
+      const groupKey = `${ind}\u0000${format}\u0000${reference ?? "SIN-REFERENCIA"}`;
       const req = r.req?.trim() || "REQ-SIN-NUMERO";
 
       if (!map.has(groupKey)) {
-        map.set(groupKey, { indicador: ind, format, reqMap: new Map() });
+        map.set(groupKey, { indicador: ind, format, reference, reqMap: new Map() });
       }
       const reqMap = map.get(groupKey)!.reqMap;
       if (!reqMap.has(req)) {
@@ -161,119 +205,76 @@ export default function CohortReportModal({
 
     const groups: IndicatorGroup[] = [];
 
-    map.forEach(({ indicador, format, reqMap }, groupKey) => {
+    map.forEach(({ indicador, format, reference, reqMap }, groupKey) => {
       const rows: CohortRowData[] = [];
-      let indOjtSum = 0, indOjtCnt = 0;
-      let indS1Sum = 0, indS1Cnt = 0;
-      let indS2Sum = 0, indS2Cnt = 0;
-      let indS3Sum = 0, indS3Cnt = 0;
-      let indS4Sum = 0, indS4Cnt = 0;
-      let indCierreSum = 0, indCierreCnt = 0;
-      let indMetaSum = 0, indMetaCnt = 0;
 
       reqMap.forEach((records, req) => {
-        let ojtSum = 0, ojtCnt = 0;
-        let s1Sum = 0, s1Cnt = 0;
-        let s2Sum = 0, s2Cnt = 0;
-        let s3Sum = 0, s3Cnt = 0;
-        let s4Sum = 0, s4Cnt = 0;
-        let cierreSum = 0, cierreCnt = 0;
-
         const docs = new Set<string>();
         let mes = "—";
         let formador = "—";
         let campana = "—";
+        let segmento = "—";
 
         records.forEach((r) => {
           if (r.documento) docs.add(r.documento);
           if (r.mes && mes === "—") mes = mesLabel(r.mes);
           if (r.formador && formador === "—") formador = r.formador;
           if (r.campana && campana === "—") campana = r.campana;
-
-          if (r.cumplimientoOjt !== null) { ojtSum += toPct(r.cumplimientoOjt) ?? 0; ojtCnt++; }
-          if (r.cumplimientoS1 !== null) { s1Sum += toPct(r.cumplimientoS1) ?? 0; s1Cnt++; }
-          if (r.cumplimientoS2 !== null) { s2Sum += toPct(r.cumplimientoS2) ?? 0; s2Cnt++; }
-          if (r.cumplimientoS3 !== null) { s3Sum += toPct(r.cumplimientoS3) ?? 0; s3Cnt++; }
-          if (r.cumplimientoS4 !== null) { s4Sum += toPct(r.cumplimientoS4) ?? 0; s4Cnt++; }
-          if (r.cumplimientoCierre !== null) { cierreSum += toPct(r.cumplimientoCierre) ?? 0; cierreCnt++; }
-
+          if (r.segmento && segmento === "—") segmento = r.segmento;
         });
 
-        const averageMetric = (
-          key:
-            | "metaOjt" | "metaS1" | "metaS2" | "metaS3" | "metaS4" | "metaCierre"
-            | "resultadoOjt" | "resultadoS1" | "resultadoS2" | "resultadoS3" | "resultadoS4"
-        ) => {
-          const values = records
-            .map((record) => normalizeMetricValue(record[key], format))
-            .filter((value): value is number => value !== null);
-
-          return values.length > 0
-            ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100
-            : null;
-        };
-
-        const ojtAvg = ojtCnt > 0 ? Math.round(ojtSum / ojtCnt) : null;
-        const s1Avg = s1Cnt > 0 ? Math.round(s1Sum / s1Cnt) : null;
-        const s2Avg = s2Cnt > 0 ? Math.round(s2Sum / s2Cnt) : null;
-        const s3Avg = s3Cnt > 0 ? Math.round(s3Sum / s3Cnt) : null;
-        const s4Avg = s4Cnt > 0 ? Math.round(s4Sum / s4Cnt) : null;
-        const cierreAvg = cierreCnt > 0 ? Math.round(cierreSum / cierreCnt) : null;
+        const ojt = calculateStageMetrics(records, "metaOjt", "resultadoOjt", format, reference);
+        const s1 = calculateStageMetrics(records, "metaS1", "resultadoS1", format, reference);
+        const s2 = calculateStageMetrics(records, "metaS2", "resultadoS2", format, reference);
+        const s3 = calculateStageMetrics(records, "metaS3", "resultadoS3", format, reference);
+        const s4 = calculateStageMetrics(records, "metaS4", "resultadoS4", format, reference);
+        const cierre = calculateStageMetrics(records, "metaCierre", "resultadoCierre", format, reference);
         const stageMetas = {
-          ojt: averageMetric("metaOjt"),
-          s1: averageMetric("metaS1"),
-          s2: averageMetric("metaS2"),
-          s3: averageMetric("metaS3"),
-          s4: averageMetric("metaS4"),
+          ojt: ojt.meta,
+          s1: s1.meta,
+          s2: s2.meta,
+          s3: s3.meta,
+          s4: s4.meta,
+          cierre: cierre.meta,
         };
         const stageResults = {
-          ojt: averageMetric("resultadoOjt"),
-          s1: averageMetric("resultadoS1"),
-          s2: averageMetric("resultadoS2"),
-          s3: averageMetric("resultadoS3"),
-          s4: averageMetric("resultadoS4"),
+          ojt: ojt.resultado,
+          s1: s1.resultado,
+          s2: s2.resultado,
+          s3: s3.resultado,
+          s4: s4.resultado,
+          cierre: cierre.resultado,
         };
-        const metaAvg = averageMetric("metaCierre") ?? stageMetas.s4 ?? stageMetas.ojt;
-
-        if (ojtAvg !== null) { indOjtSum += ojtAvg; indOjtCnt++; }
-        if (s1Avg !== null) { indS1Sum += s1Avg; indS1Cnt++; }
-        if (s2Avg !== null) { indS2Sum += s2Avg; indS2Cnt++; }
-        if (s3Avg !== null) { indS3Sum += s3Avg; indS3Cnt++; }
-        if (s4Avg !== null) { indS4Sum += s4Avg; indS4Cnt++; }
-        if (cierreAvg !== null) { indCierreSum += cierreAvg; indCierreCnt++; }
-        if (metaAvg !== null) { indMetaSum += metaAvg; indMetaCnt++; }
 
         rows.push({
           req,
           mes,
           formador,
           campana,
+          segmento,
           totalRacs: docs.size > 0 ? docs.size : records.length,
-          ojt: ojtAvg,
-          s1: s1Avg,
-          s2: s2Avg,
-          s3: s3Avg,
-          s4: s4Avg,
-          cierre: cierreAvg,
-          meta: metaAvg,
+          ojt: ojt.cumplimiento,
+          s1: s1.cumplimiento,
+          s2: s2.cumplimiento,
+          s3: s3.cumplimiento,
+          s4: s4.cumplimiento,
+          cierre: cierre.cumplimiento,
           stageMetas,
           stageResults,
         });
       });
 
+      const allRecords = Array.from(reqMap.values()).flat();
+      const groupCierre = calculateStageMetrics(allRecords, "metaCierre", "resultadoCierre", format, reference);
+
       groups.push({
         key: groupKey,
         indicador,
         format,
+        reference,
         rows: rows.sort((a, b) => a.req.localeCompare(b.req)),
         totalAgents: rows.reduce((sum, row) => sum + row.totalRacs, 0),
-        avgOjt: indOjtCnt > 0 ? Math.round(indOjtSum / indOjtCnt) : null,
-        avgS1: indS1Cnt > 0 ? Math.round(indS1Sum / indS1Cnt) : null,
-        avgS2: indS2Cnt > 0 ? Math.round(indS2Sum / indS2Cnt) : null,
-        avgS3: indS3Cnt > 0 ? Math.round(indS3Sum / indS3Cnt) : null,
-        avgS4: indS4Cnt > 0 ? Math.round(indS4Sum / indS4Cnt) : null,
-        avgCierre: indCierreCnt > 0 ? Math.round(indCierreSum / indCierreCnt) : null,
-        metaGlobal: indMetaCnt > 0 ? Math.round((indMetaSum / indMetaCnt) * 100) / 100 : null,
+        avgCierre: groupCierre.cumplimiento,
       });
     });
 
@@ -281,6 +282,7 @@ export default function CohortReportModal({
   }, [filteredData]);
 
   const toggleCohortSelection = (groupKey: string, req: string) => {
+    setHoveredCohort((current) => current?.groupKey === groupKey && current.req === req ? null : current);
     setDeselectedReqsByIndicator((current) => {
       const deselectedReqs = current[groupKey] ?? [];
       const nextDeselectedReqs = deselectedReqs.includes(req)
@@ -292,6 +294,7 @@ export default function CohortReportModal({
   };
 
   const toggleAllCohorts = (group: IndicatorGroup, selectAll: boolean) => {
+    setHoveredCohort((current) => current?.groupKey === group.key ? null : current);
     setDeselectedReqsByIndicator((current) => ({
       ...current,
       [group.key]: selectAll ? [] : group.rows.map((row) => row.req),
@@ -364,6 +367,7 @@ export default function CohortReportModal({
     const map = new Map<string, {
       indicador: string;
       format: string;
+      reference: ">=" | "<=" | null;
       records: CohortRecord[];
       docs: Set<string>;
     }>();
@@ -371,9 +375,10 @@ export default function CohortReportModal({
     filteredData.forEach((r) => {
       const ind = r.indicador?.trim() || "INDICADOR GENERAL";
       const format = normalizeMetricFormat(r.formato);
-      const key = `${ind}\u0000${format}`;
+      const reference = getReferenceDirection(r.referencia);
+      const key = `${ind}\u0000${format}\u0000${reference ?? "SIN-REFERENCIA"}`;
       if (!map.has(key)) {
-        map.set(key, { indicador: ind, format, records: [], docs: new Set() });
+        map.set(key, { indicador: ind, format, reference, records: [], docs: new Set() });
       }
       const entry = map.get(key)!;
       entry.records.push(r);
@@ -381,59 +386,15 @@ export default function CohortReportModal({
       if (doc) entry.docs.add(doc);
     });
 
-    const getStageMetrics = (
-      records: CohortRecord[],
-      metaKey: keyof CohortRecord,
-      resKey: keyof CohortRecord,
-      cumpKey: keyof CohortRecord,
-      format: string
-    ): KpiStageValues => {
-      let metaSum = 0, metaCnt = 0;
-      let resSum = 0, resCnt = 0;
-      let cumpSum = 0, cumpCnt = 0;
-
-      records.forEach((r) => {
-        const m = normalizeMetricValue(r[metaKey] as number | null, format);
-        const res = normalizeMetricValue(r[resKey] as number | null, format);
-        const c = r[cumpKey] as number | null;
-
-        if (m !== null && !isNaN(Number(m))) {
-          metaSum += Number(m);
-          metaCnt++;
-        }
-        if (res !== null && !isNaN(Number(res))) {
-          resSum += Number(res);
-          resCnt++;
-        }
-        if (c !== null) {
-          const pct = toPct(c);
-          if (pct !== null) {
-            cumpSum += pct;
-            cumpCnt++;
-          }
-        }
-      });
-
-      const avgMeta = metaCnt > 0 ? Math.round((metaSum / metaCnt) * 10) / 10 : null;
-      const avgRes = resCnt > 0 ? Math.round((resSum / resCnt) * 10) / 10 : null;
-      const avgCump = cumpCnt > 0 ? Math.round(cumpSum / cumpCnt) : null;
-
-      return {
-        meta: avgMeta,
-        resultado: avgRes,
-        cumplimiento: avgCump,
-      };
-    };
-
     const rows: KpiSummaryRow[] = [];
 
-    map.forEach(({ indicador, format, records, docs }, key) => {
-      const ojt = getStageMetrics(records, "metaOjt", "resultadoOjt", "cumplimientoOjt", format);
-      const s1 = getStageMetrics(records, "metaS1", "resultadoS1", "cumplimientoS1", format);
-      const s2 = getStageMetrics(records, "metaS2", "resultadoS2", "cumplimientoS2", format);
-      const s3 = getStageMetrics(records, "metaS3", "resultadoS3", "cumplimientoS3", format);
-      const s4 = getStageMetrics(records, "metaS4", "resultadoS4", "cumplimientoS4", format);
-      const cierre = getStageMetrics(records, "metaCierre", "resultadoCierre", "cumplimientoCierre", format);
+    map.forEach(({ indicador, format, reference, records, docs }, key) => {
+      const ojt = calculateStageMetrics(records, "metaOjt", "resultadoOjt", format, reference);
+      const s1 = calculateStageMetrics(records, "metaS1", "resultadoS1", format, reference);
+      const s2 = calculateStageMetrics(records, "metaS2", "resultadoS2", format, reference);
+      const s3 = calculateStageMetrics(records, "metaS3", "resultadoS3", format, reference);
+      const s4 = calculateStageMetrics(records, "metaS4", "resultadoS4", format, reference);
+      const cierre = calculateStageMetrics(records, "metaCierre", "resultadoCierre", format, reference);
 
       const validCumps = [ojt.cumplimiento, s1.cumplimiento, s2.cumplimiento, s3.cumplimiento, s4.cumplimiento].filter(
         (v): v is number => v !== null
@@ -445,6 +406,7 @@ export default function CohortReportModal({
         key,
         indicador,
         format,
+        reference,
         totalRecords: records.length,
         totalDocs: docs.size > 0 ? docs.size : records.length,
         ojt,
@@ -859,7 +821,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       ? "bg-blue-100 text-blue-950 font-black border-l-2 border-l-blue-600"
                                       : "bg-[#f0f9ff] font-bold"
                                     }`}
-                                  title={row.indicador}
+                                  title={`${row.indicador} · ${row.format}`}
                                 >
                                   <div className="flex items-center justify-between gap-1">
                                     <span className="truncate">{row.indicador} · {row.format}</span>
@@ -1154,50 +1116,29 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                   const allRowsSelected = selectedRows.length === group.rows.length;
                   const someRowsSelected = selectedRows.length > 0;
                   const selectedAgents = selectedRows.reduce((sum, row) => sum + row.totalRacs, 0);
-                  const averageFor = (key: "ojt" | "s1" | "s2" | "s3" | "s4") => {
-                    const values = selectedRows
-                      .map((row) => row[key])
-                      .filter((value): value is number => value !== null);
-
-                    return values.length > 0
-                      ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
-                      : null;
-                  };
-                  const averageMetaFor = (key: "ojt" | "s1" | "s2" | "s3" | "s4") => {
-                    const values = selectedRows
-                      .map((row) => row.stageMetas[key])
-                      .filter((value): value is number => value !== null);
-
-                    return values.length > 0
-                      ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100
-                      : null;
-                  };
-                  const averageResultFor = (key: "ojt" | "s1" | "s2" | "s3" | "s4") => {
-                    const values = selectedRows
-                      .map((row) => row.stageResults[key])
-                      .filter((value): value is number => value !== null);
-
-                    return values.length > 0
-                      ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100
-                      : null;
-                  };
-                  const points = [
-                    { label: "OJT", val: averageFor("ojt"), meta: averageMetaFor("ojt"), result: averageResultFor("ojt") },
-                    { label: "Semana 1", val: averageFor("s1"), meta: averageMetaFor("s1"), result: averageResultFor("s1") },
-                    { label: "Semana 2", val: averageFor("s2"), meta: averageMetaFor("s2"), result: averageResultFor("s2") },
-                    { label: "Semana 3", val: averageFor("s3"), meta: averageMetaFor("s3"), result: averageResultFor("s3") },
-                    { label: "Semana 4", val: averageFor("s4"), meta: averageMetaFor("s4"), result: averageResultFor("s4") },
+                  const chartStages: { key: Exclude<StageKey, "cierre">; label: string }[] = [
+                    { key: "ojt", label: "OJT" },
+                    { key: "s1", label: "S1" },
+                    { key: "s2", label: "S2" },
+                    { key: "s3", label: "S3" },
+                    { key: "s4", label: "S4" },
                   ];
-                  const hasChartData = points.some((point) => point.val !== null);
-                  const maxCompliance = points.reduce(
-                    (max, point) => point.val !== null ? Math.max(max, point.val) : max,
-                    100
-                  );
+                  const hasChartData = selectedRows.some((row) => chartStages.some((stage) => row[stage.key] !== null));
+                  const maxCompliance = selectedRows.reduce((max, row) => chartStages.reduce(
+                    (stageMax, stage) => row[stage.key] !== null ? Math.max(stageMax, row[stage.key]!) : stageMax,
+                    max
+                  ), 100);
                   const chartMax = Math.ceil((maxCompliance * 1.05) / 20) * 20;
                   const chartTop = 15;
                   const chartBottom = 145;
                   const chartHeight = chartBottom - chartTop;
+                  const getChartX = (index: number) => 45 + index * 65;
                   const getChartY = (value: number) => chartBottom - (value / chartMax) * chartHeight;
+                  const activeHover = hoveredCohort?.groupKey === group.key ? hoveredCohort : null;
+                  const hoveredRow = activeHover ? group.rows.find((row) => row.req === activeHover.req) ?? null : null;
+                  const hoveredStageIndex = activeHover?.stage
+                    ? chartStages.findIndex((stage) => stage.key === activeHover.stage)
+                    : -1;
 
                   return (
                     <div
@@ -1219,11 +1160,8 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded text-[10px] font-bold">
-                            Meta Objetivo: {formatMetricValue(group.metaGlobal, group.format)}
-                          </span>
                           <span className="text-sky-200 text-[11px]">
-                            Promedio Cierre: <strong className="text-white">{group.avgCierre ?? group.avgS4 ?? "—"}%</strong>
+                            Promedio Cierre: <strong className="text-white">{group.avgCierre ?? "—"}%</strong>
                           </span>
                         </div>
                       </div>
@@ -1255,46 +1193,18 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 <th className="border border-slate-700 py-1.5 px-2 text-left">REQ / Cohorte</th>
                                 <th className="border border-slate-700 py-1.5 px-1">Mes</th>
                                 <th className="border border-slate-700 py-1.5 px-2 text-left">Formador</th>
-                                <th className="border border-slate-700 py-1.5 px-1 bg-sky-900/80">OJT</th>
-                                <th className="border border-slate-700 py-1.5 px-1">Semana 1</th>
-                                <th className="border border-slate-700 py-1.5 px-1">Semana 2</th>
-                                <th className="border border-slate-700 py-1.5 px-1">Semana 3</th>
-                                <th className="border border-slate-700 py-1.5 px-1">Semana 4</th>
-                                <th className="border border-slate-700 py-1.5 px-1 bg-emerald-700 text-white">Meta</th>
-                                <th className="border border-slate-700 py-1.5 px-1 bg-[#0f233e]">Cierre 30D</th>
+                                {chartStages.map((stage) => (
+                                  <th key={stage.key} className={`border border-slate-700 py-1 px-1 ${stage.key === "ojt" ? "bg-sky-900/80" : ""}`}>
+                                    <span className="block">{stage.label === "OJT" ? "OJT" : `Semana ${stage.label.slice(1)}`}</span>
+                                  </th>
+                                ))}
+                                <th className="border border-slate-700 py-1 px-1 bg-[#0f233e]">
+                                  <span className="block">Cierre 30D</span>
+                                </th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 text-[11px]">
-                              
-
-                              <tr className="bg-slate-100 font-black text-slate-900 text-[11px]">
-                                <td className="border border-slate-300 print:hidden" aria-hidden="true" />
-                                <td className="border border-slate-300 py-2 px-2 text-left uppercase" colSpan={3}>
-                                  Promedio Indicador {group.indicador}
-                                </td>
-                                <td className="border border-slate-300 py-2 px-1 text-sky-900 font-extrabold">
-                                  {group.avgOjt !== null ? `${group.avgOjt}%` : "—"}
-                                </td>
-                                <td className="border border-slate-300 py-2 px-1">
-                                  {group.avgS1 !== null ? `${group.avgS1}%` : "—"}
-                                </td>
-                                <td className="border border-slate-300 py-2 px-1">
-                                  {group.avgS2 !== null ? `${group.avgS2}%` : "—"}
-                                </td>
-                                <td className="border border-slate-300 py-2 px-1">
-                                  {group.avgS3 !== null ? `${group.avgS3}%` : "—"}
-                                </td>
-                                <td className="border border-slate-300 py-2 px-1">
-                                  {group.avgS4 !== null ? `${group.avgS4}%` : "—"}
-                                </td>
-                                <td className="border border-slate-300 py-2 px-1 text-emerald-800 bg-emerald-100">
-                                  {formatMetricValue(group.metaGlobal, group.format)}
-                                </td>
-                                <td className="border border-slate-300 py-2 px-1 text-[#10233d] bg-amber-100 text-xs">
-                                  {group.avgCierre !== null ? `${group.avgCierre}%` : "—"}
-                                </td>
-                              </tr>
-                              {group.rows.map((r) => {
+                              {group.rows.map((r, rowIndex) => {
                                 const sOjt = semaforo(r.ojt);
                                 const s1 = semaforo(r.s1);
                                 const s2 = semaforo(r.s2);
@@ -1305,7 +1215,14 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 return (
                                   <tr
                                     key={r.req}
-                                    className={`transition-colors ${deselectedReqs.has(r.req) ? "bg-slate-50/70 text-slate-400" : "hover:bg-blue-50/60"}`}
+                                    onMouseEnter={() => {
+                                      if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: null });
+                                    }}
+                                    onMouseLeave={() => setHoveredCohort((current) => current?.groupKey === group.key && current.req === r.req ? null : current)}
+                                    className={`transition-colors ${deselectedReqs.has(r.req)
+                                      ? "bg-slate-50/70 text-slate-400"
+                                      : activeHover?.req === r.req ? "bg-blue-100/80" : "hover:bg-blue-50/60"
+                                      }`}
                                   >
                                     <td className="border border-slate-200 py-1.5 px-2 print:hidden">
                                       <input
@@ -1318,9 +1235,17 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                     </td>
                                     <td className="border border-slate-200 py-1.5 px-2 text-left font-bold text-slate-900">
                                       <div className="flex items-center gap-1.5">
+                                        <span
+                                          className="h-2 w-2 shrink-0 rounded-full"
+                                          style={{ backgroundColor: REQ_LINE_COLORS[rowIndex % REQ_LINE_COLORS.length] }}
+                                          aria-hidden="true"
+                                        />
                                         <span className="font-mono text-[#1a355b]">{r.req}</span>
                                         <span className="text-[9px] text-slate-400">({r.totalRacs} RACs)</span>
                                       </div>
+                                      <span className="mt-0.5 block truncate text-[9px] font-medium text-slate-500" title={r.segmento}>
+                                        Segmento: {r.segmento}
+                                      </span>
                                     </td>
                                     <td className="border border-slate-200 py-1.5 px-1 text-slate-600 font-medium">
                                       {r.mes}
@@ -1329,43 +1254,59 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       {r.formador}
                                     </td>
 
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${sOjt === "green" ? "bg-emerald-50 text-emerald-800" :
+                                    <td
+                                      onMouseEnter={() => { if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: "ojt" }); }}
+                                      onMouseLeave={() => { if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: null }); }}
+                                      className={`border border-slate-200 py-1.5 px-1 font-bold ${sOjt === "green" ? "bg-emerald-50 text-emerald-800" :
                                         sOjt === "yellow" ? "bg-amber-50 text-amber-800" :
                                           sOjt === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                      }`}>
+                                      }`}
+                                    >
                                       {r.ojt !== null ? `${r.ojt}%` : "—"}
                                     </td>
 
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${s1 === "green" ? "bg-emerald-50 text-emerald-800" :
+                                    <td
+                                      onMouseEnter={() => { if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: "s1" }); }}
+                                      onMouseLeave={() => { if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: null }); }}
+                                      className={`border border-slate-200 py-1.5 px-1 font-bold ${s1 === "green" ? "bg-emerald-50 text-emerald-800" :
                                         s1 === "yellow" ? "bg-amber-50 text-amber-800" :
                                           s1 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                      }`}>
+                                      }`}
+                                    >
                                       {r.s1 !== null ? `${r.s1}%` : "—"}
                                     </td>
 
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${s2 === "green" ? "bg-emerald-50 text-emerald-800" :
+                                    <td
+                                      onMouseEnter={() => { if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: "s2" }); }}
+                                      onMouseLeave={() => { if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: null }); }}
+                                      className={`border border-slate-200 py-1.5 px-1 font-bold ${s2 === "green" ? "bg-emerald-50 text-emerald-800" :
                                         s2 === "yellow" ? "bg-amber-50 text-amber-800" :
                                           s2 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                      }`}>
+                                      }`}
+                                    >
                                       {r.s2 !== null ? `${r.s2}%` : "—"}
                                     </td>
 
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${s3 === "green" ? "bg-emerald-50 text-emerald-800" :
+                                    <td
+                                      onMouseEnter={() => { if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: "s3" }); }}
+                                      onMouseLeave={() => { if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: null }); }}
+                                      className={`border border-slate-200 py-1.5 px-1 font-bold ${s3 === "green" ? "bg-emerald-50 text-emerald-800" :
                                         s3 === "yellow" ? "bg-amber-50 text-amber-800" :
                                           s3 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                      }`}>
+                                      }`}
+                                    >
                                       {r.s3 !== null ? `${r.s3}%` : "—"}
                                     </td>
 
-                                    <td className={`border border-slate-200 py-1.5 px-1 font-bold ${s4 === "green" ? "bg-emerald-50 text-emerald-800" :
+                                    <td
+                                      onMouseEnter={() => { if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: "s4" }); }}
+                                      onMouseLeave={() => { if (!deselectedReqs.has(r.req)) setHoveredCohort({ groupKey: group.key, req: r.req, stage: null }); }}
+                                      className={`border border-slate-200 py-1.5 px-1 font-bold ${s4 === "green" ? "bg-emerald-50 text-emerald-800" :
                                         s4 === "yellow" ? "bg-amber-50 text-amber-800" :
                                           s4 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                      }`}>
+                                      }`}
+                                    >
                                       {r.s4 !== null ? `${r.s4}%` : "—"}
-                                    </td>
-
-                                    <td className="border border-slate-200 py-1.5 px-1 font-black text-emerald-700 bg-emerald-50/70">
-                                      {formatMetricValue(r.meta, group.format)}
                                     </td>
 
                                     <td className={`border border-slate-200 py-1.5 px-1 font-black text-xs ${sCierre === "green" ? "bg-emerald-100 text-emerald-900" :
@@ -1395,25 +1336,6 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
                                 Tipo de valor: {group.format}
                               </span>
-                            </div>
-                          </div>
-
-                          <div className="mb-2 overflow-x-auto rounded border border-slate-200 bg-white">
-                            <div className="grid min-w-[460px] grid-cols-5">
-                              {points.map((point) => (
-                                <div key={point.label} className="border-r border-slate-200 px-1.5 py-1.5 text-center last:border-r-0">
-                                  <span className="block text-[8px] font-black text-slate-500">{point.label.replace("Semana ", "S")}</span>
-                                  <span className="block truncate text-[8px] font-bold text-emerald-700" title={`Meta ${formatMetricValue(point.meta, group.format)}`}>
-                                    Meta {formatMetricValue(point.meta, group.format)}
-                                  </span>
-                                  <span className="block truncate text-[8px] font-bold text-purple-700" title={`Resultado ${formatMetricValue(point.result, group.format)}`}>
-                                    Resultado {formatMetricValue(point.result, group.format)}
-                                  </span>
-                                  <span className="block text-[8px] font-bold text-blue-800">
-                                    Cumpl. {point.val !== null ? `${point.val}%` : "—"}
-                                  </span>
-                                </div>
-                              ))}
                             </div>
                           </div>
 
@@ -1475,69 +1397,96 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 );
                               })()}
 
-                              {(() => {
-                                const coords = points.flatMap((p, i) => {
-                                  if (p.val === null) return [];
-                                  const x = 45 + i * 65;
-                                  const y = getChartY(Math.max(0, p.val));
-                                  return [{ x, y, val: p.val, meta: p.meta, result: p.result, label: p.label }];
+                              {selectedRows.map((row) => {
+                                const rowIndex = group.rows.findIndex((item) => item.req === row.req);
+                                const color = REQ_LINE_COLORS[rowIndex % REQ_LINE_COLORS.length];
+                                const isHovered = activeHover?.req === row.req;
+                                const isDimmed = activeHover !== null && !isHovered;
+                                const coords = chartStages.flatMap((stage, index) => {
+                                  const value = row[stage.key];
+                                  return value === null ? [] : [{
+                                    stage: stage.key,
+                                    label: stage.label,
+                                    x: getChartX(index),
+                                    y: getChartY(Math.max(0, value)),
+                                    value,
+                                  }];
                                 });
-
-                                if (coords.length === 0) return null;
-                                const pathD = coords.reduce((acc, pt, idx) => `${acc} ${idx === 0 ? "M" : "L"} ${pt.x},${pt.y}`, "");
+                                const pathD = coords.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x},${point.y}`).join(" ");
 
                                 return (
-                                  <g>
-                                    {coords.length > 1 && (
+                                  <g key={row.req} opacity={isDimmed ? 0.18 : 1}>
+                                    {pathD && (
                                       <path
-                                        d={`${pathD} L ${coords[coords.length - 1].x},${chartBottom} L ${coords[0].x},${chartBottom} Z`}
-                                        fill="#1a355b"
-                                        fillOpacity="0.08"
+                                        d={pathD}
+                                        fill="none"
+                                        stroke={color}
+                                        strokeWidth={isHovered ? 4 : 2.25}
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="cursor-pointer transition-all"
+                                        onMouseEnter={() => setHoveredCohort({ groupKey: group.key, req: row.req, stage: null })}
+                                        onMouseLeave={() => setHoveredCohort(null)}
                                       />
                                     )}
-                                    <path
-                                      d={pathD}
-                                      fill="none"
-                                      stroke="#1a355b"
-                                      strokeWidth="2.5"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    />
-                                    {coords.map((pt) => {
-                                      const tooltip = `${pt.label}\nMeta: ${formatMetricValue(pt.meta, group.format)}\nResultado: ${formatMetricValue(pt.result, group.format)}\nCumplimiento: ${pt.val}%`;
-                                      return (
-                                        <g key={pt.label} className="cursor-help">
-                                          <title>{tooltip}</title>
-                                          <circle
-                                            cx={pt.x}
-                                            cy={pt.y}
-                                            r="4.5"
-                                            fill="#1a355b"
-                                            stroke="#ffffff"
-                                            strokeWidth="2"
-                                            tabIndex={0}
-                                            role="img"
-                                            aria-label={tooltip.replaceAll("\n", ". ")}
-                                            className="focus-visible:outline-none focus-visible:stroke-amber-400"
-                                          />
-                                        </g>
-                                      );
-                                    })}
+                                    {coords.map((point) => (
+                                      <circle
+                                        key={point.stage}
+                                        cx={point.x}
+                                        cy={point.y}
+                                        r={isHovered && activeHover?.stage === point.stage ? 6 : 4}
+                                        fill={color}
+                                        stroke="#ffffff"
+                                        strokeWidth="2"
+                                        tabIndex={0}
+                                        role="button"
+                                        aria-label={`REQ ${row.req}. ${point.label}. Meta promedio: ${formatMetricValue(row.stageMetas[point.stage], group.format)}. Resultado promedio: ${formatMetricValue(row.stageResults[point.stage], group.format)}. Cumplimiento: ${point.value}%`}
+                                        className="cursor-help focus-visible:outline-none focus-visible:stroke-amber-400"
+                                        onMouseEnter={() => setHoveredCohort({ groupKey: group.key, req: row.req, stage: point.stage })}
+                                        onMouseLeave={() => setHoveredCohort(null)}
+                                        onFocus={() => setHoveredCohort({ groupKey: group.key, req: row.req, stage: point.stage })}
+                                        onBlur={() => setHoveredCohort(null)}
+                                      />
+                                    ))}
+                                  </g>
+                                );
+                              })}
+
+                              {hoveredRow && activeHover?.stage && hoveredStageIndex >= 0 && hoveredRow[activeHover.stage] !== null && (() => {
+                                const pointX = getChartX(hoveredStageIndex);
+                                const pointY = getChartY(Math.max(0, hoveredRow[activeHover.stage]!));
+                                const tooltipX = Math.min(168, Math.max(38, pointX - 77));
+                                const tooltipY = pointY < 60 ? pointY + 10 : pointY - 52;
+                                return (
+                                  <g pointerEvents="none">
+                                    <rect x={tooltipX} y={tooltipY} width="155" height="44" rx="4" fill="#0f172a" opacity="0.95" />
+                                    <text x={tooltipX + 7} y={tooltipY + 11} fill="#cbd5e1" fontSize="7" fontWeight="700">
+                                      REQ {hoveredRow.req} · {chartStages[hoveredStageIndex].label}
+                                    </text>
+                                    <text x={tooltipX + 7} y={tooltipY + 21} fill="#6ee7b7" fontSize="7.5" fontWeight="800">
+                                      Meta: {formatMetricValue(hoveredRow.stageMetas[activeHover.stage], group.format)}
+                                    </text>
+                                    <text x={tooltipX + 7} y={tooltipY + 31} fill="#ffffff" fontSize="7.5" fontWeight="900">
+                                      Resultado: {formatMetricValue(hoveredRow.stageResults[activeHover.stage], group.format)}
+                                    </text>
+                                    <text x={tooltipX + 7} y={tooltipY + 41} fill="#c4b5fd" fontSize="7.5" fontWeight="800">
+                                      Cumplimiento: {hoveredRow[activeHover.stage]}%
+                                    </text>
                                   </g>
                                 );
                               })()}
 
-                              {points.map((point, index) => (
+                              {chartStages.map((stage, index) => (
                                 <text
-                                  key={point.label}
-                                  x={45 + index * 65}
+                                  key={stage.key}
+                                  x={getChartX(index)}
                                   y="163"
                                   textAnchor="middle"
                                   fill="#475569"
                                   fontSize="8"
                                   fontWeight="bold"
                                 >
-                                  {point.label.replace("Semana ", "S")}
+                                  {stage.label}
                                 </text>
                               ))}
                             </svg>
@@ -1553,14 +1502,21 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                             )}
                           </div>
 
-                          <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500 font-semibold px-1">
-                            <span className="flex items-center gap-1">
-                              <span className="h-2 w-2 rounded-full bg-[#1a355b]" />
-                              Curva Real
-                            </span>
+                          <div className="mt-2 flex items-start justify-between gap-2 text-[10px] text-slate-500 font-semibold px-1">
+                            <div className="flex max-h-10 flex-1 flex-wrap items-center gap-x-2 gap-y-1 overflow-y-auto">
+                              {selectedRows.map((row) => {
+                                const rowIndex = group.rows.findIndex((item) => item.req === row.req);
+                                return (
+                                  <span key={row.req} className={`flex items-center gap-1 ${activeHover?.req === row.req ? "font-black text-slate-900" : ""}`}>
+                                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: REQ_LINE_COLORS[rowIndex % REQ_LINE_COLORS.length] }} />
+                                    {row.req}
+                                  </span>
+                                );
+                              })}
+                            </div>
                             <span className="flex items-center gap-1">
                               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                              Objetivo de cumplimiento (100%)
+                              Objetivo 100%
                             </span>
                           </div>
                         </div>
