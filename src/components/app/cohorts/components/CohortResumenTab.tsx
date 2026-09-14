@@ -219,7 +219,7 @@ export default function CohortResumenTab({
         </div>
 
         {/* ── 2. INDUSTRIAS / CAMPAÑAS ── */}
-        <div className="col-span-1 flex h-full flex-col rounded-2xl border border-gray-100/70 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] lg:col-span-5">
+        <div className="col-span-1 flex h-full min-h-0 flex-col rounded-2xl border border-gray-100/70 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] lg:col-span-5">
           <div className="mb-3 flex items-center justify-between border-b-2 border-dashed border-blue-900 pb-2.5">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-10 items-center justify-center rounded-sm bg-[#1a355b]/10 text-[#1a355b]">
@@ -252,7 +252,7 @@ export default function CohortResumenTab({
           </div>
 
           <div
-            className="grid flex-1 gap-3 max-h-[380px] overflow-y-auto pr-1"
+            className="custom-scrollbar grid max-h-[380px] min-h-0 flex-1 auto-rows-[minmax(130px,max-content)] gap-3 overflow-y-auto overscroll-contain pr-2"
             style={{
               gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))",
             }}
@@ -265,7 +265,7 @@ export default function CohortResumenTab({
                   key={camp.campana}
                   type="button"
                   onClick={() => onSelectCampana(isSelected ? null : camp.campana)}
-                  className={`group relative flex flex-col justify-between overflow-hidden rounded-lg border p-3 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${
+                  className={`group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-lg border p-3 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${
                     DIR_HOVER_CLASSES[idx % DIR_HOVER_CLASSES.length]
                   } cursor-pointer text-left ${
                     isSelected

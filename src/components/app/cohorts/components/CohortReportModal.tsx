@@ -1111,6 +1111,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
               {/* Matriz de Indicadores (PEC, EPA, Calidad, Ventas...) */}
               <div className="space-y-6">
                 {nestingGroups.map((group) => {
+                  const showsResults = group.indicador.trim().toUpperCase() === "CALIDAD";
                   const deselectedReqs = new Set(deselectedReqsByIndicator[group.key] ?? []);
                   const selectedRows = group.rows.filter((row) => !deselectedReqs.has(row.req));
                   const allRowsSelected = selectedRows.length === group.rows.length;
@@ -1123,9 +1124,19 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                     { key: "s3", label: "S3" },
                     { key: "s4", label: "S4" },
                   ];
-                  const hasChartData = selectedRows.some((row) => chartStages.some((stage) => row[stage.key] !== null));
+                  const getDisplayedValue = (row: CohortRowData, stage: StageKey) =>
+                    showsResults ? row.stageResults[stage] : row[stage];
+                  const formatDisplayedValue = (row: CohortRowData, stage: StageKey) => {
+                    const value = getDisplayedValue(row, stage);
+                    if (value === null) return "—";
+                    return showsResults ? formatMetricValue(value, group.format) : `${value}%`;
+                  };
+                  const hasChartData = selectedRows.some((row) => chartStages.some((stage) => getDisplayedValue(row, stage.key) !== null));
                   const maxCompliance = selectedRows.reduce((max, row) => chartStages.reduce(
-                    (stageMax, stage) => row[stage.key] !== null ? Math.max(stageMax, row[stage.key]!) : stageMax,
+                    (stageMax, stage) => {
+                      const value = getDisplayedValue(row, stage.key);
+                      return value !== null ? Math.max(stageMax, value) : stageMax;
+                    },
                     max
                   ), 100);
                   const chartMax = Math.ceil((maxCompliance * 1.05) / 20) * 20;
@@ -1262,7 +1273,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                           sOjt === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
                                       }`}
                                     >
-                                      {r.ojt !== null ? `${r.ojt}%` : "—"}
+                                      {formatDisplayedValue(r, "ojt")}
                                     </td>
 
                                     <td
@@ -1273,7 +1284,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                           s1 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
                                       }`}
                                     >
-                                      {r.s1 !== null ? `${r.s1}%` : "—"}
+                                      {formatDisplayedValue(r, "s1")}
                                     </td>
 
                                     <td
@@ -1284,7 +1295,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                           s2 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
                                       }`}
                                     >
-                                      {r.s2 !== null ? `${r.s2}%` : "—"}
+                                      {formatDisplayedValue(r, "s2")}
                                     </td>
 
                                     <td
@@ -1295,7 +1306,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                           s3 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
                                       }`}
                                     >
-                                      {r.s3 !== null ? `${r.s3}%` : "—"}
+                                      {formatDisplayedValue(r, "s3")}
                                     </td>
 
                                     <td
@@ -1306,14 +1317,14 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                           s4 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
                                       }`}
                                     >
-                                      {r.s4 !== null ? `${r.s4}%` : "—"}
+                                      {formatDisplayedValue(r, "s4")}
                                     </td>
 
                                     <td className={`border border-slate-200 py-1.5 px-1 font-black text-xs ${sCierre === "green" ? "bg-emerald-100 text-emerald-900" :
                                         sCierre === "yellow" ? "bg-amber-100 text-amber-900" :
                                           sCierre === "red" ? "bg-rose-100 text-rose-900" : "text-slate-400"
                                       }`}>
-                                      {r.cierre !== null ? `${r.cierre}%` : "—"}
+                                      {formatDisplayedValue(r, "cierre")}
                                     </td>
                                   </tr>
                                 );
@@ -1327,7 +1338,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[11px] font-black text-[#1a355b] uppercase flex items-center gap-1.5">
                               <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
-                              Cumplimiento vs Objetivo
+                              {showsResults ? "Resultado vs Objetivo" : "Cumplimiento vs Objetivo"}
                             </span>
                             <div className="flex items-center gap-1.5 text-[10px] font-bold">
                               <span className="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded">
@@ -1403,7 +1414,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 const isHovered = activeHover?.req === row.req;
                                 const isDimmed = activeHover !== null && !isHovered;
                                 const coords = chartStages.flatMap((stage, index) => {
-                                  const value = row[stage.key];
+                                  const value = getDisplayedValue(row, stage.key);
                                   return value === null ? [] : [{
                                     stage: stage.key,
                                     label: stage.label,
@@ -1440,7 +1451,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                         strokeWidth="2"
                                         tabIndex={0}
                                         role="button"
-                                        aria-label={`REQ ${row.req}. ${point.label}. Meta promedio: ${formatMetricValue(row.stageMetas[point.stage], group.format)}. Resultado promedio: ${formatMetricValue(row.stageResults[point.stage], group.format)}. Cumplimiento: ${point.value}%`}
+                                        aria-label={`REQ ${row.req}. ${point.label}. Meta promedio: ${formatMetricValue(row.stageMetas[point.stage], group.format)}. Resultado promedio: ${formatMetricValue(row.stageResults[point.stage], group.format)}. Cumplimiento: ${row[point.stage] !== null ? `${row[point.stage]}%` : "—"}`}
                                         className="cursor-help focus-visible:outline-none focus-visible:stroke-amber-400"
                                         onMouseEnter={() => setHoveredCohort({ groupKey: group.key, req: row.req, stage: point.stage })}
                                         onMouseLeave={() => setHoveredCohort(null)}
@@ -1452,9 +1463,9 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 );
                               })}
 
-                              {hoveredRow && activeHover?.stage && hoveredStageIndex >= 0 && hoveredRow[activeHover.stage] !== null && (() => {
+                              {hoveredRow && activeHover?.stage && hoveredStageIndex >= 0 && getDisplayedValue(hoveredRow, activeHover.stage) !== null && (() => {
                                 const pointX = getChartX(hoveredStageIndex);
-                                const pointY = getChartY(Math.max(0, hoveredRow[activeHover.stage]!));
+                                const pointY = getChartY(Math.max(0, getDisplayedValue(hoveredRow, activeHover.stage)!));
                                 const tooltipX = Math.min(168, Math.max(38, pointX - 77));
                                 const tooltipY = pointY < 60 ? pointY + 10 : pointY - 52;
                                 return (
@@ -1470,7 +1481,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       Resultado: {formatMetricValue(hoveredRow.stageResults[activeHover.stage], group.format)}
                                     </text>
                                     <text x={tooltipX + 7} y={tooltipY + 41} fill="#c4b5fd" fontSize="7.5" fontWeight="800">
-                                      Cumplimiento: {hoveredRow[activeHover.stage]}%
+                                      Cumplimiento: {hoveredRow[activeHover.stage] !== null ? `${hoveredRow[activeHover.stage]}%` : "—"}
                                     </text>
                                   </g>
                                 );
