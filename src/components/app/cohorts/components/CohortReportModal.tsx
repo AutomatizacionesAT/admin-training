@@ -90,13 +90,79 @@ interface IndicatorGroup {
   reference: ReferenceDirection;
   rows: CohortRowData[];
   totalAgents: number;
-  avgCierre: number | null;
+  currentMetas: Record<StageKey, number | null>;
 }
 
 type StageKey = "ojt" | "s1" | "s2" | "s3" | "s4" | "cierre";
 type ReferenceDirection = ">=" | "<=" | null;
 
 const REQ_LINE_COLORS = ["#2563eb", "#7c3aed", "#db2777", "#d97706", "#0891b2", "#4f46e5", "#059669", "#dc2626"];
+
+const META_STAGE_CONFIG: { key: StageKey; label: string; metaKey: keyof CohortRecord }[] = [
+  { key: "ojt", label: "OJT", metaKey: "metaOjt" },
+  { key: "s1", label: "S1", metaKey: "metaS1" },
+  { key: "s2", label: "S2", metaKey: "metaS2" },
+  { key: "s3", label: "S3", metaKey: "metaS3" },
+  { key: "s4", label: "S4", metaKey: "metaS4" },
+  { key: "cierre", label: "Cierre", metaKey: "metaCierre" },
+];
+
+const MONTH_INDEX: Record<string, number> = {
+  enero: 1,
+  febrero: 2,
+  marzo: 3,
+  abril: 4,
+  mayo: 5,
+  junio: 6,
+  julio: 7,
+  agosto: 8,
+  septiembre: 9,
+  octubre: 10,
+  noviembre: 11,
+  diciembre: 12,
+};
+
+const getRecordTimestamp = (record: CohortRecord): number | null => {
+  if (record.anio === null || !record.mes) return null;
+
+  const numericDate = record.mes.match(/^(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?$/);
+  const textDate = record.mes.match(/^(\d{1,2})\.\s*([\p{L}]+)$/u);
+  const day = numericDate ? Number(numericDate[1]) : textDate ? Number(textDate[1]) : NaN;
+  const monthName = textDate?.[2]
+    ?.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const month = numericDate ? Number(numericDate[2]) : monthName ? MONTH_INDEX[monthName] : NaN;
+  const year = Math.round(record.anio);
+
+  if (!Number.isInteger(day) || !Number.isInteger(month) || month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+
+  const timestamp = Date.UTC(year, month - 1, day);
+  const date = new Date(timestamp);
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    ? timestamp
+    : null;
+};
+
+const getCurrentStageMetas = (records: CohortRecord[], format: string): Record<StageKey, number | null> => {
+  const newestRecords = records
+    .map((record, sourceIndex) => ({ record, sourceIndex, timestamp: getRecordTimestamp(record) }))
+    .filter((item): item is typeof item & { timestamp: number } => item.timestamp !== null)
+    .sort((a, b) => {
+      if (a.timestamp !== b.timestamp) return b.timestamp - a.timestamp;
+      if (a.record.sheetName === b.record.sheetName) return b.record.rowIndex - a.record.rowIndex;
+      return b.sourceIndex - a.sourceIndex;
+    });
+
+  return Object.fromEntries(META_STAGE_CONFIG.map(({ key, metaKey }) => {
+    const value = newestRecords
+      .map(({ record }) => normalizeMetricValue(record[metaKey] as number | null, format))
+      .find((meta): meta is number => meta !== null) ?? null;
+    return [key, value];
+  })) as Record<StageKey, number | null>;
+};
 
 const getReferenceDirection = (reference: string | null | undefined): ReferenceDirection => {
   const normalized = reference?.replace(/\s/g, "") ?? "";
@@ -183,6 +249,7 @@ export default function CohortReportModal({
       indicador: string;
       format: string;
       reference: ReferenceDirection;
+      records: CohortRecord[];
       reqMap: Map<string, CohortRecord[]>;
     }>();
 
@@ -194,9 +261,11 @@ export default function CohortReportModal({
       const req = r.req?.trim() || "REQ-SIN-NUMERO";
 
       if (!map.has(groupKey)) {
-        map.set(groupKey, { indicador: ind, format, reference, reqMap: new Map() });
+        map.set(groupKey, { indicador: ind, format, reference, records: [], reqMap: new Map() });
       }
-      const reqMap = map.get(groupKey)!.reqMap;
+      const group = map.get(groupKey)!;
+      group.records.push(r);
+      const reqMap = group.reqMap;
       if (!reqMap.has(req)) {
         reqMap.set(req, []);
       }
@@ -205,7 +274,7 @@ export default function CohortReportModal({
 
     const groups: IndicatorGroup[] = [];
 
-    map.forEach(({ indicador, format, reference, reqMap }, groupKey) => {
+    map.forEach(({ indicador, format, reference, records, reqMap }, groupKey) => {
       const rows: CohortRowData[] = [];
 
       reqMap.forEach((records, req) => {
@@ -264,9 +333,6 @@ export default function CohortReportModal({
         });
       });
 
-      const allRecords = Array.from(reqMap.values()).flat();
-      const groupCierre = calculateStageMetrics(allRecords, "metaCierre", "resultadoCierre", format, reference);
-
       groups.push({
         key: groupKey,
         indicador,
@@ -274,7 +340,7 @@ export default function CohortReportModal({
         reference,
         rows: rows.sort((a, b) => a.req.localeCompare(b.req)),
         totalAgents: rows.reduce((sum, row) => sum + row.totalRacs, 0),
-        avgCierre: groupCierre.cumplimiento,
+        currentMetas: getCurrentStageMetas(records, format),
       });
     });
 
@@ -1158,10 +1224,10 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                     >
                       {/* Header del Indicador */}
                       <div
-                        className="text-white px-4 py-2 flex items-center justify-between text-xs transition-colors"
+                        className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs text-white transition-colors"
                         style={{ backgroundColor: theme.colorSecundario }}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="h-2 w-2 rounded-full bg-emerald-400" />
                           <span className="font-black uppercase tracking-wider text-amber-300">
                             Indicador: {group.indicador} · {group.format}
@@ -1170,10 +1236,18 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                             ({group.rows.length} cohortes evaluadas · {group.totalAgents} agentes)
                           </span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sky-200 text-[11px]">
-                            Promedio Cierre: <strong className="text-white">{group.avgCierre ?? "—"}%</strong>
+                        <div className="flex flex-wrap items-center justify-end gap-1.5" aria-label={`Metas vigentes de ${group.indicador}`}>
+                          <span className="mr-0.5 text-[9px] font-black uppercase tracking-wider text-sky-200">
+                            Meta vigente
                           </span>
+                          {META_STAGE_CONFIG.map(({ key, label }) => (
+                            <span
+                              key={key}
+                              className="rounded border border-white/15 bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold text-slate-100"
+                            >
+                              {label}: <strong className="text-emerald-300">{formatMetricValue(group.currentMetas[key], group.format)}</strong>
+                            </span>
+                          ))}
                         </div>
                       </div>
 
