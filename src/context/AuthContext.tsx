@@ -34,6 +34,10 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '1018475580', nombre: 'FERNANDO ANDRES CHONA GIRALDO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1012396310', nombre: 'DEISY CAROLINA PARADA GUERRERO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1013606798', nombre: 'MARCIA JOHANA MUÑOZ GARAVITO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '52829724', nombre: 'DIANA MARITZA PEDREROS CUERVO', cargo: 'Analista de Negocios', rol: 'COORDINADOR' },
+    { documento: '1018509964', nombre: 'SEBASTIAN SANTOS POLANIA', cargo: 'Analista de Negocios', rol: 'COORDINADOR' },
+    { documento: '1007144082', nombre: 'JHON JAIRO GIRALDO RODRIGUEZ', cargo: 'Jefe de Negocios', rol: 'COORDINADOR' },
+    { documento: '1030550388', nombre: 'SINDY JULIETH ROJAS OROZCO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
 ];
 
 const ADMIN_PASSWORD = '123';
