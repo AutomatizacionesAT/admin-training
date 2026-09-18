@@ -1177,7 +1177,10 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
               {/* Matriz de Indicadores (PEC, EPA, Calidad, Ventas...) */}
               <div className="space-y-6">
                 {nestingGroups.map((group) => {
-                  const showsResults = group.indicador.trim().toUpperCase() === "CALIDAD";
+                  const normalizedIndicator = group.indicador.trim().toUpperCase();
+                  const isQuality = normalizedIndicator === "CALIDAD";
+                  const isTmo = normalizedIndicator === "TMO";
+                  const showsResults = isQuality || isTmo;
                   const deselectedReqs = new Set(deselectedReqsByIndicator[group.key] ?? []);
                   const selectedRows = group.rows.filter((row) => !deselectedReqs.has(row.req));
                   const allRowsSelected = selectedRows.length === group.rows.length;
@@ -1412,7 +1415,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[11px] font-black text-[#1a355b] uppercase flex items-center gap-1.5">
                               <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
-                              {showsResults ? "Resultado vs Objetivo" : "Cumplimiento vs Objetivo"}
+                              {isTmo ? "Resultado por etapa" : showsResults ? "Resultado vs Objetivo" : "Cumplimiento vs Objetivo"}
                             </span>
                             <div className="flex items-center gap-1.5 text-[10px] font-bold">
                               <span className="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded">
@@ -1441,13 +1444,13 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       strokeDasharray="2,2"
                                     />
                                     <text x="5" y={y + 3} fill="#94a3b8" fontSize="8" fontWeight="bold">
-                                      {tickValue}%
+                                      {showsResults ? formatMetricValue(tickValue, group.format) : `${tickValue}%`}
                                     </text>
                                   </g>
                                 );
                               })}
 
-                              {(() => {
+                              {!isTmo && (() => {
                                 const targetY = getChartY(100);
                                 return (
                                   <g>
@@ -1599,10 +1602,12 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 );
                               })}
                             </div>
-                            <span className="flex items-center gap-1">
-                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                              Objetivo 100%
-                            </span>
+                            {!isTmo && (
+                              <span className="flex items-center gap-1">
+                                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                Objetivo 100%
+                              </span>
+                            )}
                           </div>
                         </div>
 
