@@ -18,7 +18,6 @@ import {
   Building2,
   Users,
   Target,
-  Sparkles,
   TrendingUp,
   Award,
   BookOpen,
@@ -589,8 +588,8 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                 type="button"
                 onClick={() => setActiveTab("tablero")}
                 className={`px-3 py-1 rounded-md transition-all cursor-pointer ${activeTab === "tablero"
-                    ? "bg-amber-400 text-slate-950 font-bold shadow-xs"
-                    : "text-sky-200 hover:text-white"
+                  ? "bg-amber-400 text-slate-950 font-bold shadow-xs"
+                  : "text-sky-200 hover:text-white"
                   }`}
               >
                 <Layers className="w-3.5 h-3.5 inline mr-1" />
@@ -600,8 +599,8 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                 type="button"
                 onClick={() => setActiveTab("ejecutivo")}
                 className={`px-3 py-1 rounded-md transition-all cursor-pointer ${activeTab === "ejecutivo"
-                    ? "bg-amber-400 text-slate-950 font-bold shadow-xs"
-                    : "text-sky-200 hover:text-white"
+                  ? "bg-amber-400 text-slate-950 font-bold shadow-xs"
+                  : "text-sky-200 hover:text-white"
                   }`}
               >
                 <BarChart3 className="w-3.5 h-3.5 inline mr-1" />
@@ -779,9 +778,9 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 <td className="border border-slate-200 px-2 py-1 font-bold text-slate-900 uppercase">
                                   {c.campana}
                                 </td>
-                               <td className="border border-slate-200 px-1 py-1 text-center font-bold text-blue-900">
-                                   {agentsByCampaign.get(c.campana) ?? 0}
-                                 </td>
+                                <td className="border border-slate-200 px-1 py-1 text-center font-bold text-blue-900">
+                                  {agentsByCampaign.get(c.campana) ?? 0}
+                                </td>
                                 <td className="border border-slate-200 px-1 py-1 text-center text-slate-600">
                                   {14 + (idx * 2)}
                                 </td>
@@ -790,7 +789,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 </td>
                                 <td className="border border-slate-200 px-1 py-1 text-center font-bold">
                                   <span className={`px-1.5 py-0.5 rounded text-[9px] ${(c.promCierre ?? 0) >= 90 ? "bg-emerald-100 text-emerald-800" :
-                                      (c.promCierre ?? 0) >= 70 ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"
+                                    (c.promCierre ?? 0) >= 70 ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"
                                     }`}>
                                     {c.promCierre !== null ? `${c.promCierre}%` : "—"}
                                   </span>
@@ -884,8 +883,8 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 {/* Columna KPIS */}
                                 <td
                                   className={`border-r border-slate-300 px-2 py-1 text-left uppercase text-slate-800 truncate max-w-[120px] transition-colors ${isSelected
-                                      ? "bg-blue-100 text-blue-950 font-black border-l-2 border-l-blue-600"
-                                      : "bg-[#f0f9ff] font-bold"
+                                    ? "bg-blue-100 text-blue-950 font-black border-l-2 border-l-blue-600"
+                                    : "bg-[#f0f9ff] font-bold"
                                     }`}
                                   title={`${row.indicador} · ${row.format}`}
                                 >
@@ -1014,8 +1013,8 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                   type="button"
                                   onClick={() => setSelectedKpi(k.key)}
                                   className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer ${activeKpiRow.key === k.key
-                                      ? "bg-[#10233d] text-amber-300 shadow-xs"
-                                      : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
+                                    ? "bg-[#10233d] text-amber-300 shadow-xs"
+                                    : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"
                                     }`}
                                 >
                                   {k.indicador} · {k.format}
@@ -1348,7 +1347,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       className={`border border-slate-200 py-1.5 px-1 font-bold ${sOjt === "green" ? "bg-emerald-50 text-emerald-800" :
                                         sOjt === "yellow" ? "bg-amber-50 text-amber-800" :
                                           sOjt === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                      }`}
+                                        }`}
                                     >
                                       {formatDisplayedValue(r, "ojt")}
                                     </td>
@@ -1359,7 +1358,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       className={`border border-slate-200 py-1.5 px-1 font-bold ${s1 === "green" ? "bg-emerald-50 text-emerald-800" :
                                         s1 === "yellow" ? "bg-amber-50 text-amber-800" :
                                           s1 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                      }`}
+                                        }`}
                                     >
                                       {formatDisplayedValue(r, "s1")}
                                     </td>
@@ -1370,7 +1369,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       className={`border border-slate-200 py-1.5 px-1 font-bold ${s2 === "green" ? "bg-emerald-50 text-emerald-800" :
                                         s2 === "yellow" ? "bg-amber-50 text-amber-800" :
                                           s2 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                      }`}
+                                        }`}
                                     >
                                       {formatDisplayedValue(r, "s2")}
                                     </td>
@@ -1381,7 +1380,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       className={`border border-slate-200 py-1.5 px-1 font-bold ${s3 === "green" ? "bg-emerald-50 text-emerald-800" :
                                         s3 === "yellow" ? "bg-amber-50 text-amber-800" :
                                           s3 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                      }`}
+                                        }`}
                                     >
                                       {formatDisplayedValue(r, "s3")}
                                     </td>
@@ -1392,14 +1391,14 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       className={`border border-slate-200 py-1.5 px-1 font-bold ${s4 === "green" ? "bg-emerald-50 text-emerald-800" :
                                         s4 === "yellow" ? "bg-amber-50 text-amber-800" :
                                           s4 === "red" ? "bg-rose-50 text-rose-800" : "text-slate-400"
-                                      }`}
+                                        }`}
                                     >
                                       {formatDisplayedValue(r, "s4")}
                                     </td>
 
                                     <td className={`border border-slate-200 py-1.5 px-1 font-black text-xs ${sCierre === "green" ? "bg-emerald-100 text-emerald-900" :
-                                        sCierre === "yellow" ? "bg-amber-100 text-amber-900" :
-                                          sCierre === "red" ? "bg-rose-100 text-rose-900" : "text-slate-400"
+                                      sCierre === "yellow" ? "bg-amber-100 text-amber-900" :
+                                        sCierre === "red" ? "bg-rose-100 text-rose-900" : "text-slate-400"
                                       }`}>
                                       {formatDisplayedValue(r, "cierre")}
                                     </td>
@@ -1877,7 +1876,6 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
               <div className="lg:col-span-6 rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/70 to-indigo-50/40 p-4 shadow-2xs flex flex-col justify-between">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-[#1a355b] mb-2 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
                     Diagnóstico y Hallazgos Clave
                   </h4>
                   <div className="space-y-2 text-xs leading-relaxed text-slate-700">

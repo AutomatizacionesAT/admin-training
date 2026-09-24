@@ -15,18 +15,21 @@ import {
   Rocket,
   UserCircle,
   Zap,
-  UsersRound
+  UsersRound,
+  Menu,
+  X,
 } from "lucide-react";
 
 const ATENTO_NAVY = "#1B365D";
 
 export default function Navbar() {
   const location = useLocation();
-  const { isAdmin, isSuperAdmin, isCoordinador, salasUser, isAuthenticated, logout } = useAuth();
+  const { isAdmin, salasUser, isAuthenticated, logout, canAccessBiometrico, canAccessUsabilidad } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -53,96 +56,150 @@ export default function Navbar() {
       return link.path === '/' || link.path === '/salas';
     }
     if (link.path === '/usabilidad-web-training') {
-      return isAdmin || isSuperAdmin || isCoordinador;
+      return canAccessUsabilidad;
     }
     if (link.path === '/informe-biometrico') {
-      return isAdmin || isSuperAdmin;
+      return canAccessBiometrico;
     }
     return true;
   });
 
   return (
     <>
-    <nav
-      className="sticky top-0 z-50 border-b border-white/10 shadow-[0_8px_32px_-12px_rgba(27,54,93,0.55)]"
-      style={{ background: `linear-gradient(135deg, ${ATENTO_NAVY} 0%, #162d4d 55%, #12243d 100%)` }}
-    >
-      <div className="h-1 bg-linear-to-r from-transparent via-[#F37021] to-transparent opacity-90" />
+      <nav
+        className="sticky top-0 z-50 border-b border-white/10 shadow-[0_8px_32px_-12px_rgba(27,54,93,0.55)]"
+        style={{ background: `linear-gradient(135deg, ${ATENTO_NAVY} 0%, #162d4d 55%, #12243d 100%)` }}
+      >
+        <div className="h-1 bg-linear-to-r from-transparent via-[#F37021] to-transparent opacity-90" />
 
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4 h-[68px]">
-          <div className="shrink-0 flex items-center">
-            <Link to="/" className="group flex items-center gap-3 rounded-xl py-1 pr-2 transition-opacity hover:opacity-95">
-              <div className="hidden sm:flex flex-col border-l border-white/15 pl-3">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#F37021] leading-none">
-                  Admin
-                </span>
-                <span className="text-sm font-medium text-white/85 leading-tight mt-0.5">
-                  Training
-                </span>
-                <span className="text-[9px] font-semibold text-white/30 tracking-widest uppercase mt-0.5 leading-none">
-                  v 1.5.8
-                </span>
-              </div>
-            </Link>
-          </div>
+        <div className="max-w-[1600px] w-full mx-auto px-2 sm:px-4 lg:px-6">
+          <div className="flex items-center justify-between gap-2 xl:gap-4 h-[58px]">
+            <div className="shrink-0 flex items-center">
+              <Link to="/" className="group flex items-center gap-2 rounded-xl py-1 pr-1 transition-opacity hover:opacity-95">
+                <div className="flex flex-col border-l border-white/15 pl-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#F37021] leading-none">
+                    Admin
+                  </span>
+                  <span className="text-xs font-semibold text-white/90 leading-tight mt-0.5">
+                    Training
+                  </span>
+                  <span className="text-[10px] font-bold text-white ">
+                    v1.5.9
+                  </span>
+                </div>
+              </Link>
+            </div>
 
-          <div className="hidden md:flex items-center gap-1 rounded-2xl bg-white/5 p-1 ring-1 ring-white/10 backdrop-blur-sm">
-            {navLinks.map((link) => {
-              const Icon = link.icon;
-              const active = isActive(link.path);
+            <div className="hidden md:flex items-center gap-0.5 xl:gap-1 rounded-xl bg-white/5 p-0.5 ring-1 ring-white/10 backdrop-blur-sm">
+              {navLinks.map((link) => {
+                const Icon = link.icon;
+                const active = isActive(link.path);
 
-              return (
-                <Link key={link.path} to={link.path}>
-                  <Button
-                    variant="ghost"
-                    className={`relative inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-medium transition-all duration-200 hover:cursor-pointer ${
-                      active
+                return (
+                  <Link key={link.path} to={link.path}>
+                    <Button
+                      variant="ghost"
+                      className={`relative inline-flex h-7.5 xl:h-8 items-center gap-1 xl:gap-1.5 rounded-lg px-2 xl:px-2.5 text-[11px] xl:text-xs font-medium transition-all duration-200 hover:cursor-pointer ${active
                         ? "bg-[#F37021] text-white shadow-[0_4px_14px_-4px_rgba(243,112,33,0.75)] hover:bg-[#e56618] hover:text-white"
                         : "text-white/75 hover:bg-white/10 hover:text-white"
-                    }`}
-                  >
-                    <Icon
-                      className={`h-3.5 w-3.5 shrink-0 ${active ? "text-white" : "text-[#F37021]/90"}`}
-                      aria-hidden="true"
-                    />
-                    <span className="whitespace-nowrap">{link.name}</span>
-                    {active ? (
-                      <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-white/90" />
-                    ) : null}
-                  </Button>
-                </Link>
-              );
-            })}
-          </div>
+                        }`}
+                    >
+                      <Icon
+                        className={`h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 ${active ? "text-white" : "text-[#F37021]/90"}`}
+                        aria-hidden="true"
+                      />
+                      <span className="whitespace-nowrap">{link.name}</span>
+                      {active ? (
+                        <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-white/90" />
+                      ) : null}
+                    </Button>
+                  </Link>
+                );
+              })}
+            </div>
 
-          <div className="flex items-center gap-2">
-            {isAuthenticated ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogoutClick}
-                className={`flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm transition-all hover:cursor-pointer ${
-                  isAdmin
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isAuthenticated ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogoutClick}
+                  className={`flex h-7.5 xl:h-8 items-center gap-1.5 rounded-full border px-2.5 xl:px-3 text-xs transition-all hover:cursor-pointer ${isAdmin
                     ? "border-[#F37021]/70 bg-[#F37021]/10 text-white hover:bg-[#F37021]/20 hover:text-white"
                     : salasUser
                       ? "border-white/25 bg-white/5 text-white/90 hover:bg-white/10 hover:text-white"
                       : "border-white/20 bg-transparent text-white/80 hover:bg-white/10 hover:text-white"
-                }`}
-                title="Cerrar sesión"
+                    }`}
+                  title="Cerrar sesión"
+                >
+                  <UserCircle className="h-3.5 w-3.5 shrink-0 text-[#F37021]" />
+                  <span className="hidden sm:inline font-medium max-w-[100px] truncate">
+                    {salasUser && salasUser.documento !== 'admin' ? salasUser.nombre.split(" ")[0] : "Admin Mode"}
+                  </span>
+                  <LogOut className="h-3 w-3 shrink-0 opacity-80" />
+                </Button>
+              ) : null}
+
+              {/* Botón Menú Hamburguesa en Móvil */}
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 ring-1 ring-white/15 transition cursor-pointer"
+                aria-label="Abrir menú de navegación"
               >
-                <UserCircle className="h-4 w-4 shrink-0 text-[#F37021]" />
-                <span className="hidden sm:inline font-medium max-w-[120px] truncate">
-                  {salasUser && salasUser.documento !== 'admin' ? salasUser.nombre.split(" ")[0] : "Admin Mode"}
-                </span>
-                <LogOut className="h-3.5 w-3.5 shrink-0 opacity-80" />
-              </Button>
-            ) : null}
+                {mobileMenuOpen ? <X className="h-4 w-4 text-amber-400" /> : <Menu className="h-4 w-4 text-white" />}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </nav>
-      
+
+        {/* Panel Desplegable Menú Hamburguesa para Móvil */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-white/10 bg-[#12243d]/98 backdrop-blur-xl px-4 py-3 shadow-2xl animate-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-2 gap-2 pb-2">
+              {navLinks.map((link) => {
+                const Icon = link.icon;
+                const active = isActive(link.path);
+
+                return (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${active
+                      ? "bg-[#F37021] text-white shadow-md font-bold"
+                      : "bg-white/5 text-white/85 hover:bg-white/10 hover:text-white"
+                      }`}
+                  >
+                    <Icon className={`h-4 w-4 shrink-0 ${active ? "text-white" : "text-[#F37021]"}`} />
+                    <span className="truncate">{link.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+            {isAuthenticated && (
+              <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-white/70">
+                <span className="flex items-center gap-1.5 truncate max-w-[200px]">
+                  <UserCircle className="h-3.5 w-3.5 text-[#F37021] shrink-0" />
+                  <span className="truncate">{salasUser && salasUser.documento !== 'admin' ? salasUser.nombre : "Admin Mode"}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleLogoutClick();
+                  }}
+                  className="flex items-center gap-1 text-red-400 hover:text-red-300 font-semibold cursor-pointer shrink-0"
+                >
+                  <LogOut className="h-3 w-3" />
+                  Salir
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </nav>
+
       {/* Custom Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
@@ -152,14 +209,14 @@ export default function Navbar() {
               <LogOut className="w-5 h-5 text-[#F37021]" />
               <h3 className="text-white font-bold text-lg">Cerrar Sesión</h3>
             </div>
-            
+
             {/* Content */}
             <div className="px-6 py-6 text-center">
               <p className="text-slate-600 text-[15px]">
                 ¿Estás seguro de que deseas cerrar tu sesión actual?
               </p>
             </div>
-            
+
             {/* Footer / Actions */}
             <div className="px-6 py-5 bg-slate-50 border-t border-slate-100 flex gap-3 justify-end">
               <button

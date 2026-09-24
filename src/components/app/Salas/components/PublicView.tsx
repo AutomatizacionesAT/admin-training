@@ -853,14 +853,14 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
               >
                 Limpiar
               </button>
-                <button
-                  type="button"
-                  onClick={handleFillTimelineRequest}
-                  disabled={!normalizedTimelineSelection || !onTimelineRequest || !timelineHorario || (timelineHorario === 'AM' ? !timelineAvailability.AM : !timelineAvailability.PM)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#F7941D] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#df850f] disabled:opacity-50 hover:cursor-pointer"
-                >
-                  Completar solicitud
-                </button>
+              <button
+                type="button"
+                onClick={handleFillTimelineRequest}
+                disabled={!normalizedTimelineSelection || !onTimelineRequest || !timelineHorario || (timelineHorario === 'AM' ? !timelineAvailability.AM : !timelineAvailability.PM)}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#F7941D] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#df850f] disabled:opacity-50 hover:cursor-pointer"
+              >
+                Completar solicitud
+              </button>
               {normalizedTimelineSelection && (
                 <div className={`flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 ${isNight ? 'border-slate-700 bg-slate-800/80' : 'border-slate-200 bg-white'}`}>
                   <span className={`text-[10px] font-black uppercase tracking-widest ${isNight ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -883,9 +883,9 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
                             : 'border-[#005082] bg-[#005082] text-white shadow-sm'
                           : disabled
                             ? 'border-slate-200 bg-slate-100 text-slate-300 cursor-not-allowed'
-                          : isNight
-                            ? 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-700'
-                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                            : isNight
+                              ? 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-700'
+                              : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
                           }`}
                       >
                         {option === 'AM' ? 'AM · 06:00 a 14:00' : 'PM · 14:00 a 22:00'}
@@ -937,7 +937,7 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
                 return (
                   <Fragment key={sede}>
                     <div className={`grid border-b ${isNight ? 'bg-slate-900/70' : 'bg-white'}`} style={{ gridTemplateColumns: `300px repeat(${timelineDays.length}, minmax(84px, 1fr))` }}>
-                      <div className={`sticky left-0 z-40 px-4 py-2.5 border-r border-slate-200 shadow-[0_1px_0_rgba(148,163,184,0.12)] ${ isNight ? 'bg-slate-200' : 'bg-slate-900'}`} style={{ gridColumn: '1 / 2', top: `${timelineGroupTop}px` }}>
+                      <div className={`sticky left-0 z-40 px-4 py-2.5 border-r border-slate-200 shadow-[0_1px_0_rgba(148,163,184,0.12)] ${isNight ? 'bg-slate-200' : 'bg-slate-900'}`} style={{ gridColumn: '1 / 2', top: `${timelineGroupTop}px` }}>
                         <div className="flex flex-col gap-0.5">
                           <div className={`flex items-center gap-2 min-w-0`}>
                             <span className={`w-2.5 h-2.5 rounded-full ${color.bar}`} />
@@ -978,9 +978,9 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
                                 const isToday = key === currentDayKey;
                                 const range = normalizedTimelineSelection && normalizedTimelineSelection.room.sala === room.sala
                                   ? {
-                                      startIndex: normalizedTimelineSelection.startIndex,
-                                      endIndex: normalizedTimelineSelection.endIndex,
-                                    }
+                                    startIndex: normalizedTimelineSelection.startIndex,
+                                    endIndex: normalizedTimelineSelection.endIndex,
+                                  }
                                   : null;
                                 const isSelected = !!range && dayIndex >= range.startIndex && dayIndex <= range.endIndex;
                                 const isStart = !!range && dayIndex === range.startIndex;
@@ -1010,7 +1010,7 @@ export default function PublicView({ salas, asignaciones, canSolicitar = false, 
                             ) : bars.map((bar) => {
                               const totalDays = timelineDays.length;
                               const left = (bar.startIndex / totalDays) * 100;
-                              const width = (((bar.endIndex - bar.startIndex + 1) / totalDays) * 100)- 0.5;
+                              const width = (((bar.endIndex - bar.startIndex + 1) / totalDays) * 100) - 0.5;
                               const top = bar.lane * timelineLaneHeight + timelineBarInset;
                               const colorClass = getTurnoFromHorario(bar.asignacion.horario) === 'AM'
                                 ? 'bg-orange-400 hover:bg-orange-500'

@@ -1,1 +1,1 @@
-export type Tab = "calendar" | "report";
+export type Tab = "calendar" | "simuladores" | "campanas";

@@ -20,7 +20,6 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '79616534', nombre: 'CARLOS DASTE', cargo: 'Gerente de Negocios', rol: 'SUPER_ADMIN' },
     { documento: '1088309969', nombre: 'JOHAN SEBASTIAN QUINCHIA VARGAS', cargo: 'Agile Training', rol: 'SUPER_ADMIN' },
     // ── Coordinadores ─────────────────────────────────────────────────────────
-    { documento: '52508133', nombre: 'GLADYS LILIANA HERRERA OLAYA', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1016048741', nombre: 'CRISTIAN CAMILO LOPEZ CONTRERAS', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1019047075', nombre: 'JHONNY ALEXANDER VARELA RUSINQUE', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1020808847', nombre: 'JENNY CAROLINA PINZON FERNANDEZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
@@ -71,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isSuperAdmin = isAdmin || salasUser?.rol === 'SUPER_ADMIN';
     const isCoordinador = salasUser?.rol === 'COORDINADOR';
     const canAccessUsabilidad = isAdmin || isSuperAdmin || isCoordinador;
-    const canAccessBiometrico = isAdmin || isSuperAdmin;
+    const canAccessBiometrico = isAdmin || isSuperAdmin || isCoordinador;
 
     const login = (input: string): boolean => {
         const value = input.trim();
