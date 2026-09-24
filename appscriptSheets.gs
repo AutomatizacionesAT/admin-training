@@ -25,14 +25,18 @@ function doPost(e) {
       return createErrorResponse("Invalid JSON");
     }
 
+    // Determinar acción: 'create' (default) o 'update'
+    var action = payload.action || 'create';
+    logToDebug(debugSheet, "Acción: " + action);
+
+    if (action === 'login') {
+      return handleLogin(doc, payload);
+    }
+
     var sheet = doc.getSheetByName(sheetName);
     if (!sheet) {
       return createErrorResponse("Sheet not found");
     }
-
-    // Determinar acción: 'create' (default) o 'update'
-    var action = payload.action || 'create';
-    logToDebug(debugSheet, "Acción: " + action);
 
     if (action === 'update') {
       return handleUpdate(sheet, payload, debugSheet);
@@ -49,6 +53,51 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function handleLogin(doc, payload) {
+  var usuario = payload.usuario !== null && payload.usuario !== undefined
+    ? String(payload.usuario).trim()
+    : '';
+  var clave = payload.clave !== null && payload.clave !== undefined
+    ? String(payload.clave)
+    : '';
+
+  if (!usuario || !clave) {
+    return createSuccessResponse({ "authenticated": false });
+  }
+
+  var sheet = doc.getSheetByName("ingresoAdmin");
+  if (!sheet) {
+    return createErrorResponse("Authentication sheet not found");
+  }
+
+  if (sheet.getLastRow() < 2) {
+    return createSuccessResponse({ "authenticated": false });
+  }
+
+  // A: documento, B: nombre completos, C: cargo hs,
+  // D: usuario, E: clave, F: observacion.
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getDisplayValues();
+
+  for (var i = 0; i < rows.length; i++) {
+    var rowUsuario = String(rows[i][3]).trim();
+    var rowClave = String(rows[i][4]);
+
+    if (rowUsuario === usuario && rowClave === clave) {
+      var documento = String(rows[i][0]).trim();
+      if (!documento) {
+        return createSuccessResponse({ "authenticated": false });
+      }
+
+      return createSuccessResponse({
+        "authenticated": true,
+        "documento": documento
+      });
+    }
+  }
+
+  return createSuccessResponse({ "authenticated": false });
 }
 
 function handleDelete(sheet, payload, debugSheet) {

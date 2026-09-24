@@ -3,7 +3,7 @@ import { parseDateToISO } from './calculations';
 
 const SHEET_ID = '13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo';
 const SHEET_NAME = 'CONTROL_DE_ACCESOS';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyd7lg_CC_6mh6-OFtReyZx19yjhQ48ncymzjen7p3aCaOKEE5O7C0GzObdu1Muy1ZXOg/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxavHAEkzFCeRSnIy9Vk82eNxSFjdShQCmfv7Sq3J7yGp0z4VLuNQfVMJ1sewBi9VF3iw/exec';
 
 interface GvizCell {
   v: string | number | null;

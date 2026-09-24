@@ -8,13 +8,12 @@ export default function Home() {
   const { isAuthenticated, login } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
 
-  const handleLoginSuccess = (input: string): boolean => {
-    const ok = login(input);
+  const handleLoginSuccess = async (usuario: string, clave: string): Promise<boolean> => {
+    const ok = await login(usuario, clave);
     if (ok) {
       toast.success('Sesión iniciada', {
-        description: input.trim() === 'desarrollo2026' ? 'Has iniciado sesión como administrador.' : 'Acceso concedido.',
+        description: 'Acceso concedido.',
       });
-      setShowLogin(false);
     }
     return ok;
   };

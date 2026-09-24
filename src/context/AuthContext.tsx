@@ -20,7 +20,7 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '79616534', nombre: 'CARLOS DASTE', cargo: 'Gerente de Negocios', rol: 'SUPER_ADMIN' },
     { documento: '1088309969', nombre: 'JOHAN SEBASTIAN QUINCHIA VARGAS', cargo: 'Agile Training', rol: 'SUPER_ADMIN' },
     // ── Coordinadores ─────────────────────────────────────────────────────────
-    { documento: '1016048741', nombre: 'CRISTIAN CAMILO LOPEZ CONTRERAS', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
+    { documento: '1016048741', nombre: 'CRISTIAM CAMILO LOPEZ CONTRERAS', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1019047075', nombre: 'JHONNY ALEXANDER VARELA RUSINQUE', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1020808847', nombre: 'JENNY CAROLINA PINZON FERNANDEZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1032485963', nombre: 'JEIMMY LORENA MUÑOZ DIAZ', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
@@ -39,15 +39,7 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '1030550388', nombre: 'SINDY JULIETH ROJAS OROZCO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
 ];
 
-const ADMIN_PASSWORD = '123';
-
-const ADMIN_GLOBAL_USER: SalasUser = {
-    documento: 'admin',
-    nombre: 'Administrador',
-    cargo: 'Admin Global',
-    rol: 'SUPER_ADMIN',
-};
-
+const AUTH_GAS_URL = 'https://script.google.com/macros/s/AKfycbxavHAEkzFCeRSnIy9Vk82eNxSFjdShQCmfv7Sq3J7yGp0z4VLuNQfVMJ1sewBi9VF3iw/exec';
 
 interface AuthContextType {
     isAuthenticated: boolean;
@@ -57,7 +49,7 @@ interface AuthContextType {
     canAccessUsabilidad: boolean;
     canAccessBiometrico: boolean;
     salasUser: SalasUser | null;
-    login: (input: string) => boolean;
+    login: (usuario: string, clave: string) => Promise<boolean>;
     logout: () => void;
 }
 
@@ -72,25 +64,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const canAccessUsabilidad = isAdmin || isSuperAdmin || isCoordinador;
     const canAccessBiometrico = isAdmin || isSuperAdmin || isCoordinador;
 
-    const login = (input: string): boolean => {
-        const value = input.trim();
+    const login = async (usuario: string, clave: string): Promise<boolean> => {
+        const response = await fetch(AUTH_GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ action: 'login', usuario: usuario.trim(), clave }),
+        });
+        const text = await response.text();
 
-        // Contraseña global → Admin Mode + Super Admin en Salas
-        if (value === ADMIN_PASSWORD) {
-            setIsAdmin(true);
-            setSalasUser(ADMIN_GLOBAL_USER);
-            return true;
+        let result: { result?: string; error?: string; authenticated?: boolean; documento?: string };
+        try {
+            result = JSON.parse(text);
+        } catch {
+            throw new Error('Respuesta inválida del servicio de autenticación.');
         }
 
-        // Cédula → buscar en lista de usuarios de Salas
-        const found = SALAS_USERS.find(u => u.documento === value);
-        if (found) {
-            setSalasUser(found);
-            setIsAdmin(found.rol === 'SUPER_ADMIN');
-            return true;
+        if (!response.ok || result.result === 'error') {
+            throw new Error(result.error || 'No fue posible validar las credenciales.');
         }
 
-        return false;
+        if (!result.authenticated || !result.documento) {
+            return false;
+        }
+
+        const found = SALAS_USERS.find(user => user.documento === result.documento?.trim());
+        if (!found) {
+            return false;
+        }
+
+        setSalasUser(found);
+        setIsAdmin(found.rol === 'SUPER_ADMIN');
+        return true;
     };
 
     const logout = () => {

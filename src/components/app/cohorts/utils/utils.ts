@@ -181,25 +181,19 @@ const fetchSheet = async (sheetName: string): Promise<CohortRecord[]> => {
 
 // ── Lista completa de hojas de coordinadores en Google Sheets
 export const COHORT_SHEETS: string[] = [
-  "Jenny Carolina",
-  "Jhon Eyder",
-  "Cristian Camilo",
-  "Jerson Lorena",
-  "Jeimmy Lorena",
-  "Jhenny Alexander",
-  "Jhonny Alexander",
-  "Michael David",
-  "Michael Daniel",
-  "Olga Lucia",
-  "Walter Duvan",
-  "Walther Duvan",
-  "Yanny Vanesa",
-  "Yenny Vanessa",
-  "Gladys Liliana",
-  "Karol Ferreira",
-  "Fernando Andres",
-  "Deisy Carolina",
-  "Marcia Johana",
+ "CRISTIAM CAMILO LOPEZ CONTRERAS",
+ "JHONNY ALEXANDER VARELA RUSINQUE",
+ "JENNY CAROLINA PINZON FERNANDEZ",
+ "JEIMMY LORENA MUÑOZ DIAZ",
+ "OLGA LUCIA BRAVO NUNEZ",
+ "JHON EYDER RAMIREZ CORREA",
+ "YENNY VANESSA RUIZ VALLEJO",
+ "MICHAEL DANIEL RENDON MORATO",
+ "WALTHER DUVAN GOMEZ OSORIO",
+ "KAROL EITYSAN FERREIRA QUEVEDO",
+ "FERNANDO ANDRES CHONA GIRALDO",
+ "DEISY CAROLINA PARADA GUERRERO",
+ "MARCIA JOHANA MUÑOZ GARAVITO"
 ];
 
 // ── Matcher entre el usuario de AuthContext y las hojas de Cohortes ─────────

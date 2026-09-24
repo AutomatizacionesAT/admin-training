@@ -275,7 +275,7 @@ export const fetchSheetNovedades = async (): Promise<NovedadesRecord[]> => {
 };
 
 // URL del Web App de Google Apps Script
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyd7lg_CC_6mh6-OFtReyZx19yjhQ48ncymzjen7p3aCaOKEE5O7C0GzObdu1Muy1ZXOg/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxavHAEkzFCeRSnIy9Vk82eNxSFjdShQCmfv7Sq3J7yGp0z4VLuNQfVMJ1sewBi9VF3iw/exec";
 
 export const submitTrainingData = async (data: TrainingRecord[] | any): Promise<boolean> => {
   try {

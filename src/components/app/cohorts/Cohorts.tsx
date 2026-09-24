@@ -79,13 +79,12 @@ export default function Cohorts() {
     loadData();
   }, []);
 
-  const handleLoginSuccess = (input: any) => {
-    const ok = login(input);
+  const handleLoginSuccess = async (usuario: string, clave: string): Promise<boolean> => {
+    const ok = await login(usuario, clave);
     if (ok) {
       toast.success("Sesión iniciada", {
         description: "Acceso concedido al módulo de Cohortes.",
       });
-      setShowLoginModal(false);
     }
     return ok;
   };
