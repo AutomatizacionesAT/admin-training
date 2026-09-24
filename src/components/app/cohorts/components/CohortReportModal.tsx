@@ -971,7 +971,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
 
                       const svgWidth = 420;
                       const svgHeight = 110;
-                      const padL = 36;
+                      const padL = 52;
                       const padR = 25;
                       const padT = 16;
                       const padB = 22;
@@ -1073,7 +1073,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 return (
                                   <g key={i}>
                                     <line x1={padL} y1={y} x2={svgWidth - padR} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                                    <text x={padL - 6} y={y + 3} fontSize="5" fill="#94a3b8" textAnchor="end" fontWeight="600">{formatAxisValue(val)}</text>
+                                    <text x={padL - 14} y={y + 3} fontSize="5" fill="#94a3b8" textAnchor="end" fontWeight="600">{formatAxisValue(val)}</text>
                                   </g>
                                 );
                               })}
@@ -1100,9 +1100,9 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                   <g key={`m-${idx}`} className="cursor-help">
                                     <title>{`${p.label}\nMeta: ${formatMetricValue(p.val, activeKpiRow.format)}`}</title>
                                     <rect
-                                      x={p.x - 13}
+                                      x={p.x - 6.5}
                                       y={barY}
-                                      width="26"
+                                      width="13"
                                       height={barHeight}
                                       rx="2.5"
                                       fill="#22c55e"
