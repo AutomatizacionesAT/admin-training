@@ -111,13 +111,14 @@ function buildKpis(rows: AcademyRow[]): AcademyKpis {
   };
 }
 
-function buildPieData(rows: AcademyRow[], field: 'backupPct' | 'migracionPct'): PieSlice[] {
-  const completado = rows.filter((row) => (row[field] ?? -1) >= 100).length;
-  const restante = Math.max(rows.length - completado, 0);
+function buildPieData(average: number | null): PieSlice[] {
+  if (average === null) return [];
+
+  const progress = Math.min(Math.max(average, 0), 100);
 
   return [
-    { label: 'Completado', count: completado, color: '#10b981' },
-    { label: 'Resto', count: restante, color: '#cbd5e1' },
+    { label: 'Avance', count: progress, color: '#10b981' },
+    { label: 'Pendiente', count: 100 - progress, color: '#cbd5e1' },
   ].filter((slice) => slice.count > 0);
 }
 
@@ -331,8 +332,8 @@ export default function Academy() {
 
   const selectedRow = useMemo(() => filteredRows.find((row) => row.campana === selectedCampaign) ?? filteredRows[0] ?? null, [filteredRows, selectedCampaign]);
   const kpis = useMemo(() => buildKpis(filteredRows), [filteredRows]);
-  const backupPie = useMemo(() => buildPieData(filteredRows, 'backupPct'), [filteredRows]);
-  const migrationPie = useMemo(() => buildPieData(filteredRows, 'migracionPct'), [filteredRows]);
+  const backupPie = buildPieData(kpis.promedioBackup);
+  const migrationPie = buildPieData(kpis.promedioMigracion);
   const hasActiveFilters = selectedCoordinadores.length > 0 || selectedCampanas.length > 0 || selectedIndustrias.length > 0;
 
   const clearAllFilters = () => {

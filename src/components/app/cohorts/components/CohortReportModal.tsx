@@ -962,10 +962,12 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                         .flatMap((s) => [s.meta, s.res])
                         .filter((v): v is number => v !== null && !isNaN(v));
 
-                      const minVal = allVals.length > 0 ? Math.min(...allVals) : 0;
-                      const maxVal = allVals.length > 0 ? Math.max(...allVals) : 10;
-                      const yMin = Math.max(0, minVal > 0 && minVal / (maxVal || 1) > 0.4 ? Math.floor(minVal * 0.8) : 0);
-                      const yMax = maxVal === yMin ? yMin + 10 : Math.ceil(maxVal * 1.15) || 10;
+                      const minVal = allVals.length > 0 ? Math.min(0, ...allVals) : 0;
+                      const maxVal = allVals.length > 0 ? Math.max(0, ...allVals) : 0;
+                      const valueRange = maxVal - minVal;
+                      const axisPadding = valueRange > 0 ? valueRange * 0.1 : 1;
+                      const yMin = minVal < 0 ? minVal - axisPadding : 0;
+                      const yMax = maxVal > 0 ? maxVal + axisPadding : axisPadding;
 
                       const svgWidth = 420;
                       const svgHeight = 110;
@@ -978,6 +980,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
 
                       const getX = (idx: number) => padL + idx * (plotW / 4);
                       const getY = (val: number) => padT + plotH - ((val - yMin) / (yMax - yMin || 1)) * plotH;
+                      const zeroY = getY(0);
                       const formatAxisValue = (value: number) => value.toLocaleString("es-CO", {
                         maximumFractionDigits: 1,
                         notation: Math.abs(value) >= 10_000 ? "compact" : "standard",
@@ -987,7 +990,6 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                         s.meta !== null ? { x: getX(i), y: getY(s.meta), val: s.meta, label: s.label } : null
                       );
                       const validMeta = metaPoints.filter((p): p is { x: number; y: number; val: number; label: string } => p !== null);
-                      const metaPath = validMeta.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
 
                       const resPoints = stages.map((s, i) =>
                         s.res !== null ? { x: getX(i), y: getY(s.res), val: s.res, label: s.label } : null
@@ -995,7 +997,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                       const validRes = resPoints.filter((p): p is { x: number; y: number; val: number; label: string } => p !== null);
                       const resPath = validRes.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
                       const areaPath = validRes.length > 1
-                        ? `${resPath} L ${validRes[validRes.length - 1].x} ${padT + plotH} L ${validRes[0].x} ${padT + plotH} Z`
+                        ? `${resPath} L ${validRes[validRes.length - 1].x} ${zeroY} L ${validRes[0].x} ${zeroY} Z`
                         : "";
 
                       return (
@@ -1024,7 +1026,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
 
                             <div className="flex items-center gap-3 text-[10px] font-bold shrink-0">
                               <span className="flex items-center gap-1 text-emerald-800">
-                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                                <span className="inline-block h-3 w-2.5 rounded-sm bg-emerald-500" />
                                 Meta
                               </span>
                               <span className="flex items-center gap-1 text-purple-800">
@@ -1067,7 +1069,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                               {/* Líneas horizontales de guía */}
                               {[0, 0.5, 1].map((pct, i) => {
                                 const y = padT + plotH * pct;
-                                const val = Math.round(yMax - pct * (yMax - yMin));
+                                const val = yMax - pct * (yMax - yMin);
                                 return (
                                   <g key={i}>
                                     <line x1={padL} y1={y} x2={svgWidth - padR} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
@@ -1076,37 +1078,50 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 );
                               })}
 
-                              {/* Área Cumplimiento */}
-                              {areaPath && <path d={areaPath} fill="url(#purpleAreaGradModal)" />}
-
-                              {/* Línea Meta */}
-                              {metaPath && (
-                                <path d={metaPath} fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                              {yMin < 0 && yMax > 0 && (
+                                <line
+                                  x1={padL}
+                                  y1={zeroY}
+                                  x2={svgWidth - padR}
+                                  y2={zeroY}
+                                  stroke="#64748b"
+                                  strokeWidth="1"
+                                />
                               )}
 
-                              {/* Línea Cumplimiento */}
+                              {/* Área Resultado */}
+                              {areaPath && <path d={areaPath} fill="url(#purpleAreaGradModal)" />}
+
+                              {/* Barras Meta */}
+                              {validMeta.map((p, idx) => {
+                                const barY = Math.min(p.y, zeroY);
+                                const barHeight = Math.max(1, Math.abs(zeroY - p.y));
+                                return (
+                                  <g key={`m-${idx}`} className="cursor-help">
+                                    <title>{`${p.label}\nMeta: ${formatMetricValue(p.val, activeKpiRow.format)}`}</title>
+                                    <rect
+                                      x={p.x - 13}
+                                      y={barY}
+                                      width="26"
+                                      height={barHeight}
+                                      rx="2.5"
+                                      fill="#22c55e"
+                                      fillOpacity="0.58"
+                                      stroke="#15803d"
+                                      strokeWidth="0.8"
+                                      tabIndex={0}
+                                      role="img"
+                                      aria-label={`${p.label}. Meta: ${formatMetricValue(p.val, activeKpiRow.format)}`}
+                                      className="focus-visible:outline-none focus-visible:stroke-amber-400"
+                                    />
+                                  </g>
+                                );
+                              })}
+
+                              {/* Línea Resultado */}
                               {resPath && (
                                 <path d={resPath} fill="none" stroke="#9333ea" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                               )}
-
-                              {/* Puntos Meta */}
-                              {validMeta.map((p, idx) => (
-                                <g key={`m-${idx}`} className="cursor-help">
-                                  <title>{`${p.label}\nMeta: ${formatMetricValue(p.val, activeKpiRow.format)}`}</title>
-                                  <circle
-                                    cx={p.x}
-                                    cy={p.y}
-                                    r="3.5"
-                                    fill="#16a34a"
-                                    stroke="#ffffff"
-                                    strokeWidth="1.5"
-                                    tabIndex={0}
-                                    role="img"
-                                    aria-label={`${p.label}. Meta: ${formatMetricValue(p.val, activeKpiRow.format)}`}
-                                    className="focus-visible:outline-none focus-visible:stroke-amber-400"
-                                  />
-                                </g>
-                              ))}
 
                               {/* Puntos Resultado */}
                               {validRes.map((p, idx) => {
@@ -1176,10 +1191,6 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
               {/* Matriz de Indicadores (PEC, EPA, Calidad, Ventas...) */}
               <div className="space-y-6">
                 {nestingGroups.map((group) => {
-                  const normalizedIndicator = group.indicador.trim().toUpperCase();
-                  const isQuality = normalizedIndicator === "CALIDAD";
-                  const isTmo = normalizedIndicator === "TMO";
-                  const showsResults = isQuality || isTmo;
                   const deselectedReqs = new Set(deselectedReqsByIndicator[group.key] ?? []);
                   const selectedRows = group.rows.filter((row) => !deselectedReqs.has(row.req));
                   const allRowsSelected = selectedRows.length === group.rows.length;
@@ -1193,26 +1204,45 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                     { key: "s4", label: "S4" },
                   ];
                   const getDisplayedValue = (row: CohortRowData, stage: StageKey) =>
-                    showsResults ? row.stageResults[stage] : row[stage];
+                    row.stageResults[stage];
                   const formatDisplayedValue = (row: CohortRowData, stage: StageKey) => {
                     const value = getDisplayedValue(row, stage);
                     if (value === null) return "—";
-                    return showsResults ? formatMetricValue(value, group.format) : `${value}%`;
+                    return formatMetricValue(value, group.format);
                   };
                   const hasChartData = selectedRows.some((row) => chartStages.some((stage) => getDisplayedValue(row, stage.key) !== null));
-                  const maxCompliance = selectedRows.reduce((max, row) => chartStages.reduce(
-                    (stageMax, stage) => {
+                  const chartValues = [
+                    ...selectedRows.flatMap((row) => chartStages.flatMap((stage) => {
                       const value = getDisplayedValue(row, stage.key);
-                      return value !== null ? Math.max(stageMax, value) : stageMax;
-                    },
-                    max
-                  ), 100);
-                  const chartMax = Math.ceil((maxCompliance * 1.05) / 20) * 20;
+                      return value === null ? [] : [value];
+                    })),
+                    ...chartStages.flatMap((stage) => {
+                      const value = group.currentMetas[stage.key];
+                      return value === null ? [] : [value];
+                    }),
+                  ];
+                  const minValue = chartValues.length > 0 ? Math.min(0, ...chartValues) : 0;
+                  const maxValue = chartValues.length > 0 ? Math.max(0, ...chartValues) : 0;
+                  const valueRange = maxValue - minValue;
+                  const chartPadding = valueRange > 0 ? valueRange * 0.08 : 1;
+                  const chartMin = minValue < 0 ? minValue - chartPadding : 0;
+                  const chartMax = maxValue > 0 ? maxValue + chartPadding : chartPadding;
                   const chartTop = 15;
                   const chartBottom = 145;
                   const chartHeight = chartBottom - chartTop;
                   const getChartX = (index: number) => 45 + index * 65;
-                  const getChartY = (value: number) => chartBottom - (value / chartMax) * chartHeight;
+                  const getChartY = (value: number) => chartBottom - ((value - chartMin) / (chartMax - chartMin)) * chartHeight;
+                  const metaCoords = chartStages.flatMap((stage, index) => {
+                    const value = group.currentMetas[stage.key];
+                    return value === null ? [] : [{
+                      stage: stage.key,
+                      label: stage.label,
+                      x: getChartX(index),
+                      y: getChartY(value),
+                      value,
+                    }];
+                  });
+                  const metaPath = metaCoords.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x},${point.y}`).join(" ");
                   const activeHover = hoveredCohort?.groupKey === group.key ? hoveredCohort : null;
                   const hoveredRow = activeHover ? group.rows.find((row) => row.req === activeHover.req) ?? null : null;
                   const hoveredStageIndex = activeHover?.stage
@@ -1414,7 +1444,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[11px] font-black text-[#1a355b] uppercase flex items-center gap-1.5">
                               <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
-                              {isTmo ? "Resultado por etapa" : showsResults ? "Resultado vs Objetivo" : "Cumplimiento vs Objetivo"}
+                              Resultado vs Meta vigente
                             </span>
                             <div className="flex items-center gap-1.5 text-[10px] font-bold">
                               <span className="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded">
@@ -1430,7 +1460,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                             <svg viewBox="0 0 340 170" className="w-full h-full overflow-visible">
                               {[0, 0.25, 0.5, 0.75, 1].map((level) => {
                                 const y = chartTop + level * chartHeight;
-                                const tickValue = Math.round(chartMax * (1 - level));
+                                const tickValue = chartMax - level * (chartMax - chartMin);
                                 return (
                                   <g key={level}>
                                     <line
@@ -1442,47 +1472,47 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                       strokeWidth="1"
                                       strokeDasharray="2,2"
                                     />
-                                    <text x="5" y={y + 3} fill="#94a3b8" fontSize="8" fontWeight="bold">
-                                      {showsResults ? formatMetricValue(tickValue, group.format) : `${tickValue}%`}
+                                    <text x="33" y={y + 3} textAnchor="end" fill="#94a3b8" fontSize="8" fontWeight="bold">
+                                      {formatMetricValue(tickValue, group.format)}
                                     </text>
                                   </g>
                                 );
                               })}
 
-                              {!isTmo && (() => {
-                                const targetY = getChartY(100);
-                                return (
-                                  <g>
-                                    <line
-                                      x1="35"
-                                      y1={targetY}
-                                      x2="325"
-                                      y2={targetY}
-                                      stroke="#10b981"
-                                      strokeWidth="2"
-                                    />
-                                    <rect
-                                      x="278"
-                                      y={targetY - 9}
-                                      width="45"
-                                      height="12"
-                                      rx="2"
-                                      fill="#10b981"
-                                    />
-                                    <text
-                                      x="304"
-                                      y={targetY}
-                                      textAnchor="middle"
-                                      dominantBaseline="middle"
-                                      fill="#ffffff"
-                                      fontSize="7.5"
-                                      fontWeight="900"
-                                    >
-                                      OBJ. 100%
-                                    </text>
-                                  </g>
-                                );
-                              })()}
+                              {chartMin < 0 && chartMax > 0 && (
+                                <line
+                                  x1="35"
+                                  y1={getChartY(0)}
+                                  x2="325"
+                                  y2={getChartY(0)}
+                                  stroke="#64748b"
+                                  strokeWidth="1.25"
+                                />
+                              )}
+
+                              {metaPath && (
+                                <path
+                                  d={metaPath}
+                                  fill="none"
+                                  stroke="#10b981"
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              )}
+                              {metaCoords.map((point) => (
+                                <circle
+                                  key={`meta-${point.stage}`}
+                                  cx={point.x}
+                                  cy={point.y}
+                                  r="4"
+                                  fill="#10b981"
+                                  stroke="#ffffff"
+                                  strokeWidth="2"
+                                >
+                                  <title>{`${point.label}. Meta vigente: ${formatMetricValue(point.value, group.format)}`}</title>
+                                </circle>
+                              ))}
 
                               {selectedRows.map((row) => {
                                 const rowIndex = group.rows.findIndex((item) => item.req === row.req);
@@ -1495,7 +1525,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                     stage: stage.key,
                                     label: stage.label,
                                     x: getChartX(index),
-                                    y: getChartY(Math.max(0, value)),
+                                    y: getChartY(value),
                                     value,
                                   }];
                                 });
@@ -1541,7 +1571,7 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
 
                               {hoveredRow && activeHover?.stage && hoveredStageIndex >= 0 && getDisplayedValue(hoveredRow, activeHover.stage) !== null && (() => {
                                 const pointX = getChartX(hoveredStageIndex);
-                                const pointY = getChartY(Math.max(0, getDisplayedValue(hoveredRow, activeHover.stage)!));
+                                const pointY = getChartY(getDisplayedValue(hoveredRow, activeHover.stage)!);
                                 const tooltipX = Math.min(168, Math.max(38, pointX - 77));
                                 const tooltipY = pointY < 60 ? pointY + 10 : pointY - 52;
                                 return (
@@ -1601,12 +1631,10 @@ Semáforo: Óptimo ${kpis.verde} | Alerta ${kpis.amarillo} | Crítico ${kpis.roj
                                 );
                               })}
                             </div>
-                            {!isTmo && (
-                              <span className="flex items-center gap-1">
-                                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                                Objetivo 100%
-                              </span>
-                            )}
+                            <span className="flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              Meta vigente
+                            </span>
                           </div>
                         </div>
 
