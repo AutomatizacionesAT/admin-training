@@ -84,7 +84,7 @@ export default function Navbar() {
                     Training
                   </span>
                   <span className="text-[10px] font-bold text-white ">
-                    v1.5.9
+                    v1.5.10
                   </span>
                 </div>
               </Link>
