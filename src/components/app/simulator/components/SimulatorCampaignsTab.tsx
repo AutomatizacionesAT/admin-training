@@ -14,6 +14,8 @@ import {
   Building,
   Building2,
   Briefcase,
+  Users,
+  Target,
   X,
 } from "lucide-react";
 import type { TrainingRecord, SLAStats } from "../utils/utils";
@@ -75,6 +77,8 @@ export default function SimulatorCampaignsTab({
 }: SimulatorCampaignsTabProps) {
   const [tableSearch, setTableSearch] = useState("");
   const [selectedIndustria, setSelectedIndustria] = useState<string | null>(null);
+  const [selectedCoordinador, setSelectedCoordinador] = useState<string | null>(null);
+  const [selectedCampana, setSelectedCampana] = useState<string | null>(null);
   const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<TrainingRecord | null>(null);
 
@@ -89,11 +93,33 @@ export default function SimulatorCampaignsTab({
     return Array.from(set).sort();
   }, [data]);
 
+  // Coordinadores únicos
+  const availableCoordinadores = useMemo(() => {
+    const set = new Set<string>();
+    data.forEach((d) => {
+      const c = (d.coordinador || "").trim();
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort();
+  }, [data]);
+
+  // Campañas únicas
+  const availableCampanas = useMemo(() => {
+    const set = new Set<string>();
+    data.forEach((d) => {
+      const name = (d.campana || d.aplicativo || "").trim();
+      if (name) set.add(name);
+    });
+    return Array.from(set).sort();
+  }, [data]);
+
   // Filtrar registros
   const filteredData = useMemo(() => {
     return data.filter((record) => {
       if (selectedDireccion && record.direccion !== selectedDireccion) return false;
       if (selectedIndustria && record.industria !== selectedIndustria) return false;
+      if (selectedCoordinador && (record.coordinador || "").trim() !== selectedCoordinador) return false;
+      if (selectedCampana && (record.campana || record.aplicativo || "").trim() !== selectedCampana) return false;
 
       const date = parseDateString(record.fechaInicio);
       if (selectedYear !== null) {
@@ -105,7 +131,7 @@ export default function SimulatorCampaignsTab({
 
       return true;
     });
-  }, [data, selectedDireccion, selectedIndustria, selectedYear, selectedMonth]);
+  }, [data, selectedDireccion, selectedIndustria, selectedCoordinador, selectedCampana, selectedYear, selectedMonth]);
 
   // Agrupar por Campaña
   const campaignGroups = useMemo<CampaignGroup[]>(() => {
@@ -203,15 +229,19 @@ export default function SimulatorCampaignsTab({
     if (selectedMonth !== null) count++;
     if (selectedDireccion !== null) count++;
     if (selectedIndustria !== null) count++;
+    if (selectedCoordinador !== null) count++;
+    if (selectedCampana !== null) count++;
     if (tableSearch.trim() !== "") count++;
     return count;
-  }, [selectedYear, selectedMonth, selectedDireccion, selectedIndustria, tableSearch]);
+  }, [selectedYear, selectedMonth, selectedDireccion, selectedIndustria, selectedCoordinador, selectedCampana, tableSearch]);
 
   const handleClearFilters = () => {
     setSelectedYear(null);
     setSelectedMonth(null);
     setSelectedDireccion(null);
     setSelectedIndustria(null);
+    setSelectedCoordinador(null);
+    setSelectedCampana(null);
     setTableSearch("");
   };
 
@@ -441,6 +471,82 @@ export default function SimulatorCampaignsTab({
                 type="button"
                 onClick={() => setSelectedIndustria(null)}
                 title="Quitar filtro de industria"
+                className="ml-1 p-0.5 rounded-full hover:bg-amber-200/60 text-amber-700 transition cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Coordinador Select */}
+          <div
+            className={`group relative flex items-center gap-2 rounded-2xl px-3 py-2 text-xs transition-all ${selectedCoordinador !== null
+              ? "bg-amber-50/90 border-amber-300 ring-2 ring-amber-400/20 text-amber-950 font-semibold shadow-xs"
+              : "bg-slate-50/80 border-slate-200/90 text-slate-700 hover:bg-white hover:border-slate-300 shadow-2xs"
+              } border`}
+          >
+            <Users className={`w-3.5 h-3.5 shrink-0 ${selectedCoordinador !== null ? "text-indigo-600" : "text-indigo-500"}`} />
+            <div className="flex flex-col text-left">
+              <span className={`text-[9px] font-black uppercase tracking-wider ${selectedCoordinador !== null ? "text-amber-800" : "text-slate-400"}`}>
+                Coordinador
+              </span>
+              <select
+                value={selectedCoordinador || ""}
+                onChange={(e) => setSelectedCoordinador(e.target.value || null)}
+                className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer pr-4 appearance-none text-xs max-w-[170px] truncate"
+              >
+                <option value="">Todos los coordinadores</option>
+                {availableCoordinadores.map((coord) => (
+                  <option key={coord} value={coord}>
+                    {coord}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <ChevronDown className="w-3 h-3 text-slate-400 pointer-events-none -ml-3 shrink-0" />
+            {selectedCoordinador !== null && (
+              <button
+                type="button"
+                onClick={() => setSelectedCoordinador(null)}
+                title="Quitar filtro de coordinador"
+                className="ml-1 p-0.5 rounded-full hover:bg-amber-200/60 text-amber-700 transition cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Campaña Select */}
+          <div
+            className={`group relative flex items-center gap-2 rounded-2xl px-3 py-2 text-xs transition-all ${selectedCampana !== null
+              ? "bg-amber-50/90 border-amber-300 ring-2 ring-amber-400/20 text-amber-950 font-semibold shadow-xs"
+              : "bg-slate-50/80 border-slate-200/90 text-slate-700 hover:bg-white hover:border-slate-300 shadow-2xs"
+              } border`}
+          >
+            <Target className={`w-3.5 h-3.5 shrink-0 ${selectedCampana !== null ? "text-emerald-600" : "text-emerald-500"}`} />
+            <div className="flex flex-col text-left">
+              <span className={`text-[9px] font-black uppercase tracking-wider ${selectedCampana !== null ? "text-amber-800" : "text-slate-400"}`}>
+                Campaña
+              </span>
+              <select
+                value={selectedCampana || ""}
+                onChange={(e) => setSelectedCampana(e.target.value || null)}
+                className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer pr-4 appearance-none text-xs max-w-[170px] truncate"
+              >
+                <option value="">Todas las campañas</option>
+                {availableCampanas.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <ChevronDown className="w-3 h-3 text-slate-400 pointer-events-none -ml-3 shrink-0" />
+            {selectedCampana !== null && (
+              <button
+                type="button"
+                onClick={() => setSelectedCampana(null)}
+                title="Quitar filtro de campaña"
                 className="ml-1 p-0.5 rounded-full hover:bg-amber-200/60 text-amber-700 transition cursor-pointer"
               >
                 <X className="w-3 h-3" />

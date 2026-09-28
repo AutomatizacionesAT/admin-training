@@ -16,6 +16,7 @@ import {
   Monitor,
   Target,
   ChevronDown,
+  Briefcase,
 } from "lucide-react";
 import type { TrainingRecord } from "../utils/utils";
 import { parseDateString, getDeliveryCompliance, calculateSLAStats } from "../utils/utils";
@@ -82,6 +83,16 @@ export default function SimulatorReportTab({
     data.forEach((d) => {
       const name = (d.campana || d.aplicativo || "").trim();
       if (name) set.add(name);
+    });
+    return Array.from(set).sort();
+  }, [data]);
+
+  // Industrias disponibles
+  const availableIndustrias = useMemo(() => {
+    const set = new Set<string>();
+    data.forEach((d) => {
+      const ind = (d.industria || "").trim();
+      if (ind) set.add(ind);
     });
     return Array.from(set).sort();
   }, [data]);
@@ -426,37 +437,37 @@ export default function SimulatorReportTab({
             )}
           </div>
 
-          {/* Campaña Select */}
+          {/* Industria Select */}
           <div
-            className={`group relative flex items-center gap-2 rounded-2xl px-3 py-2 text-xs transition-all ${selectedCampana !== null
+            className={`group relative flex items-center gap-2 rounded-2xl px-3 py-2 text-xs transition-all ${selectedIndustria !== null
               ? "bg-amber-50/90 border-amber-300 ring-2 ring-amber-400/20 text-amber-950 font-semibold shadow-xs"
               : "bg-slate-50/80 border-slate-200/90 text-slate-700 hover:bg-white hover:border-slate-300 shadow-2xs"
               } border`}
           >
-            <Target className={`w-3.5 h-3.5 shrink-0 ${selectedCampana !== null ? "text-emerald-600" : "text-emerald-500"}`} />
+            <Briefcase className={`w-3.5 h-3.5 shrink-0 ${selectedIndustria !== null ? "text-amber-600" : "text-amber-500"}`} />
             <div className="flex flex-col text-left">
-              <span className={`text-[9px] font-black uppercase tracking-wider ${selectedCampana !== null ? "text-amber-800" : "text-slate-400"}`}>
-                Campaña
+              <span className={`text-[9px] font-black uppercase tracking-wider ${selectedIndustria !== null ? "text-amber-800" : "text-slate-400"}`}>
+                Industria
               </span>
               <select
-                value={selectedCampana || ""}
-                onChange={(e) => setSelectedCampana(e.target.value || null)}
+                value={selectedIndustria || ""}
+                onChange={(e) => setSelectedIndustria(e.target.value || null)}
                 className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer pr-4 appearance-none text-xs max-w-[170px] truncate"
               >
-                <option value="">Todas las campañas</option>
-                {availableCampanas.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                <option value="">Todas las industrias</option>
+                {availableIndustrias.map((ind) => (
+                  <option key={ind} value={ind}>
+                    {ind}
                   </option>
                 ))}
               </select>
             </div>
             <ChevronDown className="w-3 h-3 text-slate-400 pointer-events-none -ml-3 shrink-0" />
-            {selectedCampana !== null && (
+            {selectedIndustria !== null && (
               <button
                 type="button"
-                onClick={() => setSelectedCampana(null)}
-                title="Quitar filtro de campaña"
+                onClick={() => setSelectedIndustria(null)}
+                title="Quitar filtro de industria"
                 className="ml-1 p-0.5 rounded-full hover:bg-amber-200/60 text-amber-700 transition cursor-pointer"
               >
                 <X className="w-3 h-3" />
@@ -502,21 +513,43 @@ export default function SimulatorReportTab({
             )}
           </div>
 
-          {/* Chip de Industria Activa (si el usuario la seleccionó desde el card) */}
-          {selectedIndustria && (
-            <div className="flex items-center gap-1.5 bg-amber-100/90 border border-amber-300 px-3 py-1.5 rounded-2xl text-xs font-bold text-amber-900 shadow-2xs">
-              <span className="text-[10px] uppercase tracking-wider text-amber-700">Industria:</span>
-              <span>{selectedIndustria}</span>
+          {/* Campaña Select */}
+          <div
+            className={`group relative flex items-center gap-2 rounded-2xl px-3 py-2 text-xs transition-all ${selectedCampana !== null
+              ? "bg-amber-50/90 border-amber-300 ring-2 ring-amber-400/20 text-amber-950 font-semibold shadow-xs"
+              : "bg-slate-50/80 border-slate-200/90 text-slate-700 hover:bg-white hover:border-slate-300 shadow-2xs"
+              } border`}
+          >
+            <Target className={`w-3.5 h-3.5 shrink-0 ${selectedCampana !== null ? "text-emerald-600" : "text-emerald-500"}`} />
+            <div className="flex flex-col text-left">
+              <span className={`text-[9px] font-black uppercase tracking-wider ${selectedCampana !== null ? "text-amber-800" : "text-slate-400"}`}>
+                Campaña
+              </span>
+              <select
+                value={selectedCampana || ""}
+                onChange={(e) => setSelectedCampana(e.target.value || null)}
+                className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer pr-4 appearance-none text-xs max-w-[170px] truncate"
+              >
+                <option value="">Todas las campañas</option>
+                {availableCampanas.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <ChevronDown className="w-3 h-3 text-slate-400 pointer-events-none -ml-3 shrink-0" />
+            {selectedCampana !== null && (
               <button
                 type="button"
-                onClick={() => setSelectedIndustria(null)}
-                title="Quitar filtro de industria"
-                className="ml-1 p-0.5 rounded-full hover:bg-amber-200 text-amber-800 cursor-pointer"
+                onClick={() => setSelectedCampana(null)}
+                title="Quitar filtro de campaña"
+                className="ml-1 p-0.5 rounded-full hover:bg-amber-200/60 text-amber-700 transition cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
