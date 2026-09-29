@@ -3,6 +3,7 @@ import {
   SlidersHorizontal,
   RotateCcw,
   CheckCircle2,
+  CheckCheck,
   Clock,
   Layers,
   Search,
@@ -220,7 +221,16 @@ export default function SimulatorCampaignsTab({
 
   const totalCampanas = campaignGroups.length;
   const campanasEnProceso = campaignGroups.filter((g) => g.estadoGeneral === "EN PROCESO").length;
+  const campanasProyectadas = campaignGroups.filter((g) => g.estadoGeneral === "PROYECTADO").length;
   const campanasFinalizadas = campaignGroups.filter((g) => g.estadoGeneral === "FINALIZADA").length;
+
+  // Total de simuladores individuales entregados / finalizados
+  const simuladoresEntregados = useMemo(() => {
+    return filteredData.filter((r) => {
+      const est = (r.estado || "").toLowerCase();
+      return est.includes("finaliz") || est.includes("entreg") || est.includes("complet");
+    }).length;
+  }, [filteredData]);
 
   // Cantidad de filtros activos
   const activeFiltersCount = useMemo(() => {
@@ -557,94 +567,112 @@ export default function SimulatorCampaignsTab({
       </div>
 
       {/* 2. Tarjetas de Resumen Ejecutivo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
         {/* Total Campañas */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div className="bg-white p-4.5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md">
           <div>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
               Campañas Atendidas
             </span>
-            <div className="text-3xl font-black text-slate-900 tracking-tight">
+            <div className="text-2xl font-black text-slate-900 tracking-tight">
               {totalCampanas}
             </div>
             <span className="text-[11px] text-slate-400 font-medium">
-              Clientes con simuladores
+              Clientes con desarrollos
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700">
-            <Building className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Campañas Activas */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-              En Proceso
-            </span>
-            <div className="text-3xl font-black text-orange-600 tracking-tight">
-              {campanasEnProceso}
-            </div>
-            <span className="text-[11px] text-orange-600/80 font-medium">
-              Campañas en desarrollo
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100">
-            <Clock className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 shrink-0">
+            <Building className="w-5 h-5" />
           </div>
         </div>
 
-        {/* Campañas Entregadas */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+        {/* Campañas Finalizadas */}
+        <div className="bg-white p-4.5 rounded-2xl shadow-sm border border-emerald-100/80 flex items-center justify-between transition-all hover:shadow-md">
           <div>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-              Entregadas
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+              Campañas Finalizadas
             </span>
-            <div className="text-3xl font-black text-emerald-600 tracking-tight">
+            <div className="text-2xl font-black text-emerald-600 tracking-tight">
               {campanasFinalizadas}
             </div>
-            <span className="text-[11px] text-emerald-600/80 font-medium">
-              100% completadas
+            <span className="text-[11px] text-emerald-700/80 font-medium">
+              100% de simuladores listos
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100">
-            <CheckCircle2 className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 shrink-0">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* Campañas en Curso / Pendientes */}
+        <div className="bg-white p-4.5 rounded-2xl shadow-sm border border-amber-100/80 flex items-center justify-between transition-all hover:shadow-md">
+          <div>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+              Campañas en Curso
+            </span>
+            <div className="text-2xl font-black text-orange-600 tracking-tight">
+              {campanasEnProceso + campanasProyectadas}
+            </div>
+            <span className="text-[11px] text-orange-700/80 font-medium">
+              {campanasEnProceso} en proc. · {campanasProyectadas} proy.
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100 shrink-0">
+            <Clock className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* Simuladores Entregados */}
+        <div className="bg-white p-4.5 rounded-2xl shadow-sm border border-teal-100/80 flex items-center justify-between transition-all hover:shadow-md">
+          <div>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+              Simuladores Entregados
+            </span>
+            <div className="text-2xl font-black text-teal-600 tracking-tight">
+              {simuladoresEntregados}
+            </div>
+            <span className="text-[11px] text-teal-700/80 font-medium">
+              {filteredData.length > 0 ? `${Math.round((simuladoresEntregados / filteredData.length) * 100)}% de avance total` : "0%"}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 border border-teal-100 shrink-0">
+            <CheckCheck className="w-5 h-5" />
           </div>
         </div>
 
         {/* Volumen Total */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div className="bg-white p-4.5 rounded-2xl shadow-sm border border-blue-100/80 flex items-center justify-between transition-all hover:shadow-md">
           <div>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
               Total Simuladores
             </span>
-            <div className="text-3xl font-black text-blue-600 tracking-tight">
+            <div className="text-2xl font-black text-blue-600 tracking-tight">
               {filteredData.length}
             </div>
-            <span className="text-[11px] text-blue-600/80 font-medium">
+            <span className="text-[11px] text-blue-700/80 font-medium">
               Procesos consolidados
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
-            <Layers className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100 shrink-0">
+            <Layers className="w-5 h-5" />
           </div>
         </div>
 
         {/* Cumplimiento SLA Global */}
-        <div className="bg-gradient-to-br from-[#0b1a2f] to-[#13253f] text-white p-5 rounded-2xl shadow-sm border border-white/10 flex items-center justify-between">
+        <div className="bg-gradient-to-br from-[#0b1a2f] to-[#13253f] text-white p-4.5 rounded-2xl shadow-sm border border-white/10 flex items-center justify-between transition-all hover:shadow-md">
           <div>
-            <span className="text-xs font-bold text-sky-200 uppercase tracking-wider block mb-1">
+            <span className="text-[11px] font-bold text-sky-200 uppercase tracking-wider block mb-1">
               Cumplimiento SLA
             </span>
-            <div className="text-3xl font-black text-emerald-400 tracking-tight">
+            <div className="text-2xl font-black text-emerald-400 tracking-tight">
               {globalSLA.complianceRate}%
             </div>
             <span className="text-[11px] text-slate-300 font-medium">
               {globalSLA.onTimeCount} a tiempo · {globalSLA.delayedCount} retraso
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-300 border border-emerald-400/30">
-            <Award className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-300 border border-emerald-400/30 shrink-0">
+            <Award className="w-5 h-5" />
           </div>
         </div>
       </div>
