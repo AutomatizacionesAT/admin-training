@@ -19,6 +19,7 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '1032430434', nombre: 'ALVARO JAVIER GARZON ZAMBRANO', cargo: 'Coordinador de Formación', rol: 'SUPER_ADMIN' },
     { documento: '79616534', nombre: 'CARLOS DASTE', cargo: 'Gerente de Negocios', rol: 'SUPER_ADMIN' },
     { documento: '1088309969', nombre: 'JOHAN SEBASTIAN QUINCHIA VARGAS', cargo: 'Agile Training', rol: 'SUPER_ADMIN' },
+    { documento: '52748970', nombre: 'DIANA PATRICIA BELTRÁN PARRA', cargo: 'Gerente de Negocios', rol: 'SUPER_ADMIN' },
     // ── Coordinadores ─────────────────────────────────────────────────────────
     { documento: '1016048741', nombre: 'CRISTIAM CAMILO LOPEZ CONTRERAS', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1019047075', nombre: 'JHONNY ALEXANDER VARELA RUSINQUE', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
