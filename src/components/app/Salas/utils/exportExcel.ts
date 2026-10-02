@@ -261,8 +261,8 @@ export async function exportToExcel(salas: SalaRecord[], asignaciones: Asignacio
           const targetRow = isPM ? currentRow + 1 : currentRow;
           const fgColor = isPM ? COLORS.assignmentBlue : COLORS.assignmentOrange;
 
-          // Texto compacto: campaña | coordinador | horario
-          const label = `${asig.campana || ''} | ${asig.coordinador || ''} | ${asig.horario || ''}`;
+          // Texto compacto: campaña | formador | horario
+          const label = `${asig.campana || ''} | ${asig.formador || ''} | ${asig.horario || ''}`;
 
           // Merge siempre (incluso celda única) para que nunca haga wrap
           try {
