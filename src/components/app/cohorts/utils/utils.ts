@@ -203,57 +203,22 @@ export const matchCoordinatorName = (
 ): string | null => {
   if (!userNombre) return null;
 
-  const normUser = userNombre
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-
-  const userWords = normUser.split(/\s+/).filter(Boolean);
-
-  for (const coord of availableCoordinadores) {
-    const normCoord = coord
+  const normalizeName = (name: string) =>
+    name
       .toUpperCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .trim();
+      .trim()
+      .replace(/\s+/g, " ");
 
-    // 1. Coincidencia exacta o contenida
-    if (normUser === normCoord || normUser.includes(normCoord) || normCoord.includes(normUser)) {
-      return coord;
-    }
+  const normUser = normalizeName(userNombre);
+  const availableMatch = availableCoordinadores.find(
+    (coord) => normalizeName(coord) === normUser
+  );
 
-    // 2. Coincidencia por los dos primeros nombres (ej. "JENNY CAROLINA")
-    if (userWords.length >= 2) {
-      const firstTwo = `${userWords[0]} ${userWords[1]}`;
-      if (normCoord.includes(firstTwo) || firstTwo.includes(normCoord)) {
-        return coord;
-      }
-    }
+  if (availableMatch) return availableMatch;
 
-    // 3. Coincidencia por primer nombre + inicio
-    if (userWords.length >= 1 && normCoord.startsWith(userWords[0])) {
-      return coord;
-    }
-  }
-
-  // Fallback: si no está en la lista pero hay nombres parecidos en COHORT_SHEETS
-  for (const coord of COHORT_SHEETS) {
-    const normCoord = coord
-      .toUpperCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim();
-
-    if (userWords.length >= 2) {
-      const firstTwo = `${userWords[0]} ${userWords[1]}`;
-      if (normCoord.includes(firstTwo) || firstTwo.includes(normCoord)) {
-        return coord;
-      }
-    }
-  }
-
-  return null;
+  return COHORT_SHEETS.find((coord) => normalizeName(coord) === normUser) ?? null;
 };
 
 // ── Fetch principal ──────────────────────────────────────────
