@@ -12,7 +12,7 @@ export interface SalasUser {
 // ── Usuarios con acceso a Salas ─────────────────────────────────────────────
 export const SALAS_USERS: SalasUser[] = [
     // ── Super Admins ──────────────────────────────────────────────────────────
-    { documento: '1007144082', nombre: 'JHON JAIRO GIRALDO RODRIGUEZ', cargo: 'Jefe de Negocios', rol: 'SUPER_ADMIN' },
+    { documento: '1075657236', nombre: 'EDISON CAMILO SUÁREZ RODRIGUEZ', cargo: 'Jefe de Negocios', rol: 'SUPER_ADMIN' },
     { documento: '52829724', nombre: 'DIANA MARITZA PEDREROS CUERVO', cargo: 'Analista de Negocios', rol: 'SUPER_ADMIN' },
     { documento: '1018509964', nombre: 'SEBASTIAN SANTOS POLANIA', cargo: 'Analista de Negocios', rol: 'SUPER_ADMIN' },
     { documento: '1030550388', nombre: 'SINDY JULIETH ROJAS OROZCO', cargo: 'Coordinador de Formación', rol: 'SUPER_ADMIN' },
