@@ -321,10 +321,12 @@ export default function Calendar({
       return a.localeCompare(b);
     });
 
-    return sorted.map((campana) => ({
-      nombre: campana,
-      info: getCampanaInfo(campana),
-    }));
+    return sorted
+      .map((campana) => ({
+        nombre: campana,
+        info: getCampanaInfo(campana),
+      }))
+      .filter(({ info }) => info.estadoCampana !== "ENTREGADO");
   }, [currentMonth, data, searchTerm]);
 
   // 3. Agrupar registros por campaña y, dentro de cada campaña, por rango de fechas EXACTO (mismo inicio + mismo fin). Registros con el mismo rango
