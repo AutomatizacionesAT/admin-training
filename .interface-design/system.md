@@ -35,10 +35,19 @@ Use low-contrast slate borders for table rows, controls, and section boundaries.
 - Keep scan-critical columns visible and reveal secondary fields with an inline
   eye-button disclosure; include campaign imagery and all record fields inside.
 - Group projected developments by campaign, client, and segment; show one
-  expandable summary per group and keep every development's name and notes visible
-  in its detail.
+  expandable summary per group. In the expanded view, keep development cards
+  focused on name and notes, with status and delivery date as compact metadata.
+  Use one full-width card for a single development and a two-column grid for
+  multiple developments.
 - Use a restrained blue zebra stripe, a stronger hover state, and a distinct
   orange-accented expanded row. Fix table column widths and truncate summary
   values so long names never push neighboring data out of place.
 - Pair filter labels with meaningful icons and provide an explicit clear-filters
   action next to the result count.
+- Offer a four-part month week filter, using days 1-7, 8-14, 15-21, and 22-end
+  so a month maps to four selectable planning windows.
+- Place Web Training charts directly after the projection table; compare campaign
+  status totals using each campaign's latest request and let each status reveal
+  its campaigns, coordinator, and latest request date. Include campaigns with
+  any projected record in the projected grouping, even if a later record has a
+  different latest status.
