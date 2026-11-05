@@ -1,0 +1,38 @@
+[
+  {
+    "Campaña": "BBVA SAC",
+    "Cliente": "JENNY CAROLINA PINZON FERNANDEZ",
+    "Segmento": "MULTISECTOR",
+    "Fecha Inicio": "2026-09-07",
+    "Fecha Entrega": "2026-10-09",
+    "Desarrollador": "FEDERICO ALDANA",
+    "Color": "#0072d5"
+  },
+  {
+    "Campaña": "DAVIBANK CAT",
+    "Cliente": "JEIMMY LORENA MUÑOZ DIAZ",
+    "Segmento": "MULTISECTOR",
+    "Fecha Inicio": "2026-08-24",
+    "Fecha Entrega": "2026-09-10",
+    "Desarrollador": "JUAN AVENDAÑO",
+    "Color": "#74000d"
+  },
+  {
+    "Campaña": "RUNT",
+    "Cliente": "JHON EYDER RAMIREZ CORREA",
+    "Segmento": "MULTISECTOR",
+    "Fecha Inicio": "2026-08-10",
+    "Fecha Entrega": "2026-08-14",
+    "Desarrollador": "FEDERICO ALDANA",
+    "Color": "#01498a"
+  },
+  {
+    "Campaña": "CLARO VTR MULTISKILL",
+    "Cliente": "YENNY VANESSA RUIZ VALLEJO",
+    "Segmento": "MULTISECTOR",
+    "Fecha Inicio": "2026-08-18",
+    "Fecha Entrega": "2026-08-21",
+    "Desarrollador": "JUAN AVENDAÑO",
+    "Color": "#2790b0"
+  }
+]

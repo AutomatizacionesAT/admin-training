@@ -231,6 +231,7 @@ export default function WebTraining() {
               data={data}
               festivos={festivos}
               novedades={novedades}
+              enviosServidores={enviosServidores}
               onEdit={isAdmin ? handleEdit : undefined}
               onUpdateRecord={isAdmin ? handleUpdateRecord : undefined}
               onBatchUpdate={isAdmin ? handleBatchUpdate : undefined}

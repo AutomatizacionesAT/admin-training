@@ -7,11 +7,14 @@ import type {
 import Calendar from "./Calendar";
 import ProjectedCampaignsTable from "./GraficasWeb/ProjectedCampaignsTable";
 import WebTrainingCharts from "./GraficasWeb/WebTrainingCharts";
+import Migracion from "./Migracion";
+import type { EnviosServidoresRecord } from "../utils/utils";
 
 interface CalendarTabProps {
   data: TrainingRecord[];
   festivos: FestivoRecord[];
   novedades: NovedadesRecord[];
+  enviosServidores: EnviosServidoresRecord[];
   onEdit?: (record: TrainingRecord) => void;
   onUpdateRecord?: (record: TrainingRecord) => Promise<void>;
   onBatchUpdate?: (records: TrainingRecord[], deletedIds?: number[]) => Promise<void>;
@@ -24,6 +27,7 @@ export default function CalendarTab({
   data,
   festivos,
   novedades,
+  enviosServidores,
   onEdit,
   onUpdateRecord,
   onBatchUpdate,
@@ -53,6 +57,7 @@ export default function CalendarTab({
       />
       <ProjectedCampaignsTable data={data} />
       <WebTrainingCharts data={data} />
+      <Migracion enviosServidores={enviosServidores} data={data} />
     </div>
   );
 }

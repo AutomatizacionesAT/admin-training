@@ -39,11 +39,6 @@ function isProjectedStatus(status: string | null): boolean {
   );
 }
 
-function isInProgressStatus(status: string | null): boolean {
-  const normalizedStatus = (status || "").toLowerCase();
-  return normalizedStatus.includes("proceso") || normalizedStatus.includes("curso");
-}
-
 function getWeekKey(date: Date): string {
   const week = Math.min(4, Math.ceil(date.getDate() / 7));
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-W${week}`;
@@ -153,30 +148,7 @@ export default function ProjectedCampaignsTable({
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null);
 
   const projectedRecords = useMemo(() => {
-    const recordsByCampaign = new Map<string, TrainingRecord[]>();
-    data.forEach((record) => {
-      const campaign = getCampaignName(record);
-      const records = recordsByCampaign.get(campaign);
-      if (records) records.push(record);
-      else recordsByCampaign.set(campaign, [record]);
-    });
-
-    const projectedCampaigns = new Set<string>();
-    recordsByCampaign.forEach((records, campaign) => {
-      const hasInProgress = records.some((record) =>
-        isInProgressStatus(record.estado),
-      );
-      const hasProjected = records.some((record) =>
-        isProjectedStatus(record.estado),
-      );
-      if (!hasInProgress && hasProjected) projectedCampaigns.add(campaign);
-    });
-
-    return data.filter(
-      (record) =>
-        projectedCampaigns.has(getCampaignName(record)) &&
-        isProjectedStatus(record.estado),
-    );
+    return data.filter((record) => isProjectedStatus(record.estado));
   }, [data]);
 
   const campaigns = useMemo(
