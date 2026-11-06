@@ -289,9 +289,10 @@ export default function Migracion({ enviosServidores, data }: MigracionProps) {
                 Opciones de migraciones
               </h3>
             </div>
-            <p className="px-3 pt-2 flex-1 text-xs leading-relaxed text-white/80">
-              Puedes consultar las campañas ya migradas y las proximas campañas
-              a migrar programadas para las próximas entregas.
+            <p className="px-3 pt-2 flex-1 text-sm leading-relaxed text-white/80">
+              {/* Puedes consultar las campañas ya migradas y las proximas campañas
+              a migrar programadas para las próximas entregas. */}
+              Puedes consultar las campañas ya migradas previamente con sus datos respectivos de entrega y desarrollador asignado, coordinador y sus enlaces para visualizarlo.
             </p>
             <button
               type="button"
@@ -306,7 +307,7 @@ export default function Migracion({ enviosServidores, data }: MigracionProps) {
                 aria-hidden="true"
               />
             </button>
-            <button
+            {/* <button
               type="button"
               aria-expanded={isHistoryOpen}
               aria-controls="migracion-historial"
@@ -320,7 +321,7 @@ export default function Migracion({ enviosServidores, data }: MigracionProps) {
                 className={`h-4 w-4 transition-transform ${isHistoryOpen ? "rotate-180" : ""}`}
                 aria-hidden="true"
               />
-            </button>
+            </button> */}
           </aside>
         </div>
 
