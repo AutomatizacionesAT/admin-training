@@ -1,11 +1,22 @@
-import { Users, Clock, AlertTriangle, UserX, CalendarDays, Database } from 'lucide-react';
+import { Users, Clock, MessageSquareText, CalendarDays, Database } from 'lucide-react';
 import type { BiometricKpis } from '../utils/types';
 
 interface KpiCardsProps {
   kpis: BiometricKpis;
+  observaciones: { observacion: string; cantidad: number }[];
+  onVerObservacion: (observacion: string) => void;
 }
 
-export default function KpiCards({ kpis }: KpiCardsProps) {
+const observationColors = [
+  'from-orange-500 to-orange-700 border-orange-400',
+  'from-violet-500 to-violet-700 border-violet-400',
+  'from-cyan-600 to-cyan-800 border-cyan-500',
+  'from-rose-500 to-rose-700 border-rose-400',
+  'from-teal-600 to-teal-800 border-teal-500',
+  'from-fuchsia-600 to-fuchsia-800 border-fuchsia-500',
+];
+
+export default function KpiCards({ kpis, observaciones, onVerObservacion }: KpiCardsProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
       {/* Total Registros */}
@@ -58,31 +69,25 @@ export default function KpiCards({ kpis }: KpiCardsProps) {
         </div>
       </div>
 
-      {/* Llegadas Tarde */}
-      <div className="bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl p-4 border border-orange-300 shadow-orange-900/20 shadow-lg flex items-center gap-3 text-white transition-transform hover:-translate-y-1">
-        <div className="w-11 h-11 rounded-xl bg-orange-300/30 flex items-center justify-center shrink-0 border border-orange-200/30">
-          <AlertTriangle className="w-5 h-5 text-orange-50" />
-        </div>
-        <div>
-          <p className="text-[10px] font-bold text-orange-100 uppercase tracking-wider mb-0.5">Llegadas Tarde</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-black drop-shadow-sm">{kpis.totalLlegadasTarde}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Ausencias / Novedades */}
-      <div className="bg-gradient-to-br from-red-500 to-rose-700 rounded-2xl p-4 border border-red-400 shadow-red-900/20 shadow-lg flex items-center gap-3 text-white transition-transform hover:-translate-y-1">
-        <div className="w-11 h-11 rounded-xl bg-red-400/30 flex items-center justify-center shrink-0 border border-red-300/30">
-          <UserX className="w-5 h-5 text-red-50" />
-        </div>
-        <div>
-          <p className="text-[10px] font-bold text-red-100 uppercase tracking-wider mb-0.5">Ausencias</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-black drop-shadow-sm">{kpis.totalAusencias}</span>
-          </div>
-        </div>
-      </div>
+      {/* Tarjetas dinámicas: el color distingue categorías, no su gravedad. */}
+      {observaciones.map(({ observacion, cantidad }, index) => (
+        <button
+          key={observacion}
+          type="button"
+          onClick={() => onVerObservacion(observacion)}
+          aria-haspopup="dialog"
+          aria-label={`Ver colaboradores con ${observacion}: ${cantidad} registros`}
+          className={`bg-gradient-to-br ${observationColors[index % observationColors.length]} rounded-2xl p-4 border shadow-lg flex items-center gap-3 text-left text-white transition-transform hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600`}
+        >
+          <span className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center shrink-0 border border-white/25">
+            <MessageSquareText className="w-5 h-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wider mb-0.5 wrap-break-word">{observacion}</span>
+            <span className="block text-2xl font-black drop-shadow-sm tabular-nums">{cantidad}</span>
+          </span>
+        </button>
+      ))}
     </div>
   );
 }

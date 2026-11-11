@@ -21,6 +21,7 @@ export interface ColaboradorSummary {
   totalHoras: number;
   promedioHoras: number;
   observaciones: string[];
+  cantidadObservaciones: number;
 }
 
 export interface BiometricKpis {

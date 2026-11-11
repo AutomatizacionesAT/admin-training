@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowDownUp, SortAsc, SortDesc, AlertTriangle, UserX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowDownUp, SortAsc, SortDesc, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ColaboradorSummary, SortOrder } from '../utils/types';
 
 interface SummaryTableProps {
@@ -7,9 +7,10 @@ interface SummaryTableProps {
   sortField: keyof ColaboradorSummary;
   sortOrder: SortOrder;
   onSort: (field: keyof ColaboradorSummary) => void;
+  onVerObservaciones: (colaborador: ColaboradorSummary) => void;
 }
 
-export default function SummaryTable({ data, sortField, sortOrder, onSort }: SummaryTableProps) {
+export default function SummaryTable({ data, sortField, sortOrder, onSort, onVerObservaciones }: SummaryTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -55,24 +56,21 @@ export default function SummaryTable({ data, sortField, sortOrder, onSort }: Sum
               <th className={getSortClass('promedioHoras')} onClick={() => onSort('promedioHoras')}>
                 <div className="flex items-center gap-1.5">Promedio/Día {renderSortIcon('promedioHoras')}</div>
               </th>
-              <th className={getSortClass('llegadasTarde')} onClick={() => onSort('llegadasTarde')}>
-                <div className="flex items-center gap-1.5">Tardanzas {renderSortIcon('llegadasTarde')}</div>
-              </th>
-              <th className={getSortClass('ausencias')} onClick={() => onSort('ausencias')}>
-                  <div className="flex items-center gap-1.5">Ausenc./Nov. {renderSortIcon('ausencias')}</div>
+              <th className={getSortClass('cantidadObservaciones')} onClick={() => onSort('cantidadObservaciones')}>
+                <div className="flex items-center gap-1.5">Observaciones {renderSortIcon('cantidadObservaciones')}</div>
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
             {data.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-400">
+                <td colSpan={7} className="py-8 text-center text-slate-400">
                   No se encontraron resúmenes
                 </td>
               </tr>
             ) : (
               currentData.map((row) => (
-                <tr key={row.cc} className="hover:bg-slate-50 transition-colors">
+                <tr key={row.cc || row.colaborador} className="hover:bg-slate-50 transition-colors">
                   <td className="py-3 px-4 font-semibold text-slate-800 whitespace-nowrap">{row.colaborador}</td>
                   <td className="py-3 px-4 text-xs font-mono whitespace-nowrap">{row.cc}</td>
                   <td className="py-3 px-4 font-medium text-slate-500 whitespace-nowrap">{row.diasRegistrados} días</td>
@@ -80,23 +78,18 @@ export default function SummaryTable({ data, sortField, sortOrder, onSort }: Sum
                   <td className="py-3 px-4 font-bold text-indigo-600 whitespace-nowrap">{row.totalHoras.toFixed(1)} h</td>
                   <td className="py-3 px-4 font-medium text-emerald-600 whitespace-nowrap">{row.promedioHoras.toFixed(1)} h</td>
                   <td className="py-3 px-4 whitespace-nowrap">
-                    {row.llegadasTarde > 0 ? (
-                      <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-lg text-xs font-bold">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        {row.llegadasTarde}
-                      </span>
+                    {row.cantidadObservaciones > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => onVerObservaciones(row)}
+                        aria-label={`Ver ${row.cantidadObservaciones} observaciones de ${row.colaborador}`}
+                        aria-haspopup="dialog"
+                        className="inline-flex min-h-9 min-w-9 items-center justify-center bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-indigo-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-colors"
+                      >
+                        {row.cantidadObservaciones}
+                      </button>
                     ) : (
-                      <span className="text-slate-300">-</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    {row.ausencias > 0 ? (
-                      <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-2.5 py-0.5 rounded-lg text-xs font-bold">
-                        <UserX className="w-3.5 h-3.5" />
-                        {row.ausencias}
-                      </span>
-                    ) : (
-                      <span className="text-slate-300">-</span>
+                      <span className="text-slate-400">—</span>
                     )}
                   </td>
                 </tr>

@@ -3,11 +3,14 @@ import { RefreshCw, AlertCircle, Fingerprint, DatabaseBackup, Table2, LayoutList
 
 import type { BiometricRow, BiometricKpis, ColaboradorSummary, ViewMode, SortField, SortOrder } from './utils/types';
 import { fetchInformeBiometrico } from './utils/fetchData';
+import { normalizarObservacion } from './utils/observaciones';
 
 import FilterBar from './components/FilterBar';
 import KpiCards from './components/KpiCards';
 import BiometricTable from './components/BiometricTable';
 import SummaryTable from './components/SummaryTable';
+import ObservacionesModal from './components/ObservacionesModal';
+import type { ObservacionesSelection } from './components/ObservacionesModal';
 
 export default function InformeBiometrico() {
   const [rawData, setRawData] = useState<BiometricRow[]>([]);
@@ -24,6 +27,7 @@ export default function InformeBiometrico() {
 
   // Vista
   const [viewMode, setViewMode] = useState<ViewMode>('resumen');
+  const [observacionesSelection, setObservacionesSelection] = useState<ObservacionesSelection | null>(null);
 
   // Ordenamiento (Tabla cruda)
   const [rawSortField, setRawSortField] = useState<SortField>('dateISO');
@@ -70,8 +74,8 @@ export default function InformeBiometrico() {
       if (r.semana) sems.add(r.semana);
       if (r.colaborador) cols.add(r.colaborador);
 
-      const obUpper = r.observacion?.toUpperCase() || '';
-      if (obUpper && obUpper !== 'NINGUNO' && obUpper !== 'NO') {
+      const obUpper = normalizarObservacion(r.observacion);
+      if (obUpper) {
         obs.add(obUpper);
       }
     });
@@ -96,9 +100,9 @@ export default function InformeBiometrico() {
 
       // Filtrar observacion
       if (observacionFiltro) {
-        const obsUpper = row.observacion?.toUpperCase() || '';
+        const obsUpper = normalizarObservacion(row.observacion);
         if (observacionFiltro === '__SIN_NOVEDAD__') {
-          if (obsUpper && obsUpper !== 'NINGUNO' && obsUpper !== 'NO') return false;
+          if (obsUpper) return false;
         } else {
           if (obsUpper !== observacionFiltro) return false;
         }
@@ -148,7 +152,8 @@ export default function InformeBiometrico() {
           ausencias: 0,
           totalHoras: 0,
           promedioHoras: 0,
-          observaciones: []
+          observaciones: [],
+          cantidadObservaciones: 0
         };
       }
 
@@ -160,6 +165,7 @@ export default function InformeBiometrico() {
       let esNovedad = false;
 
       if (obsUpper && obsUpper !== 'NINGUNO' && obsUpper !== 'NO') {
+        if (normalizarObservacion(row.observacion)) user.cantidadObservaciones++;
         if (!user.observaciones.includes(obsUpper)) user.observaciones.push(obsUpper);
 
         if (obsUpper.includes('TARDE')) {
@@ -196,30 +202,32 @@ export default function InformeBiometrico() {
 
   }, [filteredData, summarySortField, summarySortOrder]);
 
-  // Nombres de los colaboradores que ingresaron tarde (> 9:00 AM) en el set de datos filtrados
-  const colaboradoresIngresoTarde = useMemo(() => {
-    const tardeCount: Record<string, number> = {};
-    filteredData.forEach(row => {
-      if (!row.ingreso) return;
-      const parts = row.ingreso.split(':');
-      if (parts.length >= 2) {
-        const h = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10);
-        const decimalIngreso = h + (m / 60);
-        if (decimalIngreso > 9.0) {
-          tardeCount[row.colaborador] = (tardeCount[row.colaborador] || 0) + 1;
-        }
-      }
-    });
-
-    return Object.entries(tardeCount)
-      .map(([nombre, count]) => {
-        const nombreTruncado = nombre.split(' ').filter(Boolean).slice(0, 3).join(' ');
-        return { nombreOriginal: nombre, nombreTruncado, count };
-      })
-      .sort((a, b) => b.count - a.count || a.nombreOriginal.localeCompare(b.nombreOriginal));
+  // Índices compartidos por tarjetas y modales, siempre sobre los registros filtrados.
+  const observacionesIndex = useMemo(() => {
+    const porTipo = new Map<string, BiometricRow[]>();
+    const porColaborador = new Map<string, BiometricRow[]>();
+    for (const row of filteredData) {
+      const observacion = normalizarObservacion(row.observacion);
+      if (!observacion) continue;
+      const tipoRows = porTipo.get(observacion);
+      if (tipoRows) tipoRows.push(row);
+      else porTipo.set(observacion, [row]);
+      const id = row.cc || row.colaborador;
+      const colaboradorRows = porColaborador.get(id);
+      if (colaboradorRows) colaboradorRows.push(row);
+      else porColaborador.set(id, [row]);
+    }
+    for (const rows of porColaborador.values()) {
+      rows.sort((a, b) => b.dateISO.localeCompare(a.dateISO));
+    }
+    return { porTipo, porColaborador, tipos: [...porTipo.keys()].sort() };
   }, [filteredData]);
 
+  const modalData = observacionesSelection?.tipo === 'colaborador'
+    ? observacionesIndex.porColaborador.get(observacionesSelection.id)
+    : observacionesSelection?.tipo === 'observacion'
+      ? observacionesIndex.porTipo.get(observacionesSelection.observacion)
+      : undefined;
 
   // ─── KPIs ────────────────────────────────────────────────────────────────────
   const kpis = useMemo((): BiometricKpis => {
@@ -323,7 +331,14 @@ export default function InformeBiometrico() {
 
       {rawData.length > 0 && (
         <div className="flex flex-col relative z-20 -mt-10 md:-mt-14">
-          <KpiCards kpis={kpis} />
+          <KpiCards
+            kpis={kpis}
+            observaciones={observacionesIndex.tipos.map(observacion => ({
+              observacion,
+              cantidad: observacionesIndex.porTipo.get(observacion)!.length,
+            }))}
+            onVerObservacion={observacion => setObservacionesSelection({ tipo: 'observacion', observacion })}
+          />
 
           <FilterBar
             fechaInicio={fechaInicio}
@@ -347,26 +362,6 @@ export default function InformeBiometrico() {
             onLimpiarFiltros={handleLimpiarFiltros}
             onRefresh={loadData}
           />
-
-          {/* Tags de ingresos > 9:00 AM */}
-          {colaboradoresIngresoTarde.length > 0 && (
-            <div className="mb-4 bg-slate-50 border border-slate-100 rounded-lg p-2.5">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <AlertCircle className="w-3 h-3 text-slate-400" />
-                Tardanzas
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {colaboradoresIngresoTarde.map(c => (
-                  <span key={c.nombreOriginal} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white text-slate-500 text-[9px] font-medium border border-slate-200 shadow-sm transition-all hover:bg-slate-100">
-                    <span className="truncate max-w-[120px]" title={c.nombreOriginal}>{c.nombreTruncado}</span>
-                    <span className="bg-slate-100 text-slate-400 rounded px-1 py-px text-[8px] font-bold">
-                      {c.count}
-                    </span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* View Toggles */}
           <div className="flex items-center gap-2 mb-4 bg-white p-1.5 rounded-xl shadow border border-slate-200 self-start">
@@ -396,6 +391,7 @@ export default function InformeBiometrico() {
                 sortField={summarySortField}
                 sortOrder={summarySortOrder}
                 onSort={handleSummarySort}
+                onVerObservaciones={row => setObservacionesSelection({ tipo: 'colaborador', id: row.cc || row.colaborador, nombre: row.colaborador, cc: row.cc })}
               />
             ) : (
               <BiometricTable
@@ -407,6 +403,13 @@ export default function InformeBiometrico() {
             )}
           </div>
         </div>
+      )}
+      {observacionesSelection && (
+        <ObservacionesModal
+          selection={observacionesSelection}
+          data={modalData ?? []}
+          onClose={() => setObservacionesSelection(null)}
+        />
       )}
     </div>
   );
