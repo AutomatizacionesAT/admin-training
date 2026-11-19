@@ -4,6 +4,7 @@ import type { SalaRecord, AsignacionRecord } from './utils/types';
 import { fetchSalasCatalogo, fetchSalasAsignaciones } from './utils/fetchData';
 import { exportToExcel } from './utils/exportExcel';
 import { useAuth } from '@/context/AuthContext';
+import { canManageSalas } from '@/lib/salasPermissions';
 import PublicView from './components/PublicView';
 import CoordinadorView from './components/CoordinadorView';
 import SuperAdminView from './components/SuperAdminView';
@@ -32,8 +33,8 @@ export default function Salas() {
 
   // ─── Roles ─────────────────────────────────────────────────────────────────
   const user = salasUser;
-  const isSuperAdmin = user?.rol === 'SUPER_ADMIN';
-  const isCoordinador = user?.rol === 'COORDINADOR';
+  const isSuperAdmin = canManageSalas(user);
+  const isCoordinador = !!user && !isSuperAdmin;
   const [activeView, setActiveView] = useState<SalasActiveView>('general');
   const [timelinePreset, setTimelinePreset] = useState<TimelineRequestPreset | null>(null);
 

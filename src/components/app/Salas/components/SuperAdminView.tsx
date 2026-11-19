@@ -18,6 +18,7 @@ import {
   updateEstadoAsignacion, closeTicket, fetchTickets
 } from '../utils/fetchData';
 import { formatAsignacionRango, parseAsignacionDate } from '../utils/asignacionUtils';
+import { canManageSalas } from '@/lib/salasPermissions';
 
 interface Props {
   user: SalasUser;
@@ -46,7 +47,12 @@ function diffDays(start: string, end: string): number {
   return Math.max(Math.round(ms / (24 * 60 * 60 * 1000)), 0);
 }
 
-export default function SuperAdminView({ user, salas, asignaciones, onRefresh, onBackToGeneral, timelinePreset }: Props) {
+export default function SuperAdminView(props: Props) {
+  if (!canManageSalas(props.user)) return null;
+  return <SalasManagerView {...props} />;
+}
+
+function SalasManagerView({ user, salas, asignaciones, onRefresh, onBackToGeneral, timelinePreset }: Props) {
   const [tab, setTab] = useState<ActiveTab>('solicitudes');
   const [search, setSearch] = useState('');
   const [showAnalytics, setShowAnalytics] = useState(false);

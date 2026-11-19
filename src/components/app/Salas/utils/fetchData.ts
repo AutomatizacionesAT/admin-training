@@ -1,4 +1,5 @@
-import type { SalaRecord, AsignacionRecord, SalasAdminRecord, SalasRole, TicketRecord } from './types';
+import type { SalaRecord, AsignacionRecord, SalasAdminRecord, TicketRecord } from './types';
+import { canManageSalas, getSalasSessionToken } from '@/lib/salasPermissions';
 
 const SHEET_ID = '1OtFWpA1NnkErvYmgwjqkic48b9UvGshEKAbBvcl-RuA';
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxvSQfB5Oykl9NqzVYHDk1-9RBWPvvpbZCt8ICrARM9sl4rTvjsKcBIbf_DYWxMcaWS/exec';
@@ -155,13 +156,7 @@ export async function fetchSalasAdmins(): Promise<SalasAdminRecord[]> {
     const cargo = cell(row, 2);
     if (!documento) return;
 
-    let rol: SalasRole = 'COORDINADOR';
-    if (
-      documento === '52829724' ||   // Diana Maritza Perderos
-      documento === '1018509964'    // Sebastian Santos Polania
-    ) {
-      rol = 'SUPER_ADMIN';
-    }
+    const rol = canManageSalas({ documento }) ? 'SUPER_ADMIN' : 'COORDINADOR';
 
     result.push({ documento, nombre, cargo, rol });
   });
@@ -179,7 +174,7 @@ async function gasPost(payload: object): Promise<{ result?: string; error?: stri
   const response = await fetch(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, salasToken: getSalasSessionToken() }),
   });
 
   const text = await response.text();

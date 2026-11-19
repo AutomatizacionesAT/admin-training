@@ -43,6 +43,21 @@ function doPost(e) {
     var action = payload.action || '';
     logToDebug(debugSheet, "Acción: " + action);
 
+    // Nunca confiar en el rol o documento enviados por el navegador.
+    var managerActions = [
+      'createSala', 'updateSala', 'deleteSala',
+      'updateAsignacion', 'deleteAsignacion', 'updateEstadoAsignacion',
+      'updateTicket', 'respondTicket'
+    ];
+    var isRequest = action === 'createAsignacion' &&
+      payload.data && payload.data.estadoAsignacion === 'PENDIENTE';
+    if (managerActions.indexOf(action) !== -1 ||
+        (action === 'createAsignacion' && !isRequest)) {
+      if (!isSalasManagerToken(payload.salasToken)) {
+        return createErrorResponse('Solo Diana Maritza Pedreros Cuervo puede gestionar Salas. Inicia sesión nuevamente.');
+      }
+    }
+
     // ── Salas ────────────────────────────────────────────────────────────────
     if (action === 'createSala') {
       return handleCreateSala(doc, payload.data || payload, debugSheet);
@@ -80,6 +95,30 @@ function doPost(e) {
     return createErrorResponse(err.toString());
   } finally {
     lock.releaseLock();
+  }
+}
+
+function isSalasManagerToken(token) {
+  try {
+    if (typeof token !== 'string') return false;
+    var parts = token.split('.');
+    if (parts.length !== 2) return false;
+    var secret = PropertiesService.getScriptProperties().getProperty('SALAS_SESSION_SECRET');
+    if (!secret) return false;
+    var expected = Utilities.base64EncodeWebSafe(
+      Utilities.computeHmacSha256Signature(parts[0], secret, Utilities.Charset.UTF_8)
+    );
+    if (parts[1].length !== expected.length) return false;
+    var difference = 0;
+    for (var i = 0; i < expected.length; i++) {
+      difference |= parts[1].charCodeAt(i) ^ expected.charCodeAt(i);
+    }
+    if (difference !== 0) return false;
+    var claims = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[0])).getDataAsString());
+    return claims.documento === '52829724' && claims.audience === 'salas' &&
+      typeof claims.expiresAt === 'number' && claims.expiresAt > Date.now();
+  } catch (error) {
+    return false;
   }
 }
 

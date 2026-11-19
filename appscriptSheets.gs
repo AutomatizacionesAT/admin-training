@@ -92,12 +92,29 @@ function handleLogin(doc, payload) {
 
       return createSuccessResponse({
         "authenticated": true,
-        "documento": documento
+        "documento": documento,
+        "salasToken": documento === '52829724' ? createSalasToken(documento) : null
       });
     }
   }
 
   return createSuccessResponse({ "authenticated": false });
+}
+
+// Configurar SALAS_SESSION_SECRET con el mismo secreto en ambos proyectos.
+function createSalasToken(documento) {
+  var secret = PropertiesService.getScriptProperties().getProperty('SALAS_SESSION_SECRET');
+  if (!secret) throw new Error('Falta configurar SALAS_SESSION_SECRET para la gestión de Salas.');
+  var claims = JSON.stringify({
+    documento: documento,
+    audience: 'salas',
+    expiresAt: Date.now() + 8 * 60 * 60 * 1000
+  });
+  var body = Utilities.base64EncodeWebSafe(claims, Utilities.Charset.UTF_8);
+  var signature = Utilities.base64EncodeWebSafe(
+    Utilities.computeHmacSha256Signature(body, secret, Utilities.Charset.UTF_8)
+  );
+  return body + '.' + signature;
 }
 
 function handleDelete(sheet, payload, debugSheet) {
