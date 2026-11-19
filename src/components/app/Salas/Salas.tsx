@@ -60,8 +60,8 @@ export default function Salas() {
       ]);
       setSalas(cat);
       setAsignaciones(asig);
-    } catch {
-      setError('No se pudieron cargar los datos de Salas. Verifica que las hojas existen y son públicas.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'No se pudieron cargar los datos de Salas desde Apps Script.');
     } finally {
       setLoading(false);
       setRefreshing(false);

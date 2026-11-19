@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { setSalasSessionToken } from '@/lib/salasPermissions';
+import { setTrainingSessionToken, trainingRequest } from '@/lib/trainingApi';
 
 export type SalasRole = 'SUPER_ADMIN' | 'COORDINADOR';
 
@@ -30,13 +31,11 @@ export const SALAS_USERS: SalasUser[] = [
     { documento: '1088312274', nombre: 'JHON EYDER RAMIREZ CORREA', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1113789102', nombre: 'YENNY VANESSA RUIZ VALLEJO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '1012385857', nombre: 'WALTHER DUVAN GOMEZ OSORIO', cargo: 'Lider de Formación', rol: 'COORDINADOR' },
-    { documento: '1018475580', nombre: 'FERNANDO ANDRES CHONA GIRALDO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
     { documento: '52829724', nombre: 'DIANA MARITZA PEDREROS CUERVO', cargo: 'Analista de Negocios', rol: 'COORDINADOR' },
     { documento: '1018509964', nombre: 'SEBASTIAN SANTOS POLANIA', cargo: 'Analista de Negocios', rol: 'COORDINADOR' },
     { documento: '1030550388', nombre: 'SINDY JULIETH ROJAS OROZCO', cargo: 'Coordinador de Formación', rol: 'COORDINADOR' },
 ];
 
-const AUTH_GAS_URL = 'https://script.google.com/macros/s/AKfycbxavHAEkzFCeRSnIy9Vk82eNxSFjdShQCmfv7Sq3J7yGp0z4VLuNQfVMJ1sewBi9VF3iw/exec';
 
 interface AuthContextType {
     isAuthenticated: boolean;
@@ -62,23 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const canAccessBiometrico = isAdmin || isSuperAdmin || isCoordinador;
 
     const login = async (usuario: string, clave: string): Promise<boolean> => {
-        const response = await fetch(AUTH_GAS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({ action: 'login', usuario: usuario.trim(), clave }),
-        });
-        const text = await response.text();
-
-        let result: { result?: string; error?: string; authenticated?: boolean; documento?: string; salasToken?: string };
-        try {
-            result = JSON.parse(text);
-        } catch {
-            throw new Error('Respuesta inválida del servicio de autenticación.');
-        }
-
-        if (!response.ok || result.result === 'error') {
-            throw new Error(result.error || 'No fue posible validar las credenciales.');
-        }
+        const result = await trainingRequest<{
+            authenticated?: boolean; documento?: string; salasToken?: string; sessionToken?: string;
+        }>({ action: 'login', usuario: usuario.trim(), clave }, false);
 
         if (!result.authenticated || !result.documento) {
             return false;
@@ -88,7 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!found) {
             return false;
         }
+        if (!result.sessionToken) {
+            throw new Error('El servicio no devolvió una sesión válida. Verifica la versión de Apps Script.');
+        }
 
+        setTrainingSessionToken(result.sessionToken);
         setSalasUser(found);
         setSalasSessionToken(result.salasToken ?? null);
         setIsAdmin(found.rol === 'SUPER_ADMIN');
@@ -96,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const logout = () => {
+        setTrainingSessionToken(null);
         setSalasSessionToken(null);
         setIsAdmin(false);
         setSalasUser(null);

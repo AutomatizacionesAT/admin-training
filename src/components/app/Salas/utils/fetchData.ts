@@ -1,46 +1,36 @@
 import type { SalaRecord, AsignacionRecord, SalasAdminRecord, TicketRecord } from './types';
-import { canManageSalas, getSalasSessionToken } from '@/lib/salasPermissions';
+import { canManageSalas } from '@/lib/salasPermissions';
+import { fetchTrainingSheet, trainingRequest } from '@/lib/trainingApi';
+import type { TrainingSheetRow as GvizRow } from '@/lib/trainingApi';
 
-const SHEET_ID = '1OtFWpA1NnkErvYmgwjqkic48b9UvGshEKAbBvcl-RuA';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxvSQfB5Oykl9NqzVYHDk1-9RBWPvvpbZCt8ICrARM9sl4rTvjsKcBIbf_DYWxMcaWS/exec';
-
-interface GvizCell { v: string | number | null; f?: string; }
-interface GvizRow { c: (GvizCell | null)[]; }
-interface GvizData { table: { rows: GvizRow[] }; }
-
+export const SALAS_API_URL = 'https://script.google.com/macros/s/AKfycbziKSz9mmHVRZBeU0RWrGeQnymOMpBz2zE4QniRsuvWNn7-qW5fAwudDptTON_IBFE/exec';
 function cell(row: GvizRow, i: number): string {
   return row.c[i]?.v != null ? String(row.c[i]!.v).trim() : '';
 }
 
 async function fetchSheet(sheetName: string): Promise<GvizRow[]> {
-  // headers=1 le indica a gviz que la fila 1 son encabezados y NO deben
-  // aparecer como datos — evita el bug donde una hoja vacía devuelve los headers.
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}`;
-  const res = await fetch(url);
-  const text = await res.text();
-  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/);
-  if (!match?.[1]) return [];
-  const data: GvizData = JSON.parse(match[1]);
-  return data.table.rows ?? [];
+  // El servidor omite el encabezado y devuelve los índices reales de las filas.
+  const data = await fetchTrainingSheet(sheetName, SALAS_API_URL);
+  return data.table.rows;
 }
 
 // ─── SALAS_CATALOGO ───────────────────────────────────────────────────────────
 export async function fetchSalasCatalogo(): Promise<SalaRecord[]> {
   const rows = await fetchSheet('SALAS_CATALOGO');
   const result: SalaRecord[] = [];
-  let rowIndex = 2;
   let lastSede = '';
   let lastSala: SalaRecord | null = null;
 
   rows.forEach((row) => {
-    if (!row?.c?.length) { rowIndex++; return; }
+    const rowIndex = row.rowIndex;
+    if (!row?.c?.length) return;
     const sedeRaw = cell(row, 0);
     const sala = cell(row, 1);
     const horario = cell(row, 5);
 
-    // Descarta filas de cabecera que gviz puede colar como datos
-    if (sedeRaw && sedeRaw.toUpperCase() === 'SEDE') { rowIndex++; return; }
-    if (sala && sala.toUpperCase() === 'SALA') { rowIndex++; return; }
+    // Descarta encabezados repetidos dentro de los datos.
+    if (sedeRaw && sedeRaw.toUpperCase() === 'SEDE') return;
+    if (sala && sala.toUpperCase() === 'SALA') return;
 
     if (sedeRaw) lastSede = sedeRaw;
     const sede = lastSede;
@@ -50,7 +40,6 @@ export async function fetchSalasCatalogo(): Promise<SalaRecord[]> {
       if (lastSala && horario) {
         result.push({ ...lastSala, rowIndex, horario });
       }
-      rowIndex++;
       return;
     }
 
@@ -67,7 +56,6 @@ export async function fetchSalasCatalogo(): Promise<SalaRecord[]> {
     };
     lastSala = record;
     result.push(record);
-    rowIndex++;
   });
   console.log(`🏛 SALAS_CATALOGO: ${result.length} entradas (AM+PM)`);
   return result;
@@ -81,12 +69,12 @@ export async function fetchSalasCatalogo(): Promise<SalaRecord[]> {
 export async function fetchSalasAsignaciones(): Promise<AsignacionRecord[]> {
   const rows = await fetchSheet('SALAS_ASIGNACIONES');
   const result: AsignacionRecord[] = [];
-  let rowIndex = 2;
 
   rows.forEach((row) => {
-    if (!row?.c?.length) { rowIndex++; return; }
+    const rowIndex = row.rowIndex;
+    if (!row?.c?.length) return;
     const campana = cell(row, 0);
-    if (!campana || campana.toUpperCase() === 'CAMPAÑA' || campana.toUpperCase() === 'CAMPANA') { rowIndex++; return; }
+    if (!campana || campana.toUpperCase() === 'CAMPAÑA' || campana.toUpperCase() === 'CAMPANA') return;
     result.push({
       rowIndex,
       campana,
@@ -104,7 +92,6 @@ export async function fetchSalasAsignaciones(): Promise<AsignacionRecord[]> {
       coordinador: cell(row, 12),
       tipoDeUso: cell(row, 13),
     });
-    rowIndex++;
   });
   console.log(`📋 SALAS_ASIGNACIONES: ${result.length} asignaciones`);
   return result;
@@ -118,14 +105,13 @@ export async function fetchTickets(): Promise<TicketRecord[]> {
   const rows = await fetchSheet('ASIGNACION_TICKET');
   const result: TicketRecord[] = [];
 
-  rows.forEach((row, i) => {
+  rows.forEach((row) => {
     if (!row?.c?.length) return;
     const campana = cell(row, 0);
-    // Descarta fila vacía o encabezado que gviz devuelve por error en hojas vacías
+    // Descarta filas vacías o encabezados repetidos.
     if (!campana || campana.toUpperCase() === 'CAMPAÑA' || campana.toUpperCase() === 'CAMPANA') return;
-    // Con headers=1, la fila i del gviz corresponde a la fila i+2 del sheet (fila 1 = encabezados)
     result.push({
-      rowIndex: i + 2,
+      rowIndex: row.rowIndex,
       campana,
       posicion: cell(row, 1),
       fallaPuntual: cell(row, 2),
@@ -170,31 +156,8 @@ export async function loginByCedula(cedula: string): Promise<SalasAdminRecord | 
 }
 
 // ─── CRUD vía Apps Script ─────────────────────────────────────────────────────
-async function gasPost(payload: object): Promise<{ result?: string; error?: string; [key: string]: unknown }> {
-  const response = await fetch(GAS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ ...payload, salasToken: getSalasSessionToken() }),
-  });
-
-  const text = await response.text();
-  let parsed: { result?: string; error?: string; [key: string]: unknown };
-
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error(text || 'Respuesta inválida del Apps Script');
-  }
-
-  if (!response.ok) {
-    throw new Error(parsed.error || `Error HTTP ${response.status}`);
-  }
-
-  if (parsed.result === 'error') {
-    throw new Error(parsed.error || 'Error en Apps Script');
-  }
-
-  return parsed;
+async function gasPost(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return trainingRequest(payload, true, SALAS_API_URL);
 }
 
 // ─── Sala CRUD ────────────────────────────────────────────────────────────────
@@ -231,22 +194,7 @@ export async function updateTicket(t: TicketRecord): Promise<void> {
 }
 /** Solo guarda la respuesta del admin — NO cierra el ticket (no toca fechaCierre) */
 export async function respondTicket(ticket: TicketRecord, respuesta: string): Promise<void> {
-  const data = {
-    campana: ticket.campana,
-    posicion: ticket.posicion,
-    fallaPuntual: ticket.fallaPuntual,
-    personaReporta: ticket.personaReporta,
-    numeroTicket: ticket.numeroTicket,
-    fechaRealizacion: ticket.fechaRealizacion,
-    personaCreaTicket: ticket.personaCreaTicket,
-    fechaCierre: ticket.fechaCierre,
-    observaciones: ticket.observaciones,
-    respuesta,
-    sala: ticket.sala,
-    sede: ticket.sede,
-  };
-  // updateTicket ya está desplegado; respondTicket puede no estarlo aún
-  await gasPost({ action: 'updateTicket', rowIndex: ticket.rowIndex, numeroTicket: ticket.numeroTicket, data });
+  await gasPost({ action: 'respondTicket', rowIndex: ticket.rowIndex, numeroTicket: ticket.numeroTicket, respuesta });
 }
 /** Cierra definitivamente un ticket sin modificar la asignación de sala. */
 export async function closeTicket(rowIndex: number, respuesta: string): Promise<void> {

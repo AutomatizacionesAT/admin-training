@@ -39,7 +39,7 @@ function AppContent() {
           <Route path="/web-training" element={<RequireAuth><WebTraining /></RequireAuth>} />
           <Route path="/usabilidad-web-training" element={<RequireAccess allow={canAccessUsabilidad}><UsabilidadWebTraining /></RequireAccess>} />
           <Route path="/informe-biometrico" element={<RequireAccess allow={canAccessBiometrico}><InformeBiometrico /></RequireAccess>} />
-          <Route path="/salas" element={<Salas />} />
+          <Route path="/salas" element={<RequireAuth><Salas /></RequireAuth>} />
           <Route path="/agile-training" element={<RequireAuth><AgileTraining /></RequireAuth>} />
           <Route path="/academy" element={<RequireAuth><Academy /></RequireAuth>} />
           <Route path="/cohorts" element={<RequireAuth><Cohorts /></RequireAuth>} />

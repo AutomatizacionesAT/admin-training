@@ -53,8 +53,8 @@ export default function InformeBiometrico() {
           setFechaFin(dates[dates.length - 1]);
         }
       }
-    } catch {
-      setError('No se pudieron cargar los datos. Verifica que la hoja INFORME BIOMETRICO exista y el formato sea correcto.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'No se pudieron cargar los datos desde Apps Script.');
     } finally {
       setLoading(false);
     }

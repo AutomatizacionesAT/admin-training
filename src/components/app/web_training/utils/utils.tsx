@@ -1,23 +1,5 @@
-interface SheetCell {
-  v: string | number | null;
-  f?: string;
-}
-
-interface SheetRow {
-  c: (SheetCell | null)[];
-}
-
-interface SheetColumn {
-  label: string;
-  type: string;
-}
-
-interface SheetData {
-  table: {
-    rows: SheetRow[];
-    cols: SheetColumn[];
-  };
-}
+import { fetchTrainingSheet, getTrainingSessionToken, trainingRequest } from '@/lib/trainingApi';
+import type { TrainingSheetRow as SheetRow } from '@/lib/trainingApi';
 
 // Tipo para los datos del Excel
 export interface TrainingRecord {
@@ -73,8 +55,8 @@ const normalizeGvizDate = (value: string | null): string | null => {
   }
 
   // Si viene YYYY-MM-DD (ISO), convertir a DD/MM/YYYY
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const [year, month, day] = value.split('-');
+  if (/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value)) {
+    const [year, month, day] = value.slice(0, 10).split('-');
     return `${day}/${month}/${year}`;
   }
 
@@ -104,60 +86,32 @@ export const parseDateString = (dateStr: string | null): Date | null => {
 
 export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
   try {
-    // ID de tu Google Sheet
-    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
-
-    // Usar la API pública de Google Sheets (la hoja debe estar compartida públicamente)
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=Base_WT25`;
-
-    const response = await fetch(url);
-    const text = await response.text();
-
-    // Google retorna JSONP, necesitamos extraer el JSON
-    const jsonString = text.match(
-      /google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/
-    );
-
-    if (jsonString && jsonString[1]) {
-      const data: SheetData = JSON.parse(jsonString[1]);
-      // Extraer las filas y columnas
-      const rows = data.table.rows;
-
-      // Convertir a formato TrainingRecord
-      const formattedData: TrainingRecord[] = rows
-        .slice(0) // Asumiendo que row 0 ya es dato si usamos GID adecuado, o ajustar slice
-        .map((row: SheetRow, index: number) => {
-          return {
-            rowIndex: index + 2, // Fila en Sheet (Header es 1, index 0 es 2)
-            fechaSolicitud: normalizeGvizDate(row.c[0] ? String(row.c[0].v) : null),
-            coordinador: row.c[1] ? String(row.c[1].v) : null,
-            cliente: row.c[2] ? String(row.c[2].v) : null,
-            segmento: row.c[3] ? String(row.c[3].v) : null,
-            desarrollador: row.c[4] ? String(row.c[4].v) : null,
-            segmentoMenu: row.c[5] ? String(row.c[5].v) : null,
-            desarrollo: row.c[6] ? String(row.c[6].v) : null,
-            nombre: row.c[7] ? String(row.c[7].v) : null,
-            cantidad: row.c[8] ? String(row.c[8].v) : null,
-            fechaMaterial: normalizeGvizDate(row.c[9] ? String(row.c[9].v) : null),
-            fechaInicio: normalizeGvizDate(row.c[10] ? String(row.c[10].v) : null),
-            fechaFin: normalizeGvizDate(row.c[11] ? String(row.c[11].v) : null),
-            estado: row.c[12] ? String(row.c[12].v) : null,
-            formador: row.c[13] ? String(row.c[13].v) : null,
-            observaciones: row.c[14] ? String(row.c[14].v) : null,
-            campana: row.c[15] ? String(row.c[15].v) : null,
-            direccion: row.c[16] ? String(row.c[16].v) : null, // Col Q
-            industria: row.c[17] ? String(row.c[17].v) : null, // Col R
-          };
-        });
-
-
-      return formattedData;
-    }
-
-    return [];
+    const data = await fetchTrainingSheet('Base_WT25');
+    // El servidor omite el encabezado y conserva el número real de cada fila.
+    return data.table.rows.map((row: SheetRow) => ({
+      rowIndex: row.rowIndex,
+      fechaSolicitud: normalizeGvizDate(row.c[0] ? String(row.c[0].v) : null),
+      coordinador: row.c[1] ? String(row.c[1].v) : null,
+      cliente: row.c[2] ? String(row.c[2].v) : null,
+      segmento: row.c[3] ? String(row.c[3].v) : null,
+      desarrollador: row.c[4] ? String(row.c[4].v) : null,
+      segmentoMenu: row.c[5] ? String(row.c[5].v) : null,
+      desarrollo: row.c[6] ? String(row.c[6].v) : null,
+      nombre: row.c[7] ? String(row.c[7].v) : null,
+      cantidad: row.c[8] ? String(row.c[8].v) : null,
+      fechaMaterial: normalizeGvizDate(row.c[9] ? String(row.c[9].v) : null),
+      fechaInicio: normalizeGvizDate(row.c[10] ? String(row.c[10].v) : null),
+      fechaFin: normalizeGvizDate(row.c[11] ? String(row.c[11].v) : null),
+      estado: row.c[12] ? String(row.c[12].v) : null,
+      formador: row.c[13] ? String(row.c[13].v) : null,
+      observaciones: row.c[14] ? String(row.c[14].v) : null,
+      campana: row.c[15] ? String(row.c[15].v) : null,
+      direccion: row.c[16] ? String(row.c[16].v) : null,
+      industria: row.c[17] ? String(row.c[17].v) : null,
+    }));
   } catch (error) {
     console.error("Error al cargar datos de Google Sheets:", error);
-    return [];
+    throw error;
   }
 };
 
@@ -172,112 +126,62 @@ export interface MasterData {
 
 export const fetchMasterData = async (): Promise<MasterData> => {
   try {
-    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
-    const masterSheetName = encodeURIComponent("DATA (4)");
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${masterSheetName}`;
-    const response = await fetch(url);
-    const text = await response.text();
-    const jsonString = text.match(
-      /google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/
-    );
+    const data = await fetchTrainingSheet('DATA (4)');
+    const festivos: FestivoRecord[] = [];
+    const desarrolladores = new Set<string>();
+    const coordinadores = new Set<string>();
+    const clientes = new Set<string>();
+    const tiposDesarrollo = new Set<string>();
+    const estados = new Set<string>();
 
-    if (jsonString && jsonString[1]) {
-      const data: SheetData = JSON.parse(jsonString[1]);
-      const rows = data.table.rows;
+    data.table.rows.forEach((row: SheetRow) => {
+      if (row.c[3] && row.c[4]) {
+        festivos.push({
+          festivo: normalizeGvizDate(String(row.c[3].v)) || "",
+          festividad: String(row.c[4].v),
+        });
+      }
+      if (row.c[0]?.v) desarrolladores.add(String(row.c[0].v));
+      if (row.c[6]?.v) coordinadores.add(String(row.c[6].v));
+      if (row.c[8]?.v) clientes.add(String(row.c[8].v));
+      if (row.c[10]?.v) tiposDesarrollo.add(String(row.c[10].v));
+      if (row.c[12]?.v) estados.add(String(row.c[12].v));
+    });
 
-      const festivos: FestivoRecord[] = [];
-      const desarrolladores = new Set<string>();
-      const coordinadores = new Set<string>();
-      const clientes = new Set<string>();
-      const tiposDesarrollo = new Set<string>();
-      const estados = new Set<string>();
-
-      rows.slice(0).forEach((row: SheetRow) => {
-        // Festivos (Columnas D=3, E=4)
-        if (row.c[3] && row.c[4]) {
-          festivos.push({
-            festivo: normalizeGvizDate(String(row.c[3].v)) || "",
-            festividad: String(row.c[4].v),
-          });
-        }
-
-        // Desarrolladores (Columna A = 0)
-        if (row.c[0] && row.c[0].v) desarrolladores.add(String(row.c[0].v));
-
-        // Coordinadores (Columna G = 6)
-        if (row.c[6] && row.c[6].v) coordinadores.add(String(row.c[6].v));
-
-        // Clientes (Columna I = 8)
-        if (row.c[8] && row.c[8].v) clientes.add(String(row.c[8].v));
-
-        // Tipos de Desarrollo (Columna K = 10)
-        if (row.c[10] && row.c[10].v) tiposDesarrollo.add(String(row.c[10].v));
-
-        // Estados (Columna M = 12)
-        if (row.c[12] && row.c[12].v) estados.add(String(row.c[12].v));
-      });
-
-
-      return {
-        festivos,
-        desarrolladores: Array.from(desarrolladores).sort(),
-        coordinadores: Array.from(coordinadores).sort(),
-        clientes: Array.from(clientes).sort(),
-        tiposDesarrollo: Array.from(tiposDesarrollo).sort(),
-        estados: Array.from(estados).sort(),
-      };
-    }
-
-    return { festivos: [], desarrolladores: [], coordinadores: [], clientes: [], tiposDesarrollo: [], estados: [] };
+    return {
+      festivos,
+      desarrolladores: Array.from(desarrolladores).sort(),
+      coordinadores: Array.from(coordinadores).sort(),
+      clientes: Array.from(clientes).sort(),
+      tiposDesarrollo: Array.from(tiposDesarrollo).sort(),
+      estados: Array.from(estados).sort(),
+    };
   } catch (error) {
     console.error("Error al cargar datos maestros:", error);
-    return { festivos: [], desarrolladores: [], coordinadores: [], clientes: [], tiposDesarrollo: [], estados: [] };
+    throw error;
   }
 };
 
 export const fetchSheetNovedades = async (): Promise<NovedadesRecord[]> => {
   try {
-    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=Novedades`;
-    const response = await fetch(url);
-    const text = await response.text();
-    // Google retorna JSONP, necesitamos extraer el JSON
-    const jsonString = text.match(
-      /google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/
-    );
-
-    if (jsonString && jsonString[1]) {
-      const data: SheetData = JSON.parse(jsonString[1]);
-      // Extraer las filas y columnas
-      const rows = data.table.rows;
-
-      // Convertir a formato TrainingRecord
-      const formattedData: NovedadesRecord[] = rows
-        .slice(0)
-        .map((row: SheetRow) => {
-          return {
-            desarrollador: row.c[0] ? String(row.c[0].v) : null,
-            fechaInicio: normalizeGvizDate(row.c[1] ? String(row.c[1].v) : null),
-            fechaFin: normalizeGvizDate(row.c[2] ? String(row.c[2].v) : null),
-            novedad: row.c[3] ? String(row.c[3].v) : null,
-          };
-        });
-
-
-      return formattedData;
-    }
-
-    return [];
+    const data = await fetchTrainingSheet('Novedades');
+    return data.table.rows.map((row: SheetRow) => ({
+      desarrollador: row.c[0] ? String(row.c[0].v) : null,
+      fechaInicio: normalizeGvizDate(row.c[1] ? String(row.c[1].v) : null),
+      fechaFin: normalizeGvizDate(row.c[2] ? String(row.c[2].v) : null),
+      novedad: row.c[3] ? String(row.c[3].v) : null,
+    }));
   } catch (error) {
     console.error("Error al cargar datos de Google Sheets:", error);
-    return [];
+    throw error;
   }
 };
 
-// URL del Web App de Google Apps Script
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxavHAEkzFCeRSnIy9Vk82eNxSFjdShQCmfv7Sq3J7yGp0z4VLuNQfVMJ1sewBi9VF3iw/exec";
+type TrainingWritePayload =
+  | { action: 'create' | 'update'; data: TrainingRecord; rowIndex?: number }
+  | { action: 'delete'; rowIndex: number };
 
-export const submitTrainingData = async (data: TrainingRecord[] | any): Promise<boolean> => {
+export const submitTrainingData = async (data: TrainingRecord[] | TrainingRecord | TrainingWritePayload): Promise<boolean> => {
   try {
     // Si es un array, asumimos que es CREAR múltiples (legacy/actual)
     // Si enviamos un objeto con { action: 'update' }, es actualización.
@@ -285,7 +189,7 @@ export const submitTrainingData = async (data: TrainingRecord[] | any): Promise<
     let payload;
     if (Array.isArray(data)) {
       // Calcular campana para cada registro
-      const recordsWithCampana = data.map((record: any) => ({
+      const recordsWithCampana = data.map((record) => ({
         ...record,
         campana: `${record.cliente || ""} ${record.segmento || ""}`.trim()
       }));
@@ -295,7 +199,9 @@ export const submitTrainingData = async (data: TrainingRecord[] | any): Promise<
       // const record = data.data || data; // Eliminated unused variable
 
       // Si data tiene estructura { action, data, rowIndex }
-      if (data.data) {
+      if ('action' in data && data.action === 'delete') {
+        payload = { action: 'delete', rowIndex: data.rowIndex };
+      } else if ('data' in data) {
         const updatedRecord = {
           ...data.data,
           campana: `${data.data.cliente || ""} ${data.data.segmento || ""}`.trim()
@@ -307,18 +213,11 @@ export const submitTrainingData = async (data: TrainingRecord[] | any): Promise<
           ...data,
           campana: `${data.cliente || ""} ${data.segmento || ""}`.trim()
         };
-        payload = updatedRecord;
+        payload = { action: 'create', data: updatedRecord };
       }
     }
 
-    await fetch(GAS_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {
-        "Content-Type": "text/plain",
-      },
-      body: JSON.stringify(payload),
-    });
+    await trainingRequest(payload);
     return true;
   } catch (error) {
     console.error("Error al enviar datos a Google Sheets:", error);
@@ -354,38 +253,16 @@ function normalizarCampana(valor: string): string {
 
 /* Cache global para evitar múltiples fetches */
 let ENVIOS_CACHE: EnviosServidoresRecord[] | null = null
-let ENVIOS_CACHE_LOADING = false
+let ENVIOS_SESSION: string | null = null
 
-const SHEET_ID = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo"
-
-/* Fetch de "Envios Servidores" sheet via Google Visualization API */
+/* Cache limitado a la sesión actual; las peticiones simultáneas se deduplican en trainingApi. */
 export async function fetchEnviosServidores(): Promise<EnviosServidoresRecord[]> {
+  const session = getTrainingSessionToken()
+  if (!session || ENVIOS_SESSION !== session) ENVIOS_CACHE = null
+  ENVIOS_SESSION = session
   if (ENVIOS_CACHE) return ENVIOS_CACHE
-  if (ENVIOS_CACHE_LOADING) {
-    // Esperar a que se complete
-    let attempts = 0
-    while (ENVIOS_CACHE_LOADING && attempts < 50) {
-      await new Promise((r) => setTimeout(r, 100))
-      attempts++
-    }
-    return ENVIOS_CACHE || []
-  }
-
-  ENVIOS_CACHE_LOADING = true
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent("Envios Servidores")}`
-    const response = await fetch(url)
-    const text = await response.text()
-
-    // Google retorna JSONP — extraer el JSON
-    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/)
-    if (!match || !match[1]) {
-      console.warn("No se pudo parsear Envios Servidores")
-      ENVIOS_CACHE = []
-      return []
-    }
-
-    const data: SheetData = JSON.parse(match[1])
+    const data = await fetchTrainingSheet('Envios Servidores')
     const records: EnviosServidoresRecord[] = []
 
     data.table.rows.forEach((row: SheetRow) => {
@@ -415,21 +292,18 @@ export async function fetchEnviosServidores(): Promise<EnviosServidoresRecord[]>
       }
     })
 
-    ENVIOS_CACHE = records
+    if (getTrainingSessionToken() === session) ENVIOS_CACHE = records
     console.log(`📊 ENVIOS_SERVIDORES: ${records.length} registros cargados`)
     return records
   } catch (error) {
     console.error("Error al cargar Envios Servidores:", error)
-    ENVIOS_CACHE = []
-    return []
-  } finally {
-    ENVIOS_CACHE_LOADING = false
+    throw error
   }
 }
 
 /* Busca en Envios Servidores usando normalización */
 export function getEnviosInfo(nombreCampana: string | null | undefined): Partial<EnviosServidoresRecord> {
-  if (!ENVIOS_CACHE) return {}
+  if (!ENVIOS_CACHE || !getTrainingSessionToken() || ENVIOS_SESSION !== getTrainingSessionToken()) return {}
   const normalizado = normalizarCampana(nombreCampana || "")
   const match = ENVIOS_CACHE.find((r) => normalizarCampana(r.campana) === normalizado)
   return match || {}

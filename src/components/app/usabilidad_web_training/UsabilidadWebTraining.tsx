@@ -93,8 +93,8 @@ export default function UsabilidadWebTraining() {
         setFechaInicio(dates[0]);
         setFechaFin(dates[dates.length - 1]);
       }
-    } catch {
-      setError('No se pudieron cargar los datos. Verifica que la hoja esté compartida públicamente.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'No se pudieron cargar los datos desde Apps Script.');
     } finally {
       setLoading(false);
     }

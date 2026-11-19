@@ -35,7 +35,7 @@ export function useSimulatorData(): SimulatorData {
         setNovedades(novedadesData);
         setError(null);
       } catch (err) {
-        setError("Error al cargar los datos de Google Sheets");
+        setError(err instanceof Error ? err.message : "No se pudieron cargar los datos desde Apps Script.");
         console.error(err);
       } finally {
         setLoading(false);

@@ -1,12 +1,12 @@
 // ============================================================
 //  COHORTS — Data Layer
-//  Sheet ID: 1tNoQKiSxqRrVMVo-SZ2ttVsYUNBO-WMuvTQYf7KnqkY
-//  Para agregar un nuevo coordinador, añadí su nombre exacto
-//  (tal como aparece en la pestaña del Sheet) al array
-//  COHORT_SHEETS al final de este archivo.
+//  Lectura autenticada mediante Apps Script (libro restringido).
+//  Las pestañas y permisos se configuran en appcriptCohorts.gs.
 // ============================================================
 
-const SHEET_ID = "1tNoQKiSxqRrVMVo-SZ2ttVsYUNBO-WMuvTQYf7KnqkY";
+import { trainingRequest } from "@/lib/trainingApi";
+
+export const COHORTS_API_URL = "https://script.google.com/macros/s/AKfycbyJ_q0qJE5jig2nTgZhfH8GSchWRz9x_Jab2O5HKi6UflRzHGNLHrdZIvEE9_V7HU7Cdg/exec";
 
 // ── Tipos ────────────────────────────────────────────────────
 
@@ -15,15 +15,20 @@ interface GvizCell {
   f?: string;
 }
 
-interface GvizRow {
-  c: (GvizCell | null)[];
+interface CohortSheetResponse {
+  sheet: string;
+  rows: (string | number | boolean | null)[][];
+  rowIndices: number[];
 }
 
-interface GvizTable {
-  table: {
-    cols: { label: string; type: string }[];
-    rows: GvizRow[];
-  };
+interface CohortsResponse {
+  sheets: CohortSheetResponse[];
+  missingSheets: string[];
+}
+
+export interface CohortDataResult {
+  records: CohortRecord[];
+  missingSheets: string[];
 }
 
 export interface CohortRecord {
@@ -87,7 +92,7 @@ export interface CohortRecord {
  * Normaliza el campo MES que viene de gviz.
  * - v = Date(2026,0,1)  → internamente guardamos "01/01/2026" (DD/MM/YYYY)
  * - f = "01. enero"     → lo usamos solo para display en mesLabel()
- * También acepta ISO YYYY-MM-DD como fallback.
+   * También acepta las fechas ISO devueltas por Apps Script.
  */
 const normalizeGvizDate = (value: string | number | null): string | null => {
   if (value === null || value === undefined) return null;
@@ -102,8 +107,8 @@ const normalizeGvizDate = (value: string | number | null): string | null => {
       return `${d}/${mo}/${y}`;
     }
   }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const [y, mo, d] = s.split("-");
+  if (/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(s)) {
+    const [y, mo, d] = s.slice(0, 10).split("-");
     return `${d}/${mo}/${y}`;
   }
   // Puede venir el formato formateado "01. enero" directamente — lo guardamos tal cual
@@ -122,21 +127,20 @@ const toStr = (cell: GvizCell | null | undefined): string | null => {
   return s === "" ? null : s;
 };
 
-// ── Fetch de una hoja ────────────────────────────────────────
+// ── Mapeo de una pestaña autorizada por el servidor ───────────
 
-const fetchSheet = async (sheetName: string): Promise<CohortRecord[]> => {
-  const encoded = encodeURIComponent(sheetName);
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encoded}`;
-  const response = await fetch(url);
-  const text = await response.text();
-  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/);
-  if (!match?.[1]) {
-    console.warn(`[COHORTS] No se pudo parsear la hoja: ${sheetName}`);
-    return [];
+const mapCohortSheet = (sheet: CohortSheetResponse): CohortRecord[] => {
+  if (!sheet || typeof sheet.sheet !== "string" || !Array.isArray(sheet.rows) ||
+      !Array.isArray(sheet.rowIndices) || sheet.rows.length !== sheet.rowIndices.length) {
+    throw new Error("Respuesta inválida de Apps Script para Cohorts.");
   }
-  const data: GvizTable = JSON.parse(match[1]);
-  return data.table.rows.map((row, idx): CohortRecord => {
-    const c = row.c;
+  return sheet.rows.map((row, idx): CohortRecord => {
+    if (!Array.isArray(row) || !Number.isInteger(sheet.rowIndices[idx]) || sheet.rowIndices[idx] < 2) {
+      throw new Error("Respuesta inválida de Apps Script para Cohorts.");
+    }
+    const c: (GvizCell | null)[] = row.map(value =>
+      value === null || value === "" ? null : { v: typeof value === "boolean" ? String(value) : value }
+    );
     return {
       anio: toNum(c[0]),
       mes: normalizeGvizDate(c[1]?.v ?? null),
@@ -171,13 +175,13 @@ const fetchSheet = async (sheetName: string): Promise<CohortRecord[]> => {
       formador: toStr(c[30]),
       coordinador: toStr(c[31]),
       cumplimiento70: toNum(c[32]),
-      sheetName,
-      rowIndex: idx + 2,
+      sheetName: sheet.sheet,
+      rowIndex: sheet.rowIndices[idx],
     };
   });
 };
 
-// ── Lista de coordinadores ── agregar aquí nuevos ─────────────
+// ── Lista de referencia para el matcher de nombres ────────────
 
 // ── Lista completa de hojas de coordinadores en Google Sheets
 export const COHORT_SHEETS: string[] = [
@@ -190,10 +194,6 @@ export const COHORT_SHEETS: string[] = [
  "YENNY VANESSA RUIZ VALLEJO",
  "MICHAEL DANIEL RENDON MORATO",
  "WALTHER DUVAN GOMEZ OSORIO",
- "KAROL EITYSAN FERREIRA QUEVEDO",
- "FERNANDO ANDRES CHONA GIRALDO",
- "DEISY CAROLINA PARADA GUERRERO",
- "MARCIA JOHANA MUÑOZ GARAVITO"
 ];
 
 // ── Matcher entre el usuario de AuthContext y las hojas de Cohortes ─────────
@@ -223,19 +223,19 @@ export const matchCoordinatorName = (
 
 // ── Fetch principal ──────────────────────────────────────────
 
-export const fetchAllCohortData = async (): Promise<CohortRecord[]> => {
-  const results = await Promise.allSettled(
-    COHORT_SHEETS.map((name) => fetchSheet(name))
+export const fetchAllCohortData = async (): Promise<CohortDataResult> => {
+  // Una consulta; el servidor elige las pestañas según el documento de la sesión.
+  const result = await trainingRequest<CohortsResponse>(
+    { action: "getCohortData" }, true, COHORTS_API_URL
   );
-  const all: CohortRecord[] = [];
-  results.forEach((result, i) => {
-    if (result.status === "fulfilled") {
-      all.push(...result.value);
-    } else {
-      console.warn(`[COHORTS] Hoja no disponible o sin acceso "${COHORT_SHEETS[i]}":`, result.reason);
-    }
-  });
-  return all;
+  if (!Array.isArray(result.sheets) || !Array.isArray(result.missingSheets) ||
+      !result.missingSheets.every(name => typeof name === "string")) {
+    throw new Error("Respuesta inválida de Apps Script para Cohorts.");
+  }
+  return {
+    records: result.sheets.flatMap(mapCohortSheet),
+    missingSheets: result.missingSheets,
+  };
 };
 
 // ── Utilidades de formato y semáforo ─────────────────────────

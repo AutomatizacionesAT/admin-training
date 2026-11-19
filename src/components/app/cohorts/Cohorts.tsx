@@ -17,6 +17,7 @@ export default function Cohorts() {
   const [rawData, setRawData] = useState<CohortRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [missingSheets, setMissingSheets] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"resumen" | "tabla">("resumen");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -62,13 +63,15 @@ export default function Cohorts() {
     try {
       setLoading(true);
       setError(null);
+      setMissingSheets([]);
       const data = await fetchAllCohortData();
-      setRawData(data);
+      setRawData(data.records);
+      setMissingSheets(data.missingSheets);
       setLastUpdated(new Date());
     } catch (err) {
-      setError(
-        "No se pudieron cargar los datos de Google Sheets. Verificá la conexión o los permisos de la hoja."
-      );
+      setRawData([]);
+      setLastUpdated(null);
+      setError(err instanceof Error ? err.message : "No se pudieron cargar los datos desde Apps Script.");
       console.error("[COHORTS]", err);
     } finally {
       setLoading(false);
@@ -175,6 +178,12 @@ export default function Cohorts() {
       )}
 
       {/* ── Mensaje de Error ──────────────────────────────────────── */}
+      {!loading && missingSheets.length > 0 && (
+        <div role="status" className="mb-6 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-sm">
+          <p className="font-semibold">Carga parcial: faltan pestañas en el libro de Cohorts.</p>
+          <p className="text-xs mt-1">{missingSheets.join(", ")}</p>
+        </div>
+      )}
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3 text-sm">
           <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
@@ -208,12 +217,12 @@ export default function Cohorts() {
               selectedCoordinador={filters.coordinador}
               onSelectCoordinador={(coord) => {
                 if (!lockedCoordinador) {
-                  setFilters((prev: any) => ({ ...prev, coordinador: coord }));
+                  setFilters((prev) => ({ ...prev, coordinador: coord }));
                 }
               }}
               selectedCampana={filters.campana}
               onSelectCampana={(campana) =>
-                setFilters((prev: any) => ({ ...prev, campana }))
+                setFilters((prev) => ({ ...prev, campana }))
               }
             />
           )}

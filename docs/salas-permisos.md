@@ -6,26 +6,36 @@ otros módulos y en Salas pueden enviar solicitudes pendientes.
 
 ## Activación en producción
 
-1. Generar un secreto aleatorio de al menos 32 bytes (por ejemplo,
-   `openssl rand -hex 32`). No incluirlo en el código ni en el frontend.
-2. En **Configuración del proyecto → Propiedades de la secuencia de comandos**
-   de los proyectos de autenticación y Salas, guardar la propiedad
-   `SALAS_SESSION_SECRET` con **el mismo valor**.
-3. Actualizar el proyecto de autenticación con `appscriptSheets.gs` y publicar
-   una nueva versión en su implementación existente.
-4. Actualizar el proyecto de Salas con `appscriptSalas.gs` y publicar una nueva
-   versión en su implementación existente. Mantener las URL actuales.
-5. Publicar el frontend actualizado y volver a iniciar sesión.
+1. En el proyecto de **login**, abrir **Configuración del proyecto → Propiedades
+   de script** y copiar el valor de `TRAINING_SESSION_SECRET`. Si no existe,
+   iniciar sesión una vez con el login actualizado para que se genere.
+2. En el proyecto de **Salas**, guardar una propiedad con el mismo nombre y
+   **exactamente el mismo valor**. No generar otra clave ni compartirla.
+3. Copiar `appscriptSalas.gs` al proyecto vinculado al libro de Salas y publicar
+   ejecutando como la cuenta propietaria, con acceso **Cualquier usuario**.
+4. Conectar el frontend a la URL `/exec` publicada: todas las consultas y
+   escrituras deben enviar `sessionToken` por POST, sin usar `gviz`.
+5. Publicar el frontend, volver a iniciar sesión y probar con el libro restringido.
+   Publicar solo el script no migra el frontend; las peticiones antiguas se rechazan.
 
-El inicio de sesión de Diana emite un token firmado válido por ocho horas.
-El servidor de Salas verifica firma, vencimiento y documento antes de permitir
+El login actual emite un token firmado válido por ocho horas para cada usuario.
+Salas usa esa misma sesión; no necesita el antiguo `salasToken` ni configurar
+`SALAS_SESSION_SECRET`. El servidor verifica firma, vencimiento y documento antes de permitir
 gestionar el catálogo, editar/eliminar asignaciones, aprobar/rechazar o crear
 una asignación que no sea pendiente. También protege la edición/respuesta
-administrativa de tickets. Los coordinadores conservan su flujo de tickets.
+administrativa de tickets. Los coordinadores conservan su flujo de tickets,
+pero solo pueden crear/reportar como ellos mismos y cerrar sus propios tickets.
+Para identificarlos, `SALAS_ADMINS` debe tener su documento en A, nombre completo
+en B y cargo en C. Las solicitudes se guardan con el coordinador verificado.
 
-Sin secreto o con un token ausente/inválido, las operaciones de gestión se
+Sin secreto o con un token ausente/inválido, todas las consultas y escrituras se
 rechazan. No basta con cambiar el documento o el rol desde el navegador.
-Las solicitudes pendientes siguen disponibles para los demás usuarios.
+Las solicitudes pendientes siguen disponibles para los demás usuarios autenticados.
+
+Las lecturas usan `action: "readSheet"` con `sheet` igual a `SALAS_CATALOGO`,
+`SALAS_ASIGNACIONES`, `ASIGNACION_TICKET` o `SALAS_ADMINS` (esta última solo Diana).
+Devuelven encabezados, valores, textos visibles, índices reales de fila y zona
+horaria. GET sin acción solo muestra el estado del servicio.
 
 ## Comprobación
 

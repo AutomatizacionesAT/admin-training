@@ -1,23 +1,9 @@
 import type { BiometricRow } from './types';
 import { parseDateToISO } from '../../usabilidad_web_training/utils/calculations';
+import { fetchTrainingSheet } from '@/lib/trainingApi';
+import type { TrainingSheetRow as GvizRow } from '@/lib/trainingApi';
 
-const SHEET_ID = '13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo';
 const SHEET_NAME = 'INFORME BIOMETRICO';
-
-interface GvizCell {
-  v: string | number | null;
-  f?: string;
-}
-
-interface GvizRow {
-  c: (GvizCell | null)[];
-}
-
-interface GvizData {
-  table: {
-    rows: GvizRow[];
-  };
-}
 
 // Convert "9:07:21" or decimal to decimal hours
 function parseHoursToDecimal(val: string | number | null | undefined): { timeStr: string; decimal: number } {
@@ -51,29 +37,20 @@ function parseHoursToDecimal(val: string | number | null | undefined): { timeStr
   return { timeStr: str, decimal: 0 };
 }
 
-function parseTime(val: any): string {
+function parseTime(val: string | number | null | undefined): string {
   if (val === null || val === undefined) return '';
   if (typeof val === 'number') {
     // Si viene como fracción de día
     const date = new Date(val * 24 * 3600 * 1000);
     return date.toISOString().substr(11, 8);
   }
-  return String(val).trim();
+  const text = String(val).trim();
+  return text.includes('T') ? text.split('T')[1] : text;
 }
 
 export async function fetchInformeBiometrico(): Promise<BiometricRow[]> {
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
-    const response = await fetch(url);
-    const text = await response.text();
-
-    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/);
-    if (!match || !match[1]) {
-      console.error('No se pudo parsear la respuesta de Google Sheets');
-      return [];
-    }
-
-    const data: GvizData = JSON.parse(match[1]);
+    const data = await fetchTrainingSheet(SHEET_NAME);
     const parsed: BiometricRow[] = [];
 
     data.table.rows.forEach((row: GvizRow) => {

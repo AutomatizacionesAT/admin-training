@@ -1,23 +1,5 @@
-interface SheetCell {
-  v: string | number | null;
-  f?: string;
-}
-
-interface SheetRow {
-  c: (SheetCell | null)[];
-}
-
-interface SheetColumn {
-  label: string;
-  type: string;
-}
-
-interface SheetData {
-  table: {
-    rows: SheetRow[];
-    cols: SheetColumn[];
-  };
-}
+import { fetchTrainingSheet } from '@/lib/trainingApi';
+import type { TrainingSheetRow as SheetRow } from '@/lib/trainingApi';
 
 // Tipo para los datos de Simulator (Base_SM)
 export interface TrainingRecord {
@@ -74,8 +56,8 @@ export const normalizeGvizDate = (value: string | null): string | null => {
   }
 
   // Si ya es DD/MM/YYYY o DD-MM-YYYY
-  if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(value)) {
-    const parts = value.split(/[\/\-]/);
+  if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(value)) {
+    const parts = value.split(/[/-]/);
     const d = parts[0].padStart(2, "0");
     const m = parts[1].padStart(2, "0");
     return `${d}/${m}/${parts[2]}`;
@@ -248,136 +230,82 @@ export const calculateSLAStats = (records: TrainingRecord[]): SLAStats => {
 
 export const fetchGoogleSheetData = async (): Promise<TrainingRecord[]> => {
   try {
-    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
-    const smSheetName = encodeURIComponent("Base_SM (1)");
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${smSheetName}&gid=1480937439`;
-
-    const response = await fetch(url);
-    const text = await response.text();
-
-    const jsonString = text.match(
-      /google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/
-    );
-
-    if (jsonString && jsonString[1]) {
-      const data: SheetData = JSON.parse(jsonString[1]);
-      const rows = data.table.rows;
-
-      const formattedData: TrainingRecord[] = [];
-      rows.forEach((row: SheetRow, index: number) => {
-        if (!row || !row.c) return;
-        const campana = row.c[3] ? String(row.c[3].v).trim() : null;
-        const aplicativo = row.c[5] ? String(row.c[5].v).trim() : null;
-        const nombreProceso = row.c[6] ? String(row.c[6].v).trim() : null;
-
-        if (!campana && !aplicativo && !nombreProceso) return;
-
-        formattedData.push({
-          rowIndex: index + 2,
-          id: row.c[0] ? String(row.c[0].v) : null,
-          industria: row.c[1] ? String(row.c[1].v).trim() : null,
-          direccion: row.c[2] ? String(row.c[2].v).trim() : null,
-          campana,
-          coordinador: row.c[4] ? String(row.c[4].v).trim() : null,
-          aplicativo,
-          nombreProceso,
-          estado: row.c[7] ? String(row.c[7].v).trim() : null,
-          fechaInicio: normalizeGvizDate(row.c[8] ? String(row.c[8].v) : null),
-          fechaFin: normalizeGvizDate(row.c[9] ? String(row.c[9].v) : null),
-          fechaReal: normalizeGvizDate(row.c[10] ? String(row.c[10].v) : null),
-          desarrollador: row.c[11] ? String(row.c[11].v).trim() : null,
-          notas: row.c[12] ? String(row.c[12].v).trim() : null,
-        });
+    const data = await fetchTrainingSheet('Base_SM (1)');
+    const formattedData: TrainingRecord[] = [];
+    data.table.rows.forEach((row: SheetRow) => {
+      const campana = row.c[3] ? String(row.c[3].v).trim() : null;
+      const aplicativo = row.c[5] ? String(row.c[5].v).trim() : null;
+      const nombreProceso = row.c[6] ? String(row.c[6].v).trim() : null;
+      if (!campana && !aplicativo && !nombreProceso) return;
+      formattedData.push({
+        rowIndex: row.rowIndex,
+        id: row.c[0] ? String(row.c[0].v) : null,
+        industria: row.c[1] ? String(row.c[1].v).trim() : null,
+        direccion: row.c[2] ? String(row.c[2].v).trim() : null,
+        campana,
+        coordinador: row.c[4] ? String(row.c[4].v).trim() : null,
+        aplicativo,
+        nombreProceso,
+        estado: row.c[7] ? String(row.c[7].v).trim() : null,
+        fechaInicio: normalizeGvizDate(row.c[8] ? String(row.c[8].v) : null),
+        fechaFin: normalizeGvizDate(row.c[9] ? String(row.c[9].v) : null),
+        fechaReal: normalizeGvizDate(row.c[10] ? String(row.c[10].v) : null),
+        desarrollador: row.c[11] ? String(row.c[11].v).trim() : null,
+        notas: row.c[12] ? String(row.c[12].v).trim() : null,
       });
-
-      return formattedData;
-    }
-
-    return [];
+    });
+    return formattedData;
   } catch (error) {
     console.error("Error al cargar datos de Google Sheets:", error);
-    return [];
+    throw error;
   }
 };
 
 export const fetchSheetFestivosData = async (): Promise<FestivoRecord[]> => {
   try {
-    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
-    const masterSheetName = encodeURIComponent("DATA (4)");
-    // Try DATA (4), fallback to DATA
-    let url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${masterSheetName}`;
-    let response = await fetch(url);
-    if (!response.ok) {
-      url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=DATA`;
-      response = await fetch(url);
-    }
-    const text = await response.text();
-    const jsonString = text.match(
-      /google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/
-    );
-
-    if (jsonString && jsonString[1]) {
-      const data: SheetData = JSON.parse(jsonString[1]);
-      const rows = data.table.rows;
-
-      const formattedData: FestivoRecord[] = [];
-      rows.forEach((row: SheetRow) => {
-        if (!row || !row.c) return;
-        const festivoVal = row.c[3] ? normalizeGvizDate(String(row.c[3].v)) : null;
-        const festividadVal = row.c[4] ? String(row.c[4].v) : null;
-        if (!festivoVal) return;
-        formattedData.push({
-          festivo: festivoVal,
-          festividad: festividadVal,
-        });
+    const data = await fetchTrainingSheet('DATA (4)').catch(error => {
+      if (error instanceof Error && error.message === 'No existe la pestaña: DATA (4)') {
+        return fetchTrainingSheet('DATA');
+      }
+      throw error;
+    });
+    const formattedData: FestivoRecord[] = [];
+    data.table.rows.forEach((row: SheetRow) => {
+      const festivoVal = row.c[3] ? normalizeGvizDate(String(row.c[3].v)) : null;
+      const festividadVal = row.c[4] ? String(row.c[4].v) : null;
+      if (!festivoVal) return;
+      formattedData.push({
+        festivo: festivoVal,
+        festividad: festividadVal,
       });
-
-      return formattedData;
-    }
-
-    return [];
+    });
+    return formattedData;
   } catch (error) {
     console.error("Error al cargar festivos:", error);
-    return [];
+    throw error;
   }
 };
 
 export const fetchSheetNovedades = async (): Promise<NovedadesRecord[]> => {
   try {
-    const sheetId = "13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo";
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=Novedades`;
-    const response = await fetch(url);
-    const text = await response.text();
-    const jsonString = text.match(
-      /google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/
-    );
-
-    if (jsonString && jsonString[1]) {
-      const data: SheetData = JSON.parse(jsonString[1]);
-      const rows = data.table.rows;
-
-      const formattedData: NovedadesRecord[] = [];
-      rows.forEach((row: SheetRow) => {
-        if (!row || !row.c) return;
-        const dev = row.c[0] ? String(row.c[0].v).trim() : null;
-        const fInicio = normalizeGvizDate(row.c[1] ? String(row.c[1].v) : null);
-        const fFin = normalizeGvizDate(row.c[2] ? String(row.c[2].v) : null);
-        const nov = row.c[3] ? String(row.c[3].v).trim() : null;
-        if (!dev || !fInicio) return;
-        formattedData.push({
-          desarrollador: dev,
-          fechaInicio: fInicio,
-          fechaFin: fFin,
-          novedad: nov,
-        });
+    const data = await fetchTrainingSheet('Novedades');
+    const formattedData: NovedadesRecord[] = [];
+    data.table.rows.forEach((row: SheetRow) => {
+      const dev = row.c[0] ? String(row.c[0].v).trim() : null;
+      const fInicio = normalizeGvizDate(row.c[1] ? String(row.c[1].v) : null);
+      const fFin = normalizeGvizDate(row.c[2] ? String(row.c[2].v) : null);
+      const nov = row.c[3] ? String(row.c[3].v).trim() : null;
+      if (!dev || !fInicio) return;
+      formattedData.push({
+        desarrollador: dev,
+        fechaInicio: fInicio,
+        fechaFin: fFin,
+        novedad: nov,
       });
-
-      return formattedData;
-    }
-
-    return [];
+    });
+    return formattedData;
   } catch (error) {
     console.error("Error al cargar novedades:", error);
-    return [];
+    throw error;
   }
 };

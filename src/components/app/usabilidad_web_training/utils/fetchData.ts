@@ -1,25 +1,9 @@
 import type { ParsedRow } from './types';
 import { parseDateToISO } from './calculations';
+import { fetchTrainingSheet, trainingRequest } from '@/lib/trainingApi';
+import type { TrainingSheetRow as GvizRow } from '@/lib/trainingApi';
 
-const SHEET_ID = '13aPSr-knf8vEiLWPTlZgcKJWd4H5iBsEb_4wJZgD0lo';
 const SHEET_NAME = 'CONTROL_DE_ACCESOS';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxavHAEkzFCeRSnIy9Vk82eNxSFjdShQCmfv7Sq3J7yGp0z4VLuNQfVMJ1sewBi9VF3iw/exec';
-
-interface GvizCell {
-  v: string | number | null;
-  f?: string;
-}
-
-interface GvizRow {
-  c: (GvizCell | null)[];
-}
-
-interface GvizData {
-  table: {
-    rows: GvizRow[];
-    cols: { label: string; type: string }[];
-  };
-}
 
 /**
  * Columnas en CONTROL_DE_ACCESOS:
@@ -33,18 +17,7 @@ interface GvizData {
  */
 export async function fetchControlDeAccesos(): Promise<ParsedRow[]> {
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
-    const response = await fetch(url);
-    const text = await response.text();
-
-    // Google retorna JSONP — extraer el JSON de la respuesta
-    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/);
-    if (!match || !match[1]) {
-      console.error('No se pudo parsear la respuesta de Google Sheets');
-      return [];
-    }
-
-    const data: GvizData = JSON.parse(match[1]);
+    const data = await fetchTrainingSheet(SHEET_NAME);
     const rows = data.table.rows;
 
     const parsed: ParsedRow[] = [];
@@ -73,9 +46,7 @@ export async function fetchControlDeAccesos(): Promise<ParsedRow[]> {
         dateLogCount++;
       }
 
-      // IMPORTANTE: .v de gviz es siempre Date(yyyy, mm, dd) SIN importar el locale.
-      // Usar .f es riesgoso porque su formato (MM/DD/YYYY vs DD/MM/YYYY) depende de la config local.
-      // Siempre pasaremos el .v original al parser.
+      // Usar el valor ISO del servidor, no el texto visible dependiente del locale.
       const rawDate = dateCell.v;
       const dateISO = parseDateToISO(rawDate);
 
@@ -91,18 +62,11 @@ export async function fetchControlDeAccesos(): Promise<ParsedRow[]> {
 }
 
 /**
- * Carga la lista de coordinadores desde la hoja "DATA" (Columna G = índice 6)
+ * Carga la lista de coordinadores desde la hoja "DATA (4)" (Columna G = índice 6)
  */
 export async function fetchCoordinadores(): Promise<string[]> {
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=DATA`;
-    const response = await fetch(url);
-    const text = await response.text();
-
-    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/);
-    if (!match || !match[1]) return [];
-
-    const data: GvizData = JSON.parse(match[1]);
+    const data = await fetchTrainingSheet('DATA (4)');
     const coordinadores = new Set<string>();
 
     data.table.rows.forEach((row: GvizRow) => {
@@ -114,27 +78,20 @@ export async function fetchCoordinadores(): Promise<string[]> {
     return Array.from(coordinadores).sort();
   } catch (error) {
     console.error('Error al cargar coordinadores:', error);
-    return [];
+    throw error;
   }
 }
 
 /**
- * Carga la configuración guardada mediante el Apps Script (doGet)
+ * Carga la configuración guardada mediante POST autenticado.
  */
 export async function fetchUserConfig(): Promise<Record<string, string>> {
   try {
-    const response = await fetch(`${GAS_URL}?action=getConfig`);
-    const result = await response.json();
-
-    if (result.result === 'success' && result.config) {
-      console.log('⚙️ Configuración cargada desde Apps Script:', result.config);
-      return result.config as Record<string, string>;
-    }
-
-    return {};
+    const result = await trainingRequest<{ config: Record<string, string> }>({ action: 'getConfig' });
+    return result.config;
   } catch (error) {
-    console.log('No se pudo cargar la configuración (esto es normal si es la primera vez).', error);
-    return {};
+    console.error('No se pudo cargar la configuración.', error);
+    throw error;
   }
 }
 
@@ -148,17 +105,7 @@ export async function saveUserConfig(configData: string[][]): Promise<boolean> {
       configData: configData,
     };
 
-    await fetch(GAS_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    // Al usar no-cors, no podemos leer el response body, asumimos éxito si no lanza catch
-    console.log("✅ Petición de guardado de configuración enviada");
+    await trainingRequest(payload);
     return true;
   } catch (error) {
     console.error("Error al guardar la configuración:", error);
